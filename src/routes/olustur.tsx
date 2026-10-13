@@ -9,6 +9,7 @@ import { createCoupleFn } from '~/functions/couple'
 import { parseError } from '~/lib/errors'
 import { useMember } from '~/lib/hooks'
 import { saveMember } from '~/lib/member-token'
+import { copyText } from '~/lib/native'
 import { LIMITS } from '~/lib/questions'
 import { inviteMessage, shareOrCopy } from '~/lib/share'
 import type { SessionResult } from '~/lib/views'
@@ -128,12 +129,7 @@ function Created({ session }: { session: SessionResult }) {
             variant="secondary"
             full
             onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(code)
-                setShareState('copied')
-              } catch {
-                /* yok say */
-              }
+              if (await copyText(code)) setShareState('copied')
             }}
           >
             <IconCopy size={18} /> Kodu kopyala

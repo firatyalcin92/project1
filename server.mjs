@@ -2,7 +2,14 @@
 // Statik dosyaları dist/client'tan sunar, geri kalan her şeyi TanStack Start'a devreder.
 import { serve } from 'srvx'
 import { serveStatic } from 'srvx/static'
-import app from './dist/server/server.js'
+
+// .env dosyasını (varsa) ortam değişkenlerine yükle. Platformun kendi değişkenleri önceliklidir.
+try {
+  process.loadEnvFile('.env')
+} catch {
+  // .env yoksa sorun değil: değişkenler barındırma platformundan gelir.
+}
+const { default: app } = await import('./dist/server/server.js')
 
 /** Güvenlik ve önbellek başlıkları + .webmanifest için doğru MIME türü. */
 async function headers(request, next) {

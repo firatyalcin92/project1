@@ -14,6 +14,7 @@ Gottman yaklaşımlarından ilham alınarak tasarlandı.
 
 ## İçindekiler
 
+0. [Windows + iPhone (Expo Go) ile test](#windows--iphone-expo-go-ile-test)
 1. [Hızlı başlangıç](#hızlı-başlangıç)
 2. [Ortam değişkenleri](#ortam-değişkenleri)
 3. [Supabase / Lovable Cloud kurulumu](#supabase--lovable-cloud-kurulumu)
@@ -28,42 +29,98 @@ Gottman yaklaşımlarından ilham alınarak tasarlandı.
 
 ---
 
+## Windows + iPhone (Expo Go) ile test
+
+Expo Go yalnızca React Native uygulamalarını açabilir; MESELE ise bir web uygulamasıdır. Bu yüzden `mobile/`
+klasöründe, MESELE'yi telefonda yerel bir uygulama gibi açan küçük bir **Expo kabuğu** var. Bilgisayarında MESELE
+çalışır, iPhone'daki Expo Go onu aynı Wi-Fi üzerinden açar. Mac gerekmez.
+
+**Bir kez yapılacaklar**
+
+1. [Node.js 22 LTS](https://nodejs.org) kur. PowerShell'de `node -v` yazınca `v22…` görmelisin.
+2. Projeyi bir klasöre al (ör. `C:\MESELE`):
+   - Git varsa: `git clone -b claude/mesele-couple-conflict-app-36jqe8 https://github.com/firatyalcin92/project1.git C:\MESELE`
+   - Git yoksa: GitHub'da bu dalı seç → **Code → Download ZIP** → ZIP'i aç, içindeki `project1-…` klasörünü
+     `C:\` altına taşı ve adını `MESELE` yap (içinde `package.json` görmelisin).
+3. PowerShell'i aç:
+   ```powershell
+   cd C:\MESELE
+   npm install
+   npm run setup        # OpenAI API anahtarını sorar, .env dosyasına yazar ve doğrular
+   cd mobile
+   npm install
+   ```
+4. iPhone'a App Store'dan **Expo Go** uygulamasını kur.
+
+**Her test için**
+
+1. **1. PowerShell penceresi** (MESELE sunucusu):
+   ```powershell
+   cd C:\MESELE
+   npm run dev:lan
+   ```
+   Windows Güvenlik Duvarı sorarsa **Özel ağlar** için izin ver. Ekranda `Network: http://192.168.x.x:3000` satırını
+   göreceksin.
+2. **2. PowerShell penceresi** (Expo):
+   ```powershell
+   cd C:\MESELE\mobile
+   npx expo start
+   ```
+3. Çıkan QR kodu iPhone'un **Kamera** uygulamasıyla okut → Expo Go'da MESELE açılır.
+4. Partner rolü için ikinci bir telefon kullan ya da bilgisayarın tarayıcısında `http://localhost:3000` aç.
+
+**Sorun çıkarsa**
+
+- _“MESELE’ye ulaşılamadı”_: Telefon ve bilgisayar aynı Wi-Fi'de mi? 1. pencerede `npm run dev:lan` açık mı?
+  Güvenlik duvarı Node.js'e izin verdi mi? iPhone Safari'de `http://192.168.x.x:3000` açılıyor mu?
+- Okul/iş Wi-Fi'ı cihazları birbirinden yalıtabilir: telefonun kişisel erişim noktasını kullan.
+- Expo Go _“SDK uyumsuz”_ derse App Store'dan güncelle (kabuk Expo SDK 57 kullanır).
+- En hızlı alternatif: Expo'suz, doğrudan iPhone Safari'de `http://192.168.x.x:3000` → Paylaş → **Ana Ekrana Ekle**.
+
+> Geliştirme sunucusunda veriler bellekte tutulur ve sunucu kapanınca silinir. Kalıcı veri için Supabase'i bağla
+> ([Supabase / Lovable Cloud kurulumu](#supabase--lovable-cloud-kurulumu)).
+
+---
+
 ## Hızlı başlangıç
 
 ```bash
-npm install          # npm ≥ 11 önerilir (npm 10'daki bir arborist hatası için: npx npm@11 install)
-npm run dev          # http://localhost:3000
+npm install
+npm run setup        # OpenAI anahtarını .env'ye yazar (isteğe bağlı; yoksa örnek yanıtlar kullanılır)
+npm run dev          # http://localhost:3000   ·   npm run dev:lan → aynı ağdaki telefonlardan erişim
 ```
 
 Hiçbir anahtar tanımlamadan da çalışır: geliştirme ortamında **bellek içi depo** ve **örnek (mock) AI yanıtları**
 devreye girer. Böylece iki tarayıcı penceresiyle (biri gizli sekme) tüm akışı — çift oluştur → koda katıl → anlat →
 partnerinin gözünden gör → yeniden değerlendir → çözüm raporu — baştan sona deneyebilirsiniz.
 
-| Komut               | Ne yapar                                                             |
-| ------------------- | -------------------------------------------------------------------- |
-| `npm run dev`       | Geliştirme sunucusu                                                  |
-| `npm run build`     | Üretim derlemesi (`dist/client`, `dist/server`)                      |
+| Komut               | Ne yapar                                                                     |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `npm run dev`       | Geliştirme sunucusu                                                          |
+| `npm run dev:lan`   | Geliştirme sunucusu, aynı Wi-Fi'deki telefonlara açık                        |
+| `npm run setup`     | OpenAI API anahtarını `.env`'ye kaydeder ve doğrular                         |
+| `npm run build`     | Üretim derlemesi (`dist/client`, `dist/server`)                              |
 | `npm start`         | Üretim sunucusu (`server.mjs`, srvx + statik dosyalar + güvenlik başlıkları) |
-| `npm test`          | Vitest: SQL (PGlite), gizlilik/eşzamanlılık akışı, Türkçe ekler      |
-| `npm run typecheck` | TypeScript                                                           |
-| `npm run assets`    | PWA ikonlarını, iOS açılış ekranlarını ve OG görselini yeniden üretir |
+| `npm test`          | Vitest: SQL (PGlite), gizlilik/eşzamanlılık akışı, Türkçe ekler              |
+| `npm run typecheck` | TypeScript                                                                   |
+| `npm run assets`    | PWA ikonlarını, iOS açılış ekranlarını ve OG görselini yeniden üretir        |
 
 ## Ortam değişkenleri
 
 Tam liste ve açıklamalar: [`.env.example`](./.env.example).
 
-| Değişken                    | Zorunlu        | Açıklama                                                                 |
-| --------------------------- | -------------- | ------------------------------------------------------------------------ |
-| `SUPABASE_URL`              | üretimde evet  | Supabase proje adresi (`VITE_SUPABASE_URL` da okunur)                     |
-| `SUPABASE_SERVICE_ROLE_KEY` | üretimde evet  | **Yalnızca sunucuda** kullanılır; istemciye asla gitmez                   |
-| `OPENAI_API_KEY`            | biri           | Doğrudan OpenAI                                                          |
-| `LOVABLE_API_KEY`           | biri           | Lovable AI Gateway (Lovable Cloud'da otomatik)                           |
-| `MESELE_AI_PROVIDER`        | hayır          | `openai` · `lovable` · `mock` — açık seçim                               |
-| `MESELE_AI_MODEL`           | hayır          | Ana model (varsayılan `gpt-4o`; Lovable'da `openai/gpt-5-mini`)          |
-| `MESELE_AI_MODEL_FAST`      | hayır          | "…'nın Gözünden" metinleri için hızlı model (varsayılan `gpt-4o-mini`)   |
+| Değişken                    | Zorunlu        | Açıklama                                                                            |
+| --------------------------- | -------------- | ----------------------------------------------------------------------------------- |
+| `SUPABASE_URL`              | üretimde evet  | Supabase proje adresi (`VITE_SUPABASE_URL` da okunur)                               |
+| `SUPABASE_SERVICE_ROLE_KEY` | üretimde evet  | **Yalnızca sunucuda** kullanılır; istemciye asla gitmez                             |
+| `OPENAI_API_KEY`            | biri           | Doğrudan OpenAI                                                                     |
+| `LOVABLE_API_KEY`           | biri           | Lovable AI Gateway (Lovable Cloud'da otomatik)                                      |
+| `MESELE_AI_PROVIDER`        | hayır          | `openai` · `lovable` · `mock` — açık seçim                                          |
+| `MESELE_AI_MODEL`           | hayır          | Ana model (varsayılan `gpt-4o`; Lovable'da `openai/gpt-5-mini`)                     |
+| `MESELE_AI_MODEL_FAST`      | hayır          | "…'nın Gözünden" metinleri için hızlı model (varsayılan `gpt-4o-mini`)              |
 | `MESELE_AI_STRUCTURED`      | hayır          | `json_schema` (katı şema, OpenAI varsayılanı) · `json_object` (Lovable varsayılanı) |
-| `VITE_COUNSELOR_URL`        | hayır          | Çözüm raporunda "Psk. Dan. Fırat YALÇIN ile görüşme" bağlantısı          |
-| `MESELE_APP_URL`            | Capacitor için | Yerel uygulamanın açacağı yayınlanmış adres                              |
+| `VITE_COUNSELOR_URL`        | hayır          | Çözüm raporunda "Psk. Dan. Fırat YALÇIN ile görüşme" bağlantısı                     |
+| `MESELE_APP_URL`            | Capacitor için | Yerel uygulamanın açacağı yayınlanmış adres                                         |
 
 ## Supabase / Lovable Cloud kurulumu
 
@@ -111,12 +168,12 @@ completed ◄─ generating_reports ◄─ reconsideration_completed ◄─ reco
    (iki onay → ortak rapor açılır)
 ```
 
-| Adım                           | Ekranda                                                                                   |
-| ------------------------------ | ----------------------------------------------------------------------------------------- |
-| **1. Anlat**                   | Olay (açık uçlu) · Birincil duygular (çip) · Otomatik tepki (çip) · Gerçek ihtiyaç · Kendi payın · Gizlilik tercihi |
-| **2. Partnerinin Gözünden Gör** | "[Ad]'ın Gözünden" metni + partnerin paylaştığı ham yanıtlar + senin anlatımının ona nasıl yansıtıldığı |
-| **3. Yeniden Değerlendir**     | Ne dokundu · Altında ne olabilir · Kendi payına dair yeni fark · Ona tek cümle · Yakınlık (1–5, yalnızca sana) |
-| **4. Çözüm Raporu**            | Sana Özel Ayna (hemen) + Ortak Rapor: Ortak Döngünüz, Kim Haklı?, Temel İhtiyaç Kesişimi, 3 onarım adımı, "Bugün için" |
+| Adım                            | Ekranda                                                                                                                |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **1. Anlat**                    | Olay (açık uçlu) · Birincil duygular (çip) · Otomatik tepki (çip) · Gerçek ihtiyaç · Kendi payın · Gizlilik tercihi    |
+| **2. Partnerinin Gözünden Gör** | "[Ad]'ın Gözünden" metni + partnerin paylaştığı ham yanıtlar + senin anlatımının ona nasıl yansıtıldığı                |
+| **3. Yeniden Değerlendir**      | Ne dokundu · Altında ne olabilir · Kendi payına dair yeni fark · Ona tek cümle · Yakınlık (1–5, yalnızca sana)         |
+| **4. Çözüm Raporu**             | Sana Özel Ayna (hemen) + Ortak Rapor: Ortak Döngünüz, Kim Haklı?, Temel İhtiyaç Kesişimi, 3 onarım adımı, "Bugün için" |
 
 **Genel Görüş** 10 tamamlanmış meseleden sonra açılır: 9 bölümlük kalıcı ilişki dinamiği raporu (hikâye, tekrarlayan
 dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı aynası, güçlü yanlar, büyüme alanları,
@@ -124,15 +181,15 @@ dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı ayna
 
 ## Kırılmaz güvenlik kuralları — nerede uygulanıyor?
 
-| Kural                                    | Uygulama                                                                                                    | Test |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---- |
-| **Çift kodu bir şifre değildir**         | 6 hane, karışan karakter yok (`crypto.server.ts`). Kod yalnızca `joinCouple`'da çifti bulur; B rolü dolunca kod hiçbir şey açmaz (`unique(couple_id, role)`). Kimlik doğrulama yalnızca token ile. Koda katılma IP başına hız sınırlı. | `flow.test.ts` |
-| **Cihaza özel gizli token**              | 256-bit (`crypto.getRandomValues`), base64url, yalnızca bir kez döner; istemcide `localStorage['mesele.member.v1']` (+ Capacitor Preferences yedeği). DB'de yalnızca SHA-256 `auth_token_hash`. | `flow.test.ts`, `sql.test.ts` |
-| **`x-mesele-member` + `memberAuth`**     | [`src/functions/middleware.ts`](./src/functions/middleware.ts): istemci başlığı ekler, sunucu hash'leyip üyeyi bulur. Her mesele erişimi `requireDispute` ile `member → couple → dispute` zincirini doğrular; yabancı mesele "bulunamadı" döner (IDOR). | `flow.test.ts` |
-| **RLS + sunucu izolasyonu**              | Tüm tablolarda RLS açık, politika yok, istemci rollerine yetki yok. Tüm okuma/yazma `createServerFn` içinde service role ile. Sunucu fonksiyonlarına yalnızca aynı kökenden istek (CSRF middleware, `src/start.ts`). `*.server.ts` dosyaları istemci paketine giremez. | `sql.test.ts` |
-| **Gizlilik ayrımı (partner / private)**  | [`prompts.server.ts`](./src/server/prompts.server.ts) `describeMember(includePrivate)`: partnerin göreceği hiçbir isteme "private" içerik girmez; görünüm modeli partnere yalnızca `visibility = 'partner'` yanıtları döner; ortak rapor iki onaya kadar istemciye hiç gönderilmez. Service worker sunucu yanıtlarını asla önbelleğe almaz. | `flow.test.ts` (istem düzeyinde) |
-| **Çift AI çağrısını önleme**             | `mesele_claim_status` atomik `UPDATE … WHERE status = from` + 4 dakikalık bayat kilit. Sonuçlar `mesele_finish_*` ile yalnızca kilit sahibi tarafından, tek işlemde yazılır; hata olursa kilit bırakılıp durum geri alınır. | `sql.test.ts`, `flow.test.ts` (eşzamanlı çağrılar → tam 2 ve 3 AI çağrısı) |
-| **Geçmiş veri silinmez**                 | Tamamlanan meseleler için silme yolu yok (`deleteDispute … status <> 'completed'`); yalnızca açan kişi, cevap aşamasındaki bir meseleyi kapatabilir. | — |
+| Kural                                   | Uygulama                                                                                                                                                                                                                                                                                                                                    | Test                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Çift kodu bir şifre değildir**        | 6 hane, karışan karakter yok (`crypto.server.ts`). Kod yalnızca `joinCouple`'da çifti bulur; B rolü dolunca kod hiçbir şey açmaz (`unique(couple_id, role)`). Kimlik doğrulama yalnızca token ile. Koda katılma IP başına hız sınırlı.                                                                                                      | `flow.test.ts`                                                             |
+| **Cihaza özel gizli token**             | 256-bit (`crypto.getRandomValues`), base64url, yalnızca bir kez döner; istemcide `localStorage['mesele.member.v1']` (+ Capacitor Preferences yedeği). DB'de yalnızca SHA-256 `auth_token_hash`.                                                                                                                                             | `flow.test.ts`, `sql.test.ts`                                              |
+| **`x-mesele-member` + `memberAuth`**    | [`src/functions/middleware.ts`](./src/functions/middleware.ts): istemci başlığı ekler, sunucu hash'leyip üyeyi bulur. Her mesele erişimi `requireDispute` ile `member → couple → dispute` zincirini doğrular; yabancı mesele "bulunamadı" döner (IDOR).                                                                                     | `flow.test.ts`                                                             |
+| **RLS + sunucu izolasyonu**             | Tüm tablolarda RLS açık, politika yok, istemci rollerine yetki yok. Tüm okuma/yazma `createServerFn` içinde service role ile. Sunucu fonksiyonlarına yalnızca aynı kökenden istek (CSRF middleware, `src/start.ts`). `*.server.ts` dosyaları istemci paketine giremez.                                                                      | `sql.test.ts`                                                              |
+| **Gizlilik ayrımı (partner / private)** | [`prompts.server.ts`](./src/server/prompts.server.ts) `describeMember(includePrivate)`: partnerin göreceği hiçbir isteme "private" içerik girmez; görünüm modeli partnere yalnızca `visibility = 'partner'` yanıtları döner; ortak rapor iki onaya kadar istemciye hiç gönderilmez. Service worker sunucu yanıtlarını asla önbelleğe almaz. | `flow.test.ts` (istem düzeyinde)                                           |
+| **Çift AI çağrısını önleme**            | `mesele_claim_status` atomik `UPDATE … WHERE status = from` + 4 dakikalık bayat kilit. Sonuçlar `mesele_finish_*` ile yalnızca kilit sahibi tarafından, tek işlemde yazılır; hata olursa kilit bırakılıp durum geri alınır.                                                                                                                 | `sql.test.ts`, `flow.test.ts` (eşzamanlı çağrılar → tam 2 ve 3 AI çağrısı) |
+| **Geçmiş veri silinmez**                | Tamamlanan meseleler için silme yolu yok (`deleteDispute … status <> 'completed'`); yalnızca açan kişi, cevap aşamasındaki bir meseleyi kapatabilir.                                                                                                                                                                                        | —                                                                          |
 
 ## Proje yapısı
 
@@ -153,7 +210,8 @@ src/
   styles.css            Tailwind v4 @theme — semantik renk tokenları (açık/koyu)
 supabase/migrations/    Şema, RLS, atomik fonksiyonlar
 public/                 manifest, service worker, ikonlar, iOS açılış ekranları, çevrimdışı sayfa
-capacitor.config.ts     iOS/Android kabuğu
+capacitor.config.ts     iOS/Android kabuğu (Capacitor; Mac + Xcode gerekir)
+mobile/                 Expo kabuğu (Expo Go ile test; EAS ile Windows'tan iOS derlemesi)
 ```
 
 ## PWA, iOS ve Capacitor
@@ -180,6 +238,11 @@ npx cap open ios                               # Xcode'da imzala ve çalıştır
 - `capacitor-shell/index.html`: bağlantı yokken gösterilen yedek sayfa.
 - App Store incelemesi için (yönerge 4.2) uygulamanın yerel paylaşım ve güvenli anahtar saklama gibi yerel
   yetenekler kullandığını belirtin; ileride bildirimler eklemek de önerilir.
+
+**Expo kabuğu ile App Store (Windows'tan):** `mobile/` klasörü, Mac gerektirmeden bulutta iOS derlemesi yapabilen
+EAS ile de kullanılabilir. Önce MESELE'yi https bir adreste yayınla, sonra `mobile/.env` içine
+`EXPO_PUBLIC_MESELE_URL=https://…` yaz ve `npx eas-cli@latest build -p ios` çalıştır (Apple Developer hesabı gerekir).
+Ayrıntılar: [`mobile/README.md`](./mobile/README.md).
 
 ## Yayına alma
 
@@ -209,10 +272,10 @@ npm test
 
 Spesifikasyondaki tüm tablo ve sütunlar aynen korunmuştur. Akışın çalışması için şu sütunlar **eklenmiştir**:
 
-| Tablo                  | Eklenen                                   | Neden                                                                   |
-| ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
-| `couples`              | `name`                                    | `/olustur` ekranındaki "çift adı"                                       |
-| `disputes`             | `created_by`, `created_at`, `updated_at`  | Meseleyi kimin açtığı (kapatma yetkisi), kronolojik arşiv              |
-| `dispute_entries`      | `perspective`, `submitted_at`, zaman damgaları | "[Ad]'ın Gözünden" metni ve "anlatımı gönderdi" bilgisi            |
-| `reconsiderations`     | `updated_at`                              | Taslak kaydı                                                            |
-| `relationship_reports` | `dispute_count`, `status`, `status_locked_at`, `created_at` | Kaç meseleye dayandığı ve eşzamanlı üretim kilidi    |
+| Tablo                  | Eklenen                                                     | Neden                                                     |
+| ---------------------- | ----------------------------------------------------------- | --------------------------------------------------------- |
+| `couples`              | `name`                                                      | `/olustur` ekranındaki "çift adı"                         |
+| `disputes`             | `created_by`, `created_at`, `updated_at`                    | Meseleyi kimin açtığı (kapatma yetkisi), kronolojik arşiv |
+| `dispute_entries`      | `perspective`, `submitted_at`, zaman damgaları              | "[Ad]'ın Gözünden" metni ve "anlatımı gönderdi" bilgisi   |
+| `reconsiderations`     | `updated_at`                                                | Taslak kaydı                                              |
+| `relationship_reports` | `dispute_count`, `status`, `status_locked_at`, `created_at` | Kaç meseleye dayandığı ve eşzamanlı üretim kilidi         |

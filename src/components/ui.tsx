@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from 'react'
+import { copyText } from '~/lib/native'
 import { VISIBILITY_LABEL, type Visibility } from '~/lib/questions'
 import { IconAlert, IconCheck, IconCopy, IconLock, IconUsers } from './icons'
 
@@ -382,12 +383,9 @@ export function CopyButton({
       size="sm"
       className={className}
       onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text)
+        if (await copyText(text)) {
           setCopied(true)
           setTimeout(() => setCopied(false), 1800)
-        } catch {
-          // pano erişimi yoksa sessizce geç
         }
       }}
     >

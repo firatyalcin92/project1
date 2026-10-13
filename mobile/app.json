@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "MESELE",
+    "slug": "mesele",
+    "version": "0.1.0",
+    "scheme": "mesele",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#fbf6ee",
+    "ios": {
+      "bundleIdentifier": "com.firatyalcin.mesele",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true },
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.firatyalcin.mesele",
+      "adaptiveIcon": {
+        "backgroundColor": "#fbf6ee",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

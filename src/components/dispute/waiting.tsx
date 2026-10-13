@@ -118,7 +118,9 @@ export function Generating({
   const shouldTrigger = ready || view.generation.stale
 
   useEffect(() => {
-    if (shouldTrigger && !triggered.current && !mutation.isPending) {
+    // Bir hata olduysa kendiliğinden yeniden deneme: geçersiz anahtar ya da kesinti
+    // durumunda AI'ye döngü hâlinde istek atmayalım. Kullanıcı "Tekrar dene"ye basar.
+    if (shouldTrigger && !triggered.current && !mutation.isPending && !mutation.isError) {
       triggered.current = true
       mutation.mutate()
     }
@@ -142,11 +144,11 @@ export function Generating({
         </span>
       </div>
       <div className="space-y-2" aria-live="polite">
-        <p key={message} className="animate-rise font-display text-xl font-semibold">
-          {message}
+        <p key={mutation.isError ? 'error' : message} className="animate-rise font-display text-xl font-semibold">
+          {mutation.isError ? 'Kısa bir duraklama oldu' : message}
         </p>
         <p className="text-sm text-ink-soft">Bu arada birlikte nefes alın: 4 saniye içinize çekin, 6 saniye bırakın.</p>
-        <p className="text-[13px] text-ink-faint">Genellikle bir dakikadan kısa sürer.</p>
+        {mutation.isError ? null : <p className="text-[13px] text-ink-faint">Genellikle bir dakikadan kısa sürer.</p>}
       </div>
       {mutation.isError ? (
         <div className="space-y-3 text-left">

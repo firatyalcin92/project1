@@ -14,30 +14,37 @@ const fontUrl = `data:font/woff2;base64,${readFileSync(join(root, 'node_modules/
 const PAPER = '#fbf6ee'
 const INK = '#2a211c'
 
-const mark = (size) => `
+const mark = (size, mono = null) => `
 <svg width="${size}" height="${size}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-  <path d="M24 13.2a12.5 12.5 0 010 21.6 12.5 12.5 0 010-21.6z" fill="#a8741c" opacity="0.55"/>
-  <circle cx="18" cy="24" r="12.5" fill="none" stroke="#b4553a" stroke-width="4"/>
-  <circle cx="30" cy="24" r="12.5" fill="none" stroke="#06658e" stroke-width="4"/>
+  <path d="M24 13.2a12.5 12.5 0 010 21.6 12.5 12.5 0 010-21.6z" fill="${mono ?? '#a8741c'}" opacity="${mono ? 0.35 : 0.55}"/>
+  <circle cx="18" cy="24" r="12.5" fill="none" stroke="${mono ?? '#b4553a'}" stroke-width="4"/>
+  <circle cx="30" cy="24" r="12.5" fill="none" stroke="${mono ?? '#06658e'}" stroke-width="4"/>
 </svg>`
 
-const page = (body, w, h, plain = false) => `<!doctype html><html><head><meta charset="utf-8"><style>
+const page = (
+  body,
+  w,
+  h,
+  plain = false,
+  transparent = false,
+) => `<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face { font-family: 'Fraunces'; src: url('${fontUrl}') format('woff2'); font-weight: 100 900; }
 html,body { margin:0; width:${w}px; height:${h}px; }
 body { display:flex; align-items:center; justify-content:center; flex-direction:column;
-  background: ${plain ? PAPER : `radial-gradient(120% 70% at 0% 0%, #f5e1d7, transparent 60%), radial-gradient(90% 60% at 100% 10%, #dce9f0, transparent 65%), ${PAPER}`};
+  background: ${transparent ? 'transparent' : plain ? PAPER : `radial-gradient(120% 70% at 0% 0%, #f5e1d7, transparent 60%), radial-gradient(90% 60% at 100% 10%, #dce9f0, transparent 65%), ${PAPER}`};
   font-family: 'Fraunces', Georgia, serif; color:${INK}; }
 .word { font-weight: 600; letter-spacing: 0.18em; }
 .slogan { color: #5b4d44; }
 </style></head><body>${body}</body></html>`
 
 const browser = await chromium.launch()
-async function render(file, w, h, body, scale = 1, plain = false) {
+async function render(file, w, h, body, scale = 1, plain = false, transparent = false) {
   const p = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: scale })
-  await p.setContent(page(body, w, h, plain))
+  await p.setContent(page(body, w, h, plain, transparent))
   await p.evaluate(() => document.fonts.ready)
-  mkdirSync(dirname(out(file)), { recursive: true })
-  await p.screenshot({ path: out(file), omitBackground: false })
+  const target = file.startsWith('mobile/') ? join(root, file) : out(file)
+  mkdirSync(dirname(target), { recursive: true })
+  await p.screenshot({ path: target, omitBackground: transparent })
   await p.close()
   console.log('✓', file)
 }
@@ -84,4 +91,12 @@ for (const [w, h, r] of SPLASH) {
     true, // düz zemin: açılış görselleri küçük kalsın
   )
 }
+// Expo kabuğu (mobile/assets): iOS ikonu opak olmalı; Android uyarlanabilir ikonu katmanlıdır.
+await render('mobile/assets/icon.png', 1024, 1024, mark(800))
+await render('mobile/assets/android-icon-background.png', 512, 512, '', 1, true)
+await render('mobile/assets/android-icon-foreground.png', 512, 512, mark(300), 1, false, true)
+await render('mobile/assets/android-icon-monochrome.png', 432, 432, mark(250, '#000000'), 1, false, true)
+await render('mobile/assets/splash-icon.png', 1024, 1024, mark(600), 1, false, true)
+await render('mobile/assets/favicon.png', 48, 48, mark(44), 1, false, true)
+
 await browser.close()
