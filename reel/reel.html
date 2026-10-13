@@ -102,7 +102,7 @@
 .g2 { top: 760px; font: 600 140px/1 var(--serif); }
 .g3 { top: 960px; font: italic 600 100px/1.1 var(--serif); color: var(--wine); }
 
-/* ---------- A-roll overlays ---------- */
+/* ---------- narration-scene cards ---------- */
 .acard { position: absolute; left: 70px; right: 130px; padding: 42px 46px; border-radius: 36px; text-align: center;
   background: rgba(246, 239, 230, .95); color: var(--ink); box-shadow: 0 24px 60px rgba(0,0,0,.35); }
 .acard .k { font: 700 26px var(--sans); letter-spacing: 7px; color: var(--wine); margin-bottom: 16px; }
@@ -117,18 +117,20 @@
 <body>
 <div id="stage">
 
-  <!-- A-ROLL: placeholder portrait. Replace with real / lip-synced footage (see KURGU_PLANI.md). -->
-  <div id="aroll">
-    <img src="portre.jpg" alt="">
-    <div class="vig"></div>
-    <div class="acard" id="ovQ" style="top:960px;opacity:0">
+  <!-- VOICE: narration scenes, big read-along text on warm drifting light -->
+  <div id="voice">
+    <div class="glow" id="gl1" style="background:radial-gradient(circle, rgba(243,199,166,.16), transparent 65%)"></div>
+    <div class="glow" id="gl2" style="background:radial-gradient(circle, rgba(125,42,53,.32), transparent 65%)"></div>
+    <div class="glow" id="gl3" style="background:radial-gradient(circle, rgba(243,199,166,.10), transparent 62%)"></div>
+    <div class="wave" id="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="acard" id="ovQ" style="top:600px;opacity:0">
       <div class="k">ASIL SORU</div>
       <p>Ben bir insanı sevmeyi <em>ne kadar</em> biliyorum?</p>
     </div>
-    <div class="acard" id="ovC" style="top:1020px;left:230px;right:290px;padding:24px 30px;opacity:0">
+    <div class="acard" id="ovC" style="top:330px;left:230px;right:290px;padding:24px 30px;opacity:0">
       <p style="font-size:58px">Çaba <em>≠</em> Katlanmak</p>
     </div>
-    <div class="acard" id="ovP" style="top:860px;opacity:0">
+    <div class="acard" id="ovP" style="top:520px;opacity:0">
       <div class="k">SİZCE SEVGİ…</div>
       <div class="opt" id="opA"><b>A</b><span>Hissedilen bir duygu mu?</span></div>
       <div class="opt" id="opB"><b>B</b><span>Öğrenilmesi gereken bir beceri mi?</span></div>
@@ -277,34 +279,33 @@
 </div>
 
 <script src="veri/captions.js"></script>
+<script src="veri/zarf.js"></script>
 <script>
-const OVERLAY = location.search.includes('overlay');
 const NOCAPS = location.search.includes('nocap');
-if (OVERLAY) document.body.classList.add('overlay');
 window.DURATION = 160.9;
 
-// A = talking head (portrait placeholder), others = B-roll scenes. Cut points sit in the pauses between words.
+// A = narration scene (big read-along text), others = illustrated scenes. Cut points sit in the pauses between words.
 const SEG = [
-  ['A', 0, 13.2, 'close'],
+  ['A', 0, 13.2],
   ['book', 13.2, 16.95], ['quote', 16.95, 22.15], ['think', 22.15, 23.45], ['paint', 23.45, 27.35], ['music', 27.35, 31.55],
-  ['A', 31.55, 37.5, 'wide'],
+  ['A', 31.55, 37.5],
   ['wrong', 37.5, 47.65],
-  ['A', 47.65, 54.7, 'close'],
+  ['A', 47.65, 54.7],
   ['phone', 54.7, 60.55], ['chat', 60.55, 65.95], ['scale', 65.95, 74.4],
-  ['A', 74.4, 85.05, 'wide'],
+  ['A', 74.4, 85.05],
   ['four', 85.05, 91.4],
-  ['A', 91.4, 95.75, 'close'],
+  ['A', 91.4, 95.75],
   ['circ', 95.75, 105.5],
-  ['A', 105.5, 112.9, 'wide'],
+  ['A', 105.5, 112.9],
   ['dark', 112.9, 120.2],
-  ['A', 120.2, 131.1, 'close'],
+  ['A', 120.2, 131.1],
   ['ask', 131.1, 143.6], ['gap', 143.6, 150.7],
-  ['A', 150.7, 160.9, 'wide'],
+  ['A', 150.7, 160.9],
 ];
 window.SEG = SEG;
 // scenes whose on-screen text already says what is being spoken: no captions there
 const NOCAP = new Set(['quote', 'think', 'wrong', 'four', 'dark', 'ask', 'gap']);
-const NOCAP_A = [[50.3, 54.7], [150.7, 999]];
+const NOCAP_A = [[50.3, 54.7], [152.6, 999]];
 
 const $ = id => document.getElementById(id);
 const cl = x => Math.max(0, Math.min(1, x));
@@ -315,19 +316,25 @@ function st(el, o, y = 0, s = 1, extra = '') { el.style.opacity = o; el.style.tr
 function rise(el, t, a, d = .55, dist = 40) { const p = io(t, a, d); st(el, p, (1 - p) * dist); return p; }
 function words(el, t, times, d = .3) { [...el.querySelectorAll('.wd')].forEach((w, i) => rise(w, t, times[i] - .05, d, 18)); }
 
-// ---------- A-roll ----------
-const img = document.querySelector('#aroll img');
-function aroll(t, seg) {
-  const [, a, b, kind] = seg, p = (t - a) / (b - a);
-  const s = kind === 'close' ? lerp(1.30, 1.35, p) : lerp(1.0, 1.045, p);
-  const dx = Math.sin(t * .37) * 3, dy = Math.sin(t * .29 + 1) * 2.5;   // slight handheld drift
-  img.style.transformOrigin = kind === 'close' ? '686px 520px' : '50% 32%';
-  img.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
+// ---------- voice scenes ----------
+const BARS = [.45, .7, .9, 1, .9, .7, .45];
+function voice(t) {
+  [[480, 700, .11, .07, 0], [300, 1150, .08, .1, 2], [820, 1350, .09, .06, 4]].forEach(([x, y, fx, fy, ph], i) => {
+    const g = $('gl' + (i + 1));
+    g.style.left = (x + Math.sin(t * fx + ph) * 160) + 'px'; g.style.top = (y + Math.cos(t * fy + ph) * 140) + 'px';
+  });
+  const f = Math.round(t * ZARF_FPS);
+  const hideWave = t >= 152.6;
+  $('wave').querySelectorAll('i').forEach((b, k) => {
+    const e = ZARF[Math.max(0, f - Math.abs(k - 3))] || 0;
+    b.style.height = (10 + e * 86 * BARS[k]) + 'px';
+    b.style.opacity = hideWave ? 0 : .85;
+  });
   // overlays
   const q = io(t, 50.3, .45) * (1 - io(t, 54.4, .25)); st($('ovQ'), q, (1 - q) * 30);
   const c = io(t, 110.75, .4) * (1 - io(t, 112.7, .2)); st($('ovC'), c, (1 - c) * 24);
-  const pp = io(t, 151.0, .5); st($('ovP'), pp, (1 - pp) * 40);
-  rise($('opA'), t, 152.8, .45, 24); rise($('opB'), t, 155.2, .45, 24); rise($('cta'), t, 157.3, .45, 20);
+  const pp = io(t, 152.55, .45); st($('ovP'), pp, (1 - pp) * 40);
+  rise($('opA'), t, 152.75, .45, 24); rise($('opB'), t, 155.2, .45, 24); rise($('cta'), t, 157.3, .45, 20);
 }
 
 // ---------- scenes ----------
@@ -475,16 +482,18 @@ const capEl = $('cap'); let capIdx = -1;
 function captions(t, seg) {
   const type = seg[0];
   const hide = NOCAPS || NOCAP.has(type) || (type === 'A' && NOCAP_A.some(([a, b]) => t >= a && t < b));
-  const i = hide ? -1 : CAPTIONS.findIndex(c => t >= c.s && t < c.e);
-  if (i !== capIdx) {
-    capIdx = i;
-    capEl.innerHTML = i < 0 ? '' : CAPTIONS[i].w.map(([w]) => `<span class="w">${w}</span>`).join(' ');
+  const list = type === 'A' ? CAPTIONS_BIG : CAPTIONS;
+  const i = hide ? -1 : list.findIndex(c => t >= c.s && t < c.e);
+  const key = i < 0 ? -1 : (type === 'A' ? 'b' : 's') + i;
+  if (key !== capIdx) {
+    capIdx = key;
+    capEl.innerHTML = i < 0 ? '' : list[i].w.map(([w]) => `<span class="w">${w}</span>`).join(' ');
   }
-  capEl.className = type === 'A' ? '' : (type === 'dark' ? 'onb dark' : 'onb');
+  capEl.className = type === 'A' ? 'voice' : (type === 'dark' ? 'onb dark' : 'onb');
   if (i < 0) return;
-  const spans = capEl.querySelectorAll('.w'), ws = CAPTIONS[i].w;
+  const spans = capEl.querySelectorAll('.w'), ws = list[i].w;
   spans.forEach((sp, k) => {
-    const seen = t >= ws[k][1] - .06, next = k + 1 < ws.length ? ws[k + 1][1] : CAPTIONS[i].e;
+    const seen = t >= ws[k][1] - .06, next = k + 1 < ws.length ? ws[k + 1][1] : list[i].e;
     sp.classList.toggle('seen', seen);
     sp.classList.toggle('now', seen && t < next - .02);
   });
@@ -493,10 +502,9 @@ function captions(t, seg) {
 window.seek = t => {
   const seg = SEG.find(s => t >= s[1] && t < s[2]) || SEG[SEG.length - 1];
   const type = seg[0];
-  $('aroll').classList.toggle('on', type === 'A');
-  if (OVERLAY) img.style.visibility = 'hidden', document.querySelector('#aroll .vig').style.visibility = 'hidden';
+  $('voice').classList.toggle('on', type === 'A');
   document.querySelectorAll('.scene').forEach(s => s.classList.remove('on'));
-  if (type === 'A') aroll(t, seg);
+  if (type === 'A') voice(t);
   else { $('s-' + type).classList.add('on'); S[type](t); }
   captions(t, seg);
 };

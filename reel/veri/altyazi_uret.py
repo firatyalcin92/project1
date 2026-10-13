@@ -48,7 +48,32 @@ for i, c in enumerate(chunks):
     end = c[-1]['e'] + 0.45
     if i + 1 < len(chunks): end = min(end, chunks[i + 1][0]['s'] - 0.08)
     caps.append({'s': round(start, 2), 'e': round(end, 2), 'w': [[y['w'], y['s']] for y in c]})
-open('veri/captions.js', 'w', encoding='utf8').write('window.CAPTIONS = ' + json.dumps(caps, ensure_ascii=False) + ';\n')
+# sentence-level chunks for the full-screen voice scenes (big centred text)
+sents, cur = [], []
+for x in words:
+    if cur and (x['s'] - cur[-1]['e'] > 0.55 or re.search(r'[.?!]”?$', cur[-1]['w'])):
+        sents.append(cur); cur = []
+    cur.append(x)
+sents.append(cur)
+def split(c, limit=46):
+    if len(' '.join(y['w'] for y in c)) <= limit or len(c) < 2: return [c]
+    total = sum(len(y['w']) + 1 for y in c)
+    best, bi, acc = None, 1, 0
+    for k in range(1, len(c)):          # balanced cut, strongly preferring a comma
+        acc += len(c[k - 1]['w']) + 1
+        left = ' '.join(y['w'] for y in c[:k])
+        score = abs(acc - total / 2) - (25 if c[k - 1]['w'].endswith(',') else 0)
+        if left.count('“') > left.count('”') or c[k - 1]['w'] == 'Erich': score += 100   # don't cut inside a quote or a name
+        if best is None or score < best: best, bi = score, k
+    return split(c[:bi], limit) + split(c[bi:], limit)
+big = [part for snt in sents for part in split(snt)]
+bigcaps = []
+for i, c in enumerate(big):
+    end = c[-1]['e'] + 0.6
+    if i + 1 < len(big): end = min(end, big[i + 1][0]['s'] - 0.25)
+    bigcaps.append({'s': round(c[0]['s'] - 0.25, 2), 'e': round(end, 2), 'w': [[y['w'], y['s']] for y in c]})
+open('veri/captions.js', 'w', encoding='utf8').write('window.CAPTIONS = ' + json.dumps(caps, ensure_ascii=False) + ';\n'
+    + 'window.CAPTIONS_BIG = ' + json.dumps(bigcaps, ensure_ascii=False) + ';\n')
 open('veri/kelimeler.json', 'w', encoding='utf8').write(json.dumps(words, ensure_ascii=False, indent=0))
 def ts(t):
     ms = int(round(t * 1000)); return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
