@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <style>
+    .a { stroke: #b4553a } .b { stroke: #06658e } .c { fill: #a8741c }
+    @media (prefers-color-scheme: dark) { .a { stroke: #e38c6d } .b { stroke: #1d97a3 } .c { fill: #e2b462 } }
+  </style>
+  <path class="c" d="M24 13.2a12.5 12.5 0 010 21.6 12.5 12.5 0 010-21.6z" opacity="0.55"/>
+  <circle class="a" cx="18" cy="24" r="12.5" fill="none" stroke-width="4.5"/>
+  <circle class="b" cx="30" cy="24" r="12.5" fill="none" stroke-width="4.5"/>
+</svg>

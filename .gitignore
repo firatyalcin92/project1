@@ -1,0 +1,15 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+.output
+.nitro
+.tanstack
+.vinxi
+*.local
+.env
+.env.*
+!.env.example
+coverage
+ios/App/App/public
+android/app/src/main/assets/public

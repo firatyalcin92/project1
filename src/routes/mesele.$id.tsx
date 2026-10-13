@@ -1,0 +1,306 @@
+import { useMutation } from '@tanstack/react-query'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { QueryError } from '~/components/boundaries'
+import { AnswerWizard } from '~/components/dispute/answer-wizard'
+import { MyPerspectiveDisclosure, PartnerWords, PerspectiveCard } from '~/components/dispute/perspective'
+import { ReconsiderForm } from '~/components/dispute/reconsider-form'
+import { MyReportView, SharedGate, SharedReportView } from '~/components/dispute/resolution'
+import { useDispute } from '~/components/dispute/use-dispute'
+import { Generating, WaitingForPartner } from '~/components/dispute/waiting'
+import { IconArrowRight } from '~/components/icons'
+import { AppShell, BottomBar } from '~/components/layout'
+import { Disclaimer, SafetyNote } from '~/components/safety'
+import { StepTrack } from '~/components/steps'
+import { Button, Card, Disclosure, LinkButton, Notice } from '~/components/ui'
+import { cancelDisputeFn } from '~/functions/dispute'
+import { parseError } from '~/lib/errors'
+import { requireMember } from '~/lib/guard'
+import { QUESTIONS, chipLabel, type AnswerQuestionId } from '~/lib/questions'
+import { formatDate, genitive } from '~/lib/turkish'
+import type { DisputeView } from '~/lib/views'
+
+export const Route = createFileRoute('/mesele/$id')({
+  ssr: false,
+  beforeLoad: requireMember,
+  head: () => ({ meta: [{ title: 'Mesele — MESELE' }] }),
+  component: DisputePage,
+})
+
+function DisputePage() {
+  const { id } = Route.useParams()
+  const query = useDispute(id)
+  const view = query.data
+  // 2. adım (okuma) ve 3. adım (yeniden değerlendirme) aynı sunucu durumunu paylaşır.
+  const [reflecting, setReflecting] = useState(false)
+  const displayStep = view && view.step === 3 && !view.progress.meReconsidered && !reflecting ? 2 : view?.step
+
+  return (
+    <AppShell back="/panel" title={view?.title ?? 'Mesele'}>
+      {query.isPending ? (
+        <div className="space-y-4" aria-busy>
+          <div className="h-6 w-full animate-pulse rounded-xl bg-sunken" />
+          <div className="h-64 animate-pulse rounded-3xl bg-sunken" />
+        </div>
+      ) : query.isError ? (
+        <QueryError error={query.error} onRetry={() => query.refetch()} />
+      ) : (
+        <div className="space-y-5 pb-6">
+          <StepTrack step={displayStep!} done={view!.status === 'completed'} partnerName={view!.partner?.name} />
+          <Phase view={view!} onView={query.setView} reflecting={reflecting} setReflecting={setReflecting} />
+        </div>
+      )}
+    </AppShell>
+  )
+}
+
+type PhaseProps = {
+  view: DisputeView
+  onView: (v: DisputeView) => void
+  reflecting: boolean
+  setReflecting: (v: boolean) => void
+}
+
+function Phase({ view, onView, reflecting, setReflecting }: PhaseProps) {
+  switch (view.status) {
+    case 'draft':
+    case 'answers_in_progress':
+      return view.progress.meSubmitted ? (
+        <WaitingForPartner view={view} />
+      ) : (
+        <>
+          <AnswerWizard view={view} onView={onView} />
+          {view.canCancel ? <CancelDispute view={view} /> : null}
+        </>
+      )
+    case 'both_answers_completed':
+    case 'generating_perspectives':
+      return <Generating view={view} kind="perspectives" onView={onView} />
+    case 'perspectives_ready':
+    case 'reconsideration_in_progress':
+      return <ReconsiderPhase view={view} onView={onView} reflecting={reflecting} setReflecting={setReflecting} />
+    case 'reconsideration_completed':
+    case 'generating_reports':
+      return <Generating view={view} kind="reports" onView={onView} />
+    case 'completed':
+      return <Resolution view={view} onView={onView} />
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2–3. Adım: Partnerinin Gözünden Gör + Yeniden Değerlendir
+// ---------------------------------------------------------------------------
+
+function ReconsiderPhase({ view, onView, reflecting, setReflecting }: PhaseProps) {
+  const partner = view.partner?.name ?? 'Partnerin'
+  const perspective = view.partnerView?.perspective
+
+  if (view.progress.meReconsidered) {
+    return (
+      <WaitingForPartner view={view}>
+        {perspective ? (
+          <Disclosure summary={<span>{genitive(partner)} gözünden metni yeniden oku</span>}>
+            <PerspectiveCard perspective={perspective} name={partner} tone={view.partner?.role === 'A' ? 'a' : 'b'} />
+          </Disclosure>
+        ) : null}
+      </WaitingForPartner>
+    )
+  }
+
+  if (reflecting) {
+    return <ReconsiderForm view={view} onView={onView} onBack={() => setReflecting(false)} />
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="animate-rise space-y-1">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-clay-strong">
+          2. Adım · Partnerinin Gözünden Gör
+        </p>
+        <p className="leading-relaxed text-ink-soft">
+          Şimdi bir an kendi hikâyeni kenara koy. Bu, {genitive(partner)} o an yaşadıkları; doğru ya da yanlış değil,
+          onun gerçeği.
+        </p>
+      </div>
+      {perspective ? (
+        <PerspectiveCard perspective={perspective} name={partner} tone={view.partner?.role === 'A' ? 'a' : 'b'} />
+      ) : (
+        <Notice tone="info">{partner} için metin hazırlanamadı.</Notice>
+      )}
+      <PartnerWords view={view} />
+      <MyPerspectiveDisclosure view={view} />
+      <BottomBar>
+        <Button
+          full
+          size="lg"
+          onClick={() => {
+            setReflecting(true)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+        >
+          Okudum, yeniden düşünmeye hazırım <IconArrowRight size={18} />
+        </Button>
+      </BottomBar>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 4. Adım: Çözüm Raporu
+// ---------------------------------------------------------------------------
+
+const COUNSELOR_URL = import.meta.env.VITE_COUNSELOR_URL as string | undefined
+
+function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeView) => void }) {
+  const report = view.report
+  const partner = view.partner?.name ?? 'Partnerin'
+  const unlocked = Boolean(report?.shared.unlocked && report.shared.report)
+  const [tab, setTab] = useState<'mine' | 'shared'>(unlocked ? 'shared' : 'mine')
+  // İki onay tamamlandığı an (yoklamayla) ortak rapora geç.
+  useEffect(() => {
+    if (unlocked) setTab('shared')
+  }, [unlocked])
+  if (!report) return <Notice tone="info">Rapor yükleniyor…</Notice>
+  const showMine = !unlocked || tab === 'mine'
+
+  return (
+    <div className="space-y-5">
+      <div className="animate-rise space-y-1">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-clay-strong">4. Adım · Çözüm Raporu</p>
+        <h1 className="text-[26px] leading-tight font-semibold">Döngü Analizi ve İhtiyaç Aynası</h1>
+        {view.completedAt ? <p className="text-sm text-ink-faint">{formatDate(view.completedAt)}</p> : null}
+      </div>
+
+      {unlocked ? (
+        <div className="grid grid-cols-2 rounded-full border border-line bg-sunken p-1 text-sm" role="tablist">
+          {(
+            [
+              ['shared', 'Ortak Rapor'],
+              ['mine', 'Sana Özel Ayna'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={`min-h-10 rounded-full font-semibold transition ${tab === key ? 'bg-surface text-ink shadow-soft' : 'text-ink-faint'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {showMine && report.mine ? (
+        <>
+          <SafetyNote safety={report.mine.safety} />
+          <MyReportView report={report.mine} partnerName={view.partner?.name ?? ''} />
+        </>
+      ) : null}
+
+      {unlocked ? (
+        tab === 'shared' ? (
+          <SharedReportView report={report.shared.report!} view={view} />
+        ) : null
+      ) : (
+        <SharedGate view={view} onView={onView} />
+      )}
+
+      <Disclosure summary={<span>Bu meselenin kayıtları</span>}>
+        <div className="space-y-5">
+          <MyAnswersSummary view={view} />
+          {view.partnerView?.perspective ? (
+            <PerspectiveCard
+              perspective={view.partnerView.perspective}
+              name={partner}
+              tone={view.partner?.role === 'A' ? 'a' : 'b'}
+            />
+          ) : null}
+        </div>
+      </Disclosure>
+
+      <Card className="space-y-3">
+        <p className="font-semibold">Bu döngü sık tekrar ediyorsa</p>
+        <p className="text-sm leading-relaxed text-ink-soft">
+          Bazı danslar iki kişiyle değil, bir rehberle daha kolay değişir. Bir aile ya da çift danışmanıyla birkaç
+          seans, burada gördüklerinizi kalıcı hâle getirebilir.
+        </p>
+        {COUNSELOR_URL ? (
+          <a
+            href={COUNSELOR_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex text-sm font-semibold text-clay-strong"
+          >
+            Psk. Dan. Fırat YALÇIN ile görüşme <IconArrowRight size={16} className="ml-1" />
+          </a>
+        ) : null}
+      </Card>
+
+      <LinkButton to="/panel" variant="secondary" full>
+        Panele dön
+      </LinkButton>
+      <Disclaimer />
+    </div>
+  )
+}
+
+function MyAnswersSummary({ view }: { view: DisputeView }) {
+  return (
+    <dl className="space-y-3">
+      <p className="text-sm font-semibold">Senin anlattıkların</p>
+      {QUESTIONS.map((q) => {
+        const text = q.id === 'olay' ? view.mine.whatHappened : view.mine.answers[q.id as AnswerQuestionId].text
+        const tags = q.id === 'olay' ? [] : view.mine.answers[q.id as AnswerQuestionId].tags
+        const vis = q.id === 'olay' ? view.mine.eventVisibility : view.mine.answers[q.id as AnswerQuestionId].visibility
+        if (!text && tags.length === 0) return null
+        return (
+          <div key={q.id}>
+            <dt className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              {q.title} {vis === 'private' ? '· yalnızca danışman' : ''}
+            </dt>
+            <dd className="mt-1 text-[15px] leading-relaxed text-ink">
+              {tags.length ? (
+                <span className="text-ink-soft">{tags.map((t) => chipLabel(q.id, t)).join(', ')}. </span>
+              ) : null}
+              {text}
+            </dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
+}
+
+function CancelDispute({ view }: { view: DisputeView }) {
+  const navigate = useNavigate()
+  const [confirm, setConfirm] = useState(false)
+  const mutation = useMutation({
+    mutationFn: () => cancelDisputeFn({ data: { disputeId: view.id } }),
+    onSuccess: () => navigate({ to: '/panel' }),
+  })
+  return (
+    <div className="pt-2 text-center">
+      {confirm ? (
+        <div className="space-y-2">
+          <p className="text-sm text-ink-soft">Bu mesele ve iki tarafın taslakları silinecek. Emin misin?</p>
+          <div className="flex justify-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setConfirm(false)}>
+              Vazgeç
+            </Button>
+            <Button size="sm" loading={mutation.isPending} onClick={() => mutation.mutate()}>
+              Meseleyi kapat
+            </Button>
+          </div>
+          {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
+        </div>
+      ) : (
+        <Button variant="quiet" size="sm" onClick={() => setConfirm(true)}>
+          Bu meseleyi kapat
+        </Button>
+      )}
+    </div>
+  )
+}

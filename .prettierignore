@@ -1,0 +1,7 @@
+node_modules
+dist
+.output
+src/routeTree.gen.ts
+public/splash
+public/icons
+package-lock.json

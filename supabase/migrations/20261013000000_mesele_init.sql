@@ -1,0 +1,388 @@
+-- MESELE — ilk şema
+--
+-- Kırılmaz kurallar:
+--  * Tüm tablolarda RLS açık ve anon/authenticated rollerine HİÇBİR politika
+--    ya da tablo yetkisi verilmez. Tüm okuma/yazma sunucu fonksiyonlarında
+--    service_role anahtarıyla yapılır.
+--  * Ham üye token'ı asla saklanmaz; yalnızca SHA-256 hash'i (auth_token_hash).
+--  * Çift kodu yalnızca eşleştirme tanıtıcısıdır, kimlik doğrulamada kullanılmaz.
+--  * Tamamlanan meseleler otomatik silinmez.
+
+
+-- ---------------------------------------------------------------------------
+-- Tablolar
+-- ---------------------------------------------------------------------------
+
+create table public.couples (
+  id          uuid primary key default gen_random_uuid(),
+  code        text not null unique check (code ~ '^[A-HJ-NP-Z2-9]{6}$'),
+  name        text not null check (char_length(name) between 1 and 60),
+  created_at  timestamptz not null default now()
+);
+
+create table public.couple_members (
+  id               uuid primary key default gen_random_uuid(),
+  couple_id        uuid not null references public.couples(id) on delete cascade,
+  role             text not null check (role in ('A', 'B')),
+  display_name     text not null check (char_length(display_name) between 1 and 40),
+  auth_token_hash  text not null unique check (auth_token_hash ~ '^[0-9a-f]{64}$'),
+  joined_at        timestamptz not null default now(),
+  unique (couple_id, role)
+);
+create index couple_members_couple_idx on public.couple_members (couple_id);
+
+create table public.disputes (
+  id                 uuid primary key default gen_random_uuid(),
+  couple_id          uuid not null references public.couples(id) on delete cascade,
+  created_by         uuid references public.couple_members(id) on delete set null,
+  title              text not null check (char_length(title) between 1 and 80),
+  status             text not null default 'draft' check (status in (
+                       'draft',
+                       'answers_in_progress',
+                       'both_answers_completed',
+                       'generating_perspectives',
+                       'perspectives_ready',
+                       'reconsideration_in_progress',
+                       'reconsideration_completed',
+                       'generating_reports',
+                       'completed')),
+  shared_report      jsonb,
+  shared_approved_a  boolean not null default false,
+  shared_approved_b  boolean not null default false,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now(),
+  completed_at       timestamptz,
+  status_locked_at   timestamptz
+);
+create index disputes_couple_created_idx on public.disputes (couple_id, created_at desc);
+
+-- Her partnerin "Olay ne idi?" anlatımı + o anlatımdan üretilen,
+-- partnerine gösterilecek "…'nın Gözünden" metni.
+create table public.dispute_entries (
+  id                uuid primary key default gen_random_uuid(),
+  dispute_id        uuid not null references public.disputes(id) on delete cascade,
+  member_id         uuid not null references public.couple_members(id) on delete cascade,
+  what_happened     text not null default '' check (char_length(what_happened) <= 4000),
+  event_visibility  text not null default 'partner' check (event_visibility in ('private', 'partner')),
+  perspective       jsonb,
+  submitted_at      timestamptz,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  unique (dispute_id, member_id)
+);
+
+create table public.answers (
+  id             uuid primary key default gen_random_uuid(),
+  dispute_id     uuid not null references public.disputes(id) on delete cascade,
+  member_id      uuid not null references public.couple_members(id) on delete cascade,
+  question_id    text not null check (question_id ~ '^[a-z_]{2,32}$'),
+  text_answer    text not null default '' check (char_length(text_answer) <= 4000),
+  selected_tags  text[] not null default '{}',
+  visibility     text not null default 'partner' check (visibility in ('private', 'partner')),
+  updated_at     timestamptz not null default now(),
+  unique (dispute_id, member_id, question_id)
+);
+
+create table public.reconsiderations (
+  id            uuid primary key default gen_random_uuid(),
+  dispute_id    uuid not null references public.disputes(id) on delete cascade,
+  member_id     uuid not null references public.couple_members(id) on delete cascade,
+  reflections   jsonb not null default '{}'::jsonb,
+  submitted_at  timestamptz,
+  updated_at    timestamptz not null default now(),
+  unique (dispute_id, member_id)
+);
+
+create table public.reports (
+  id          uuid primary key default gen_random_uuid(),
+  dispute_id  uuid not null references public.disputes(id) on delete cascade,
+  member_id   uuid not null references public.couple_members(id) on delete cascade,
+  my_report   jsonb not null,
+  created_at  timestamptz not null default now(),
+  unique (dispute_id, member_id)
+);
+
+-- 10 tamamlanmış meseleden sonra açılan kalıcı ilişki dinamiği raporu.
+-- dispute_count: raporun kaç tamamlanmış meseleye dayanarak üretildiği.
+create table public.relationship_reports (
+  id                uuid primary key default gen_random_uuid(),
+  couple_id         uuid not null references public.couples(id) on delete cascade,
+  overall_analysis  jsonb,
+  dispute_count     integer not null check (dispute_count >= 0),
+  status            text not null default 'generating' check (status in ('generating', 'ready', 'failed')),
+  status_locked_at  timestamptz,
+  unlocked_at       timestamptz,
+  created_at        timestamptz not null default now(),
+  unique (couple_id, dispute_count)
+);
+create index relationship_reports_couple_idx on public.relationship_reports (couple_id, dispute_count desc);
+
+-- ---------------------------------------------------------------------------
+-- RLS: açık, politika yok. İstemci rolleri hiçbir satırı göremez.
+-- ---------------------------------------------------------------------------
+
+alter table public.couples              enable row level security;
+alter table public.couple_members       enable row level security;
+alter table public.disputes             enable row level security;
+alter table public.dispute_entries      enable row level security;
+alter table public.answers              enable row level security;
+alter table public.reconsiderations     enable row level security;
+alter table public.reports              enable row level security;
+alter table public.relationship_reports enable row level security;
+
+revoke all on table
+  public.couples, public.couple_members, public.disputes, public.dispute_entries,
+  public.answers, public.reconsiderations, public.reports, public.relationship_reports
+from anon, authenticated;
+
+grant all on table
+  public.couples, public.couple_members, public.disputes, public.dispute_entries,
+  public.answers, public.reconsiderations, public.reports, public.relationship_reports
+to service_role;
+
+-- ---------------------------------------------------------------------------
+-- Atomik durum geçişleri (çift AI çağrısını önleme)
+-- ---------------------------------------------------------------------------
+
+-- p_from -> p_to geçişini atomik olarak talep eder. Başarılıysa kilit zaman
+-- damgasını döner; başka bir istek zaten üretim yapıyorsa NULL döner.
+-- p_to durumunda 4 dakikadan uzun süredir takılı kalmış bir kilit bayat
+-- sayılır ve yeniden talep edilebilir.
+create or replace function public.mesele_claim_status(
+  p_dispute_id uuid,
+  p_from text,
+  p_to text,
+  p_stale_after interval default interval '4 minutes'
+) returns timestamptz
+language sql
+set search_path = public
+as $$
+  update public.disputes
+     set status = p_to,
+         status_locked_at = clock_timestamp(),
+         updated_at = now()
+   where id = p_dispute_id
+     and (
+       status = p_from
+       or (status = p_to and (status_locked_at is null or status_locked_at < clock_timestamp() - p_stale_after))
+     )
+  returning status_locked_at;
+$$;
+
+-- Üretim başarısız olursa kilidi bırakır ve durumu geri alır.
+-- Yalnızca kilidi hâlâ elinde tutan istek bunu yapabilir.
+create or replace function public.mesele_release_status(
+  p_dispute_id uuid,
+  p_lock timestamptz,
+  p_back_to text
+) returns boolean
+language sql
+set search_path = public
+as $$
+  with released as (
+    update public.disputes
+       set status = p_back_to, status_locked_at = null, updated_at = now()
+     where id = p_dispute_id and status_locked_at = p_lock
+    returning id
+  )
+  select exists (select 1 from released);
+$$;
+
+-- "…'nın Gözünden" metinlerini ve perspectives_ready durumunu tek seferde yazar.
+-- p_perspectives: { "<member_id>": { ...perspective json... }, ... }
+create or replace function public.mesele_finish_perspectives(
+  p_dispute_id uuid,
+  p_lock timestamptz,
+  p_perspectives jsonb
+) returns boolean
+language plpgsql
+set search_path = public
+as $$
+begin
+  perform 1 from public.disputes
+   where id = p_dispute_id
+     and status = 'generating_perspectives'
+     and status_locked_at = p_lock
+   for update;
+  if not found then
+    return false;
+  end if;
+
+  update public.dispute_entries e
+     set perspective = p_perspectives -> e.member_id::text,
+         updated_at = now()
+   where e.dispute_id = p_dispute_id
+     and p_perspectives ? e.member_id::text;
+
+  update public.disputes
+     set status = 'perspectives_ready', status_locked_at = null, updated_at = now()
+   where id = p_dispute_id;
+  return true;
+end;
+$$;
+
+-- Ortak raporu, iki kişisel raporu ve completed durumunu tek seferde yazar.
+-- p_reports: { "<member_id>": { ...my_report json... }, ... }
+create or replace function public.mesele_finish_reports(
+  p_dispute_id uuid,
+  p_lock timestamptz,
+  p_shared jsonb,
+  p_reports jsonb
+) returns boolean
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_member text;
+begin
+  perform 1 from public.disputes
+   where id = p_dispute_id
+     and status = 'generating_reports'
+     and status_locked_at = p_lock
+   for update;
+  if not found then
+    return false;
+  end if;
+
+  for v_member in select jsonb_object_keys(p_reports) loop
+    insert into public.reports (dispute_id, member_id, my_report)
+    values (p_dispute_id, v_member::uuid, p_reports -> v_member)
+    on conflict (dispute_id, member_id)
+    do update set my_report = excluded.my_report, created_at = now();
+  end loop;
+
+  update public.disputes
+     set shared_report = p_shared,
+         shared_approved_a = false,
+         shared_approved_b = false,
+         status = 'completed',
+         completed_at = coalesce(completed_at, now()),
+         status_locked_at = null,
+         updated_at = now()
+   where id = p_dispute_id;
+  return true;
+end;
+$$;
+
+-- Partnerlerin gönderimlerine bakarak durumu ileri taşır. Satır kilidi
+-- sayesinde iki partner aynı anda "gönder"e bastığında da doğru sonuç çıkar.
+create or replace function public.mesele_sync_progress(p_dispute_id uuid)
+returns text
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_status text;
+  v_next text;
+  v_submitted integer;
+  v_started integer;
+begin
+  select status into v_status from public.disputes where id = p_dispute_id for update;
+  if v_status is null then
+    return null;
+  end if;
+  v_next := v_status;
+
+  if v_status in ('draft', 'answers_in_progress') then
+    select count(*) filter (where submitted_at is not null), count(*)
+      into v_submitted, v_started
+      from public.dispute_entries where dispute_id = p_dispute_id;
+    if v_submitted >= 2 then
+      v_next := 'both_answers_completed';
+    elsif v_started > 0 or exists (select 1 from public.answers where dispute_id = p_dispute_id) then
+      v_next := 'answers_in_progress';
+    end if;
+  elsif v_status in ('perspectives_ready', 'reconsideration_in_progress') then
+    select count(*) filter (where submitted_at is not null), count(*)
+      into v_submitted, v_started
+      from public.reconsiderations where dispute_id = p_dispute_id;
+    if v_submitted >= 2 then
+      v_next := 'reconsideration_completed';
+    elsif v_started > 0 then
+      v_next := 'reconsideration_in_progress';
+    end if;
+  end if;
+
+  if v_next is distinct from v_status then
+    update public.disputes set status = v_next, updated_at = now() where id = p_dispute_id;
+  end if;
+  return v_next;
+end;
+$$;
+
+-- Genel Görüş raporunu üretme hakkını atomik olarak talep eder.
+create or replace function public.mesele_claim_relationship_report(
+  p_couple_id uuid,
+  p_dispute_count integer,
+  p_stale_after interval default interval '4 minutes'
+) returns table (id uuid, status_locked_at timestamptz)
+language sql
+set search_path = public
+as $$
+  insert into public.relationship_reports as r (couple_id, dispute_count, status, status_locked_at)
+  values (p_couple_id, p_dispute_count, 'generating', clock_timestamp())
+  on conflict (couple_id, dispute_count) do update
+     set status = 'generating', status_locked_at = clock_timestamp()
+   where r.status = 'failed'
+      or (r.status = 'generating' and (r.status_locked_at is null or r.status_locked_at < clock_timestamp() - p_stale_after))
+  returning r.id, r.status_locked_at;
+$$;
+
+create or replace function public.mesele_finish_relationship_report(
+  p_report_id uuid,
+  p_lock timestamptz,
+  p_analysis jsonb
+) returns boolean
+language sql
+set search_path = public
+as $$
+  with done as (
+    update public.relationship_reports
+       set overall_analysis = p_analysis,
+           status = 'ready',
+           status_locked_at = null,
+           unlocked_at = coalesce(unlocked_at, now())
+     where id = p_report_id and status = 'generating' and status_locked_at = p_lock
+    returning id
+  )
+  select exists (select 1 from done);
+$$;
+
+create or replace function public.mesele_fail_relationship_report(
+  p_report_id uuid,
+  p_lock timestamptz
+) returns boolean
+language sql
+set search_path = public
+as $$
+  with failed as (
+    update public.relationship_reports
+       set status = 'failed', status_locked_at = null
+     where id = p_report_id and status = 'generating' and status_locked_at = p_lock
+    returning id
+  )
+  select exists (select 1 from failed);
+$$;
+
+-- Fonksiyonlar yalnızca sunucu (service_role) tarafından çağrılabilir.
+revoke execute on function
+  public.mesele_claim_status(uuid, text, text, interval),
+  public.mesele_release_status(uuid, timestamptz, text),
+  public.mesele_finish_perspectives(uuid, timestamptz, jsonb),
+  public.mesele_finish_reports(uuid, timestamptz, jsonb, jsonb),
+  public.mesele_sync_progress(uuid),
+  public.mesele_claim_relationship_report(uuid, integer, interval),
+  public.mesele_finish_relationship_report(uuid, timestamptz, jsonb),
+  public.mesele_fail_relationship_report(uuid, timestamptz)
+from public, anon, authenticated;
+
+grant execute on function
+  public.mesele_claim_status(uuid, text, text, interval),
+  public.mesele_release_status(uuid, timestamptz, text),
+  public.mesele_finish_perspectives(uuid, timestamptz, jsonb),
+  public.mesele_finish_reports(uuid, timestamptz, jsonb, jsonb),
+  public.mesele_sync_progress(uuid),
+  public.mesele_claim_relationship_report(uuid, integer, interval),
+  public.mesele_finish_relationship_report(uuid, timestamptz, jsonb),
+  public.mesele_fail_relationship_report(uuid, timestamptz)
+to service_role;

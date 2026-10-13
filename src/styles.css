@@ -1,0 +1,215 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/fraunces/opsz.css';
+@import '@fontsource-variable/fraunces/opsz-italic.css';
+@import '@fontsource-variable/figtree';
+
+/*
+ * MESELE tasarım dili: sıcak bir danışmanlık odası.
+ * Krem kâğıt, pişmiş toprak (kil), adaçayı ve deniz tonları.
+ * Bileşenler ham renk değil, yalnızca bu semantik tokenları kullanır.
+ */
+@theme {
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Zemin ve yüzeyler */
+  --color-paper: #fbf6ee;
+  --color-surface: #fffdf9;
+  --color-sunken: #f4ece1;
+  --color-line: #e7dbcc;
+  --color-line-strong: #d6c5b1;
+
+  /* Metin */
+  --color-ink: #2a211c;
+  --color-ink-soft: #5b4d44;
+  --color-ink-faint: #85746a;
+
+  /* Birincil: pişmiş toprak */
+  --color-clay: #b4553a;
+  --color-clay-strong: #94422b;
+  --color-clay-soft: #f5e1d7;
+  --color-on-clay: #fffaf5;
+
+  /* Partner tonları: A kil, B deniz */
+  --color-partner-a: #b4553a;
+  --color-partner-a-soft: #f5e1d7;
+  --color-partner-b: #06658e;
+  --color-partner-b-soft: #dce9f0;
+
+  /* Destek tonları */
+  --color-sage: #5f8463;
+  --color-sage-soft: #e2ebdf;
+  --color-honey: #a8741c;
+  --color-honey-soft: #f6ead2;
+  --color-danger: #a8321f;
+  --color-danger-soft: #f8e0da;
+
+  --radius-card: 1.25rem;
+  --radius-pill: 999px;
+
+  --shadow-soft: 0 1px 2px rgb(42 33 28 / 0.04), 0 8px 24px -12px rgb(42 33 28 / 0.18);
+  --shadow-lift: 0 2px 4px rgb(42 33 28 / 0.05), 0 18px 40px -18px rgb(42 33 28 / 0.28);
+
+  --animate-rise: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-breathe: breathe 3.2s ease-in-out infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes breathe {
+    0%,
+    100% {
+      transform: scale(0.94);
+      opacity: 0.55;
+    }
+    50% {
+      transform: scale(1.06);
+      opacity: 1;
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #191411;
+    --color-surface: #221b17;
+    --color-sunken: #2b221d;
+    --color-line: #3a2f28;
+    --color-line-strong: #4d4037;
+
+    --color-ink: #f4ebe1;
+    --color-ink-soft: #d2c3b5;
+    --color-ink-faint: #a29285;
+
+    --color-clay: #e38c6d;
+    --color-clay-strong: #f2a587;
+    --color-clay-soft: #3d2620;
+    --color-on-clay: #1d1210;
+
+    --color-partner-a: #d9704f;
+    --color-partner-a-soft: #3d2620;
+    --color-partner-b: #1d97a3;
+    --color-partner-b-soft: #17303a;
+
+    --color-sage: #9fc1a2;
+    --color-sage-soft: #24321f;
+    --color-honey: #e2b462;
+    --color-honey-soft: #3a2e17;
+    --color-danger: #f19a88;
+    --color-danger-soft: #401f19;
+
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 18px 40px -18px rgb(0 0 0 / 0.7);
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    min-height: 100dvh;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: var(--color-clay-soft);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-clay);
+    outline-offset: 3px;
+    border-radius: 0.5rem;
+  }
+
+  textarea,
+  input {
+    font-size: 16px; /* iOS Safari'de odaklanınca yakınlaştırmayı önler */
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* iOS çentik ve ana ekran çubuğu için güvenli alanlar */
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 0.75rem);
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .prose-warm p + p {
+    margin-top: 0.85em;
+  }
+
+  .paper-grain {
+    background-image:
+      radial-gradient(120% 60% at 0% 0%, color-mix(in oklab, var(--color-clay-soft) 70%, transparent), transparent 60%),
+      radial-gradient(
+        90% 50% at 100% 10%,
+        color-mix(in oklab, var(--color-partner-b-soft) 60%, transparent),
+        transparent 65%
+      );
+  }
+}
+
+/* Nefes ritmi: 4 saniye al (0-40%), 6 saniye ver (40-100%) */
+@keyframes breath-cycle {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.55;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.55;
+  }
+}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#fbf6ee" />
+    <title>MESELE — Bağlantı yok</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --paper: #fbf6ee;
+        --ink: #2a211c;
+        --soft: #5b4d44;
+        --clay: #b4553a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #191411;
+          --ink: #f4ebe1;
+          --soft: #d2c3b5;
+          --clay: #e38c6d;
+        }
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      main {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 24px;
+        text-align: center;
+      }
+      h1 {
+        font-family: Georgia, serif;
+        font-size: 26px;
+        margin: 8px 0 0;
+      }
+      p {
+        color: var(--soft);
+        line-height: 1.6;
+        max-width: 320px;
+        margin: 0;
+      }
+      button {
+        margin-top: 10px;
+        height: 48px;
+        padding: 0 22px;
+        border-radius: 999px;
+        border: 0;
+        background: var(--clay);
+        color: #fffaf5;
+        font-weight: 600;
+        font-size: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg width="64" height="64" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M24 13.2a12.5 12.5 0 010 21.6 12.5 12.5 0 010-21.6z" fill="#a8741c" opacity="0.55" />
+        <circle cx="18" cy="24" r="12.5" fill="none" stroke="#b4553a" stroke-width="4" />
+        <circle cx="30" cy="24" r="12.5" fill="none" stroke="#06658e" stroke-width="4" />
+      </svg>
+      <h1>Şu an bağlantı yok</h1>
+      <p>
+        MESELE’nin ikinizi dinleyebilmesi için internete ihtiyacı var. Bu arada derin bir nefes al; bağlantı geri
+        geldiğinde kaldığın yerden devam edeceksin.
+      </p>
+      <button type="button" onclick="location.reload()">Tekrar dene</button>
+    </main>
+  </body>
+</html>

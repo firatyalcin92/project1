@@ -1,0 +1,37 @@
+{
+  "id": "/",
+  "name": "MESELE — Bir tartışmayı anlamanın daha iyi bir yolu",
+  "short_name": "MESELE",
+  "description": "Çiftlerin tartışmalarındaki döngüyü sıcak ve şefkatli bir aynayla görmesini sağlayan, yapay zekâ destekli anlama ve onarım rehberi. Psk. Dan. Fırat YALÇIN tarafından tasarlandı.",
+  "lang": "tr",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#fbf6ee",
+  "theme_color": "#fbf6ee",
+  "categories": ["lifestyle", "health", "social"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Panel",
+      "short_name": "Panel",
+      "url": "/panel",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Meseleler",
+      "short_name": "Arşiv",
+      "url": "/meseleler",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
