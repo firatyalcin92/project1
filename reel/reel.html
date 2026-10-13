@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Sevme Sanatı Reel</title>
+<link rel="stylesheet" href="sahne.css">
+<style>
+/* ---------- book ---------- */
+.bookwrap { position: absolute; left: 50%; top: 400px; width: 480px; height: 700px; margin-left: -240px; perspective: 1700px; }
+.book { position: absolute; inset: 0; border-radius: 4px 12px 12px 4px; transform-style: preserve-3d;
+  background: linear-gradient(100deg, #5f1d26 0%, #86303b 7%, #7d2a35 55%, #6a232d 100%);
+  box-shadow: 34px 46px 70px rgba(70, 35, 20, .35), inset -2px 0 0 rgba(255,255,255,.06); }
+.book .spine { position: absolute; left: 0; top: 0; bottom: 0; width: 32px;
+  background: linear-gradient(90deg, rgba(0,0,0,.4), rgba(255,255,255,.1) 55%, rgba(0,0,0,.18)); }
+.book .pages { position: absolute; right: -16px; top: 10px; bottom: 10px; width: 16px; border-radius: 0 5px 5px 0;
+  background: repeating-linear-gradient(90deg, #f1e8d9 0 2px, #d8cbb6 2px 3px); }
+.book .t { position: absolute; top: 120px; left: 40px; right: 10px; text-align: center;
+  font: italic 600 96px/1.02 var(--serif); color: #f6e8d8; }
+.book .orn { position: absolute; top: 375px; left: 50%; margin-left: -60px; }
+.book .a { position: absolute; bottom: 86px; left: 32px; right: 0; text-align: center;
+  font: 600 27px var(--sans); letter-spacing: 9px; color: #e9c9a6; }
+.floorshadow { position: absolute; left: 50%; top: 1110px; width: 560px; height: 50px; margin-left: -260px;
+  background: radial-gradient(ellipse, rgba(60,35,20,.28), transparent 70%); }
+
+/* ---------- quote ---------- */
+.qmark { position: absolute; left: 0; right: 60px; top: 250px; text-align: center; font: 700 330px/1 var(--serif); color: var(--wine); }
+.q1 { top: 640px; font: italic 600 104px/1.12 var(--serif); }
+.q2 { top: 930px; font: 400 70px/1.28 var(--serif); color: var(--ink-soft); }
+.q2 .hl { position: relative; color: var(--wine); font-weight: 600; }
+.q2 .hl i { position: absolute; left: 0; right: 0; bottom: 4px; height: 5px; background: var(--wine); transform-origin: left; }
+.qa { position: absolute; left: 0; right: 60px; top: 1230px; text-align: center; font: 500 32px var(--sans); letter-spacing: 1px; color: var(--ink-soft); }
+.wd { display: inline-block; }
+
+/* ---------- piano ---------- */
+.note { position: absolute; font: 400 84px var(--serif); color: var(--wine); }
+.tags { position: absolute; left: 0; right: 60px; top: 1090px; text-align: center; font: 700 34px var(--sans); letter-spacing: 8px; color: var(--sage); }
+
+/* ---------- wrong questions ---------- */
+.wq-h { top: 300px; font: 500 58px/1.25 var(--serif); }
+.wq-h i { color: var(--wine); font-weight: 600; }
+.pill { position: absolute; left: 70px; right: 130px; text-align: center; }
+.pill span { position: relative; display: inline-block; padding: 34px 56px; border-radius: 80px; background: #fffaf3;
+  border: 2px solid #e2d3c0; font: 600 54px var(--sans); color: var(--ink); box-shadow: 0 14px 30px rgba(80,50,30,.08); }
+.pill span i { position: absolute; left: 40px; right: 40px; top: 50%; height: 7px; margin-top: -3px; border-radius: 4px; background: var(--wine); transform-origin: left; }
+
+/* ---------- phone ---------- */
+.phone { position: absolute; left: 50%; top: 215px; width: 440px; height: 860px; margin-left: -255px; border-radius: 70px;
+  background: #151211; padding: 16px; box-shadow: 0 40px 80px rgba(50,30,20,.35); }
+.screen { position: absolute; inset: 16px; border-radius: 56px; overflow: hidden; }
+.lock { background: linear-gradient(165deg, #6d4743 0%, #3c2a33 55%, #231c26 100%); color: #fff; }
+.lock .d { position: absolute; top: 105px; width: 100%; text-align: center; font: 500 28px var(--sans); opacity: .85; }
+.lock .tm { position: absolute; top: 140px; width: 100%; text-align: center; font: 300 150px/1 var(--sans); letter-spacing: -4px; }
+.notif { position: absolute; left: 22px; right: 22px; padding: 20px 24px; border-radius: 28px; background: rgba(255,255,255,.2); color: #fff; }
+.notif b { display: block; font: 600 20px var(--sans); letter-spacing: 1.5px; opacity: .8; margin-bottom: 6px; text-transform: uppercase; }
+.notif p { font: 500 27px/1.3 var(--sans); }
+.lens { position: absolute; width: 190px; height: 190px; border-radius: 50%; border: 12px solid var(--cream);
+  background: rgba(255,255,255,.12); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.lens::after { content: ""; position: absolute; width: 22px; height: 110px; background: var(--cream); border-radius: 11px;
+  left: 150px; top: 140px; transform: rotate(-45deg); transform-origin: top; }
+.count { position: absolute; left: 0; right: 60px; top: 1105px; text-align: center; }
+.count span { display: inline-block; padding: 16px 34px; border-radius: 50px; background: var(--ink); color: var(--cream); font: 600 34px var(--sans); }
+.tagcard { position: absolute; left: 50%; top: 720px; margin-left: -300px; width: 540px; text-align: center; padding: 34px 20px;
+  background: var(--cream); border-radius: 30px; box-shadow: 0 24px 60px rgba(30,15,10,.4); font: italic 600 74px var(--serif); color: var(--wine); }
+.chat { background: #efe6da; }
+.chat .hd { position: absolute; top: 0; left: 0; right: 0; height: 150px; padding: 72px 0 0 34px; background: #f8f2ea;
+  border-bottom: 1px solid #e0d3c3; font: 600 30px var(--sans); }
+.chat .hd .av { display: inline-block; width: 52px; height: 52px; border-radius: 50%; background: var(--sage); color: #fff; text-align: center;
+  font: 600 28px/52px var(--sans); vertical-align: middle; margin-right: 14px; }
+.chat .hd small { font: 400 20px var(--sans); color: #7d7068; margin-left: 8px; }
+.bub { position: absolute; max-width: 330px; padding: 18px 22px; border-radius: 26px; font: 500 27px/1.32 var(--sans); }
+.bub.in { left: 20px; background: #fff; color: var(--ink); border-bottom-left-radius: 6px; }
+.bub.out { right: 20px; background: var(--wine); color: #fff; border-bottom-right-radius: 6px; }
+.typing { position: absolute; right: 20px; padding: 20px 26px; border-radius: 26px; background: var(--wine); }
+.typing i { display: inline-block; width: 12px; height: 12px; margin: 0 4px; border-radius: 50%; background: #fff; }
+
+/* ---------- four ---------- */
+.row4 { position: absolute; left: 200px; right: 60px; text-align: left; white-space: nowrap; }
+.row4 b { font: 700 30px var(--sans); color: var(--wine); letter-spacing: 3px; vertical-align: 52px; margin-right: 22px; }
+.row4 span { font: 600 124px/1 var(--serif); }
+
+/* ---------- circles ---------- */
+.circ { position: absolute; width: 360px; height: 360px; margin: -180px 0 0 -180px; display: flex; align-items: center; justify-content: center;
+  font: italic 600 64px var(--serif); color: var(--cream); }
+.phase { top: 300px; font: italic 600 70px/1.15 var(--serif); color: var(--wine); }
+
+/* ---------- dark ---------- */
+.dk { position: absolute; left: 70px; right: 130px; text-align: center; }
+.dk span { position: relative; display: inline-block; font: 600 110px/1.1 var(--serif); color: var(--cream); }
+.dk span i { position: absolute; left: -16px; right: -16px; top: 54%; height: 8px; border-radius: 4px; background: var(--peach); transform-origin: left; }
+
+/* ---------- ask ---------- */
+.card { position: absolute; left: 70px; right: 130px; padding: 52px 54px; border-radius: 40px; }
+.card.lt { background: #fffaf3; border: 2px solid #e6d8c6; box-shadow: 0 20px 50px rgba(80,50,30,.10); }
+.card.wn { background: var(--wine); color: var(--cream); box-shadow: 0 24px 60px rgba(90,20,30,.25); }
+.card small { display: block; font: 600 38px/1.3 var(--sans); color: var(--ink-soft); margin-bottom: 18px; }
+.card p { font: 600 72px/1.15 var(--serif); }
+.card em { font-style: italic; color: var(--wine); }
+.card.wn em { color: var(--peach); }
+
+/* ---------- gap ---------- */
+.g1 { top: 470px; font: 500 52px/1.3 var(--sans); color: var(--ink-soft); }
+.g2 { top: 760px; font: 600 140px/1 var(--serif); }
+.g3 { top: 960px; font: italic 600 100px/1.1 var(--serif); color: var(--wine); }
+
+/* ---------- A-roll overlays ---------- */
+.acard { position: absolute; left: 70px; right: 130px; padding: 42px 46px; border-radius: 36px; text-align: center;
+  background: rgba(246, 239, 230, .95); color: var(--ink); box-shadow: 0 24px 60px rgba(0,0,0,.35); }
+.acard .k { font: 700 26px var(--sans); letter-spacing: 7px; color: var(--wine); margin-bottom: 16px; }
+.acard p { font: 600 64px/1.16 var(--serif); }
+.acard em { color: var(--wine); }
+.opt { display: flex; align-items: center; gap: 22px; text-align: left; margin-top: 22px; padding: 22px 26px; border-radius: 24px; background: #fff; border: 2px solid #e6d8c6; }
+.opt b { flex: none; width: 64px; height: 64px; border-radius: 50%; background: var(--wine); color: #fff; font: 700 32px/64px var(--sans); text-align: center; }
+.opt span { font: 600 40px/1.2 var(--serif); }
+.cta { display: inline-block; margin-top: 30px; padding: 18px 40px; border-radius: 50px; background: var(--wine); color: #fff; font: 700 34px var(--sans); }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- A-ROLL: placeholder portrait. Replace with real / lip-synced footage (see KURGU_PLANI.md). -->
+  <div id="aroll">
+    <img src="portre.jpg" alt="">
+    <div class="vig"></div>
+    <div class="acard" id="ovQ" style="top:960px;opacity:0">
+      <div class="k">ASIL SORU</div>
+      <p>Ben bir insanı sevmeyi <em>ne kadar</em> biliyorum?</p>
+    </div>
+    <div class="acard" id="ovC" style="top:1020px;left:230px;right:290px;padding:24px 30px;opacity:0">
+      <p style="font-size:58px">Çaba <em>≠</em> Katlanmak</p>
+    </div>
+    <div class="acard" id="ovP" style="top:860px;opacity:0">
+      <div class="k">SİZCE SEVGİ…</div>
+      <div class="opt" id="opA"><b>A</b><span>Hissedilen bir duygu mu?</span></div>
+      <div class="opt" id="opB"><b>B</b><span>Öğrenilmesi gereken bir beceri mi?</span></div>
+      <div class="cta" id="cta">Yorumlara yazın ↓</div>
+    </div>
+  </div>
+
+  <!-- B1 book -->
+  <section class="scene b" id="s-book">
+    <div class="label" id="bk-l" style="top:290px">Erich Fromm · 1956</div>
+    <div class="floorshadow"></div>
+    <div class="bookwrap"><div class="book" id="book">
+      <div class="spine"></div><div class="pages"></div>
+      <div class="t">Sevme<br>Sanatı</div>
+      <svg class="orn" width="120" height="70" viewBox="0 0 120 70"><circle cx="45" cy="35" r="26" fill="none" stroke="#e9c9a6" stroke-width="3"/><circle cx="75" cy="35" r="26" fill="none" stroke="#e9c9a6" stroke-width="3"/></svg>
+      <div class="a">ERICH FROMM</div>
+    </div></div>
+  </section>
+
+  <!-- B2 quote -->
+  <section class="scene b" id="s-quote">
+    <div class="qmark" id="qm">“</div>
+    <div class="big q1" id="q1"><span class="wd">Sevgi</span> <span class="wd">bir</span> <span class="wd">sanat</span> <span class="wd">mıdır?</span></div>
+    <div class="big q2" id="q2"><span class="wd">O</span> <span class="wd">hâlde</span> <span class="wd hl">bilgi<i></i></span> <span class="wd">ve</span> <span class="wd hl">çaba<i></i></span> <span class="wd">gerektirir.</span></div>
+    <div class="qa" id="qa">— Erich Fromm, <i>Sevme Sanatı</i></div>
+  </section>
+
+  <!-- B3 think -->
+  <section class="scene b" id="s-think">
+    <div class="big" id="th" style="top:800px;font:italic 600 128px/1.1 var(--serif)"><span class="wd">Şimdi</span> <span class="wd">bir</span> <span class="wd">düşünün.</span></div>
+  </section>
+
+  <!-- B4 painting -->
+  <section class="scene b" id="s-paint">
+    <div class="label" id="pt-l" style="top:270px">01 · Resim</div>
+    <svg width="1080" height="1920" style="position:absolute;inset:0">
+      <defs>
+        <filter id="brush"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="14"/></filter>
+        <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="14" dy="22" stdDeviation="18" flood-color="#5a3a28" flood-opacity=".25"/></filter>
+      </defs>
+      <g stroke="#8a6a50" stroke-width="18" stroke-linecap="round">
+        <line x1="530" y1="340" x2="310" y2="1170"/><line x1="530" y1="340" x2="750" y2="1170"/><line x1="530" y1="340" x2="530" y2="1150"/>
+      </g>
+      <rect x="250" y="1040" width="560" height="26" rx="6" fill="#7a5b44"/>
+      <rect x="270" y="400" width="520" height="640" rx="6" fill="#fcf8f1" filter="url(#sh)"/>
+      <g filter="url(#brush)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path id="p-sun" pathLength="1" d="M640 560 m-62 0 a62 62 0 1 0 124 0 a62 62 0 1 0 -124 0" stroke="#e9a979" stroke-width="30"/>
+        <path id="p-h1" pathLength="1" d="M300 860 C 380 760, 450 790, 530 850 S 690 790, 760 840" stroke="#7f8c70" stroke-width="40"/>
+        <path id="p-h2" pathLength="1" d="M300 960 C 400 880, 520 950, 610 925 S 720 900, 760 935" stroke="#7d2a35" stroke-width="36"/>
+        <path id="p-bird" pathLength="1" d="M380 620 q 22 -24 44 0 q 22 -24 44 0" stroke="#2b2320" stroke-width="9"/>
+      </g>
+    </svg>
+  </section>
+
+  <!-- B5 music -->
+  <section class="scene b" id="s-music">
+    <div class="label" id="mu-l" style="top:270px">02 · Müzik</div>
+    <svg id="piano" width="1080" height="1920" style="position:absolute;inset:0"></svg>
+    <div id="notes"></div>
+    <div class="tags" id="mu-t">Pratik · Tekrar · Emek</div>
+  </section>
+
+  <!-- B6 wrong questions -->
+  <section class="scene b" id="s-wrong">
+    <div class="big wq-h" id="wq-h">Fromm'a göre çoğu zaman<br><i>yanlış soruya</i> odaklanıyoruz:</div>
+    <div class="pill" id="w1" style="top:620px"><span>Nasıl daha çekici olurum?<i></i></span></div>
+    <div class="pill" id="w2" style="top:820px"><span>Nasıl sevilirim?<i></i></span></div>
+    <div class="pill" id="w3" style="top:1020px"><span>Nasıl vazgeçilmez olurum?<i></i></span></div>
+  </section>
+
+  <!-- B7 phone checking -->
+  <section class="scene b" id="s-phone">
+    <div class="phone" id="ph1"><div class="screen lock">
+      <div class="d">Salı, 14 Ekim</div><div class="tm">23:47</div>
+      <div class="notif" id="n1" style="top:350px"><b>Mesajlar · şimdi</b><p>Ece: Yarın 10'da görüşüyoruz 👍</p></div>
+      <div class="notif" id="n2" style="top:490px"><b>Mesajlar · 4 dk önce</b><p>İş grubu: Sunumu yükledim</p></div>
+      <div class="notif" id="n3" style="top:630px"><b>Instagram · 12 dk önce</b><p>3 yeni beğeni</p></div>
+      <div class="lens" id="lens"></div>
+    </div></div>
+    <div class="count" id="cnt"><span>Bugün <b id="cntn">1</b>. kez</span></div>
+    <div class="tagcard" id="merak">“Merak” mı?</div>
+  </section>
+
+  <!-- B8 chat -->
+  <section class="scene b" id="s-chat">
+    <div class="phone"><div class="screen chat">
+      <div class="hd"><span class="av">D</span>Deniz<small>çevrimiçi</small></div>
+      <div class="bub in" id="c1" style="top:200px">Bu akşam arkadaşlarla buluşacağım, biraz geç gelirim 🙂</div>
+      <div class="typing" id="c2" style="top:400px"><i></i><i></i><i></i></div>
+      <div class="bub out" id="c3" style="top:400px">Gitmesen olmaz mı? Zaten hep onlarlasın…</div>
+      <div class="bub out" id="c4" style="top:560px">Sadece seni kaybetmek istemiyorum.</div>
+    </div></div>
+  </section>
+
+  <!-- B9 scale -->
+  <section class="scene b" id="s-scale">
+    <div class="label" id="sc-l" style="top:270px">Her tartışmada</div>
+    <svg id="scale" width="1080" height="1920" style="position:absolute;inset:0"></svg>
+  </section>
+
+  <!-- B10 four elements -->
+  <section class="scene b" id="s-four">
+    <div class="label" id="f-l" style="top:290px">Fromm'a göre olgun sevginin 4 unsuru</div>
+    <div class="row4" id="f1" style="top:470px"><b>01</b><span>İlgi</span></div>
+    <div class="row4" id="f2" style="top:670px"><b>02</b><span>Sorumluluk</span></div>
+    <div class="row4" id="f3" style="top:870px"><b>03</b><span>Saygı</span></div>
+    <div class="row4" id="f4" style="top:1070px"><b>04</b><span>Tanımak</span></div>
+  </section>
+
+  <!-- B11 circles -->
+  <section class="scene b" id="s-circ">
+    <div class="big phase" id="ph-a">Farklı bir birey</div>
+    <div class="big phase" id="ph-b">Sınırlarına saygı</div>
+    <div class="big phase" id="ph-c">Onu dönüştürmeye<br>çalışmamak</div>
+    <svg width="1080" height="1920" style="position:absolute;inset:0">
+      <circle id="ring" cx="720" cy="780" r="232" fill="none" stroke="#7f8c70" stroke-width="6" stroke-dasharray="18 16" style="transform-box:fill-box;transform-origin:center"/>
+    </svg>
+    <div class="circ" id="cA" style="background:rgba(125,42,53,.92)">Siz</div>
+    <div class="circ" id="cB" style="background:rgba(127,140,112,.95)">O</div>
+    <div id="ghost" style="position:absolute;width:300px;height:300px;margin:-150px 0 0 -150px;border:7px dashed #7d2a35;border-radius:18px"></div>
+  </section>
+
+  <!-- B12 not the price -->
+  <section class="scene b dark" id="s-dark">
+    <div class="dk" id="d1" style="top:450px"><span>Şiddet<i></i></span></div>
+    <div class="dk" id="d2" style="top:620px"><span>Aşağılanma<i></i></span></div>
+    <div class="dk" id="d3" style="top:790px"><span>Sürekli kontrol<i></i></span></div>
+    <div class="big" id="d4" style="top:1030px;font:italic 600 76px/1.15 var(--serif);color:var(--peach)">sevginin bedeli değildir.</div>
+  </section>
+
+  <!-- B13 the two questions -->
+  <section class="scene b" id="s-ask">
+    <div class="label" id="a-l" style="top:280px">Şunu da sorun</div>
+    <div class="card lt" id="a1" style="top:400px"><small id="a1s">Beni sevdiğini söyleyen bu insan…</small><p id="a1p">beni gerçekten <em>tanımaya</em> çalışıyor mu?</p></div>
+    <div class="card wn" id="a2" style="top:900px"><p>Ben onu <em>tanımaya</em> çalışıyor muyum?</p></div>
+  </section>
+
+  <!-- B14 the gap -->
+  <section class="scene b" id="s-gap">
+    <div class="big g1" id="g1">Çünkü bazen bir ilişkide<br>eksik olan şey</div>
+    <div class="big g2" id="g2">aşk değil,</div>
+    <div class="big g3" id="g3">sevgiyi yaşama<br>biçimimizdir.</div>
+  </section>
+
+  <div id="cap"></div>
+</div>
+
+<script src="veri/captions.js"></script>
+<script>
+const OVERLAY = location.search.includes('overlay');
+const NOCAPS = location.search.includes('nocap');
+if (OVERLAY) document.body.classList.add('overlay');
+window.DURATION = 160.9;
+
+// A = talking head (portrait placeholder), others = B-roll scenes. Cut points sit in the pauses between words.
+const SEG = [
+  ['A', 0, 13.2, 'close'],
+  ['book', 13.2, 16.95], ['quote', 16.95, 22.15], ['think', 22.15, 23.45], ['paint', 23.45, 27.35], ['music', 27.35, 31.55],
+  ['A', 31.55, 37.5, 'wide'],
+  ['wrong', 37.5, 47.65],
+  ['A', 47.65, 54.7, 'close'],
+  ['phone', 54.7, 60.55], ['chat', 60.55, 65.95], ['scale', 65.95, 74.4],
+  ['A', 74.4, 85.05, 'wide'],
+  ['four', 85.05, 91.4],
+  ['A', 91.4, 95.75, 'close'],
+  ['circ', 95.75, 105.5],
+  ['A', 105.5, 112.9, 'wide'],
+  ['dark', 112.9, 120.2],
+  ['A', 120.2, 131.1, 'close'],
+  ['ask', 131.1, 143.6], ['gap', 143.6, 150.7],
+  ['A', 150.7, 160.9, 'wide'],
+];
+window.SEG = SEG;
+// scenes whose on-screen text already says what is being spoken: no captions there
+const NOCAP = new Set(['quote', 'think', 'wrong', 'four', 'dark', 'ask', 'gap']);
+const NOCAP_A = [[50.3, 54.7], [150.7, 999]];
+
+const $ = id => document.getElementById(id);
+const cl = x => Math.max(0, Math.min(1, x));
+const ease = x => 1 - Math.pow(1 - cl(x), 3);
+const io = (t, a, d = .5) => ease((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+function st(el, o, y = 0, s = 1, extra = '') { el.style.opacity = o; el.style.transform = `translateY(${y}px) scale(${s}) ${extra}`; }
+function rise(el, t, a, d = .55, dist = 40) { const p = io(t, a, d); st(el, p, (1 - p) * dist); return p; }
+function words(el, t, times, d = .3) { [...el.querySelectorAll('.wd')].forEach((w, i) => rise(w, t, times[i] - .05, d, 18)); }
+
+// ---------- A-roll ----------
+const img = document.querySelector('#aroll img');
+function aroll(t, seg) {
+  const [, a, b, kind] = seg, p = (t - a) / (b - a);
+  const s = kind === 'close' ? lerp(1.30, 1.35, p) : lerp(1.0, 1.045, p);
+  const dx = Math.sin(t * .37) * 3, dy = Math.sin(t * .29 + 1) * 2.5;   // slight handheld drift
+  img.style.transformOrigin = kind === 'close' ? '686px 520px' : '50% 32%';
+  img.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
+  // overlays
+  const q = io(t, 50.3, .45) * (1 - io(t, 54.4, .25)); st($('ovQ'), q, (1 - q) * 30);
+  const c = io(t, 110.75, .4) * (1 - io(t, 112.7, .2)); st($('ovC'), c, (1 - c) * 24);
+  const pp = io(t, 151.0, .5); st($('ovP'), pp, (1 - pp) * 40);
+  rise($('opA'), t, 152.8, .45, 24); rise($('opB'), t, 155.2, .45, 24); rise($('cta'), t, 157.3, .45, 20);
+}
+
+// ---------- scenes ----------
+const S = {};
+S.book = t => {
+  rise($('bk-l'), t, 13.5);
+  const p = io(t, 13.25, 1.0);
+  $('book').style.transform = `translateY(${(1 - p) * 140}px) rotateY(${-28 + 14 * p + (t - 13.2) * 1.4}deg) rotateX(3deg)`;
+  $('book').style.opacity = p;
+};
+S.quote = t => {
+  const p = io(t, 16.95, .5); st($('qm'), p, (1 - p) * 30);
+  words($('q1'), t, [17.14, 17.44, 17.74, 18.02]);
+  words($('q2'), t, [19.12, 19.26, 19.60, 19.84, 19.98, 20.26]);
+  const hl = $('q2').querySelectorAll('.hl i');
+  hl[0].style.transform = `scaleX(${io(t, 19.85, .4)})`; hl[1].style.transform = `scaleX(${io(t, 20.2, .4)})`;
+  rise($('qa'), t, 20.7);
+  document.getElementById('s-quote').style.transform = `scale(${1 + (t - 16.95) * .006})`;
+};
+S.think = t => { words($('th'), t, [22.30, 22.52, 22.72]); $('th').style.transform = `scale(${1 + (t - 22.15) * .02})`; };
+const dash = (id, t, a, d) => { $(id).style.strokeDasharray = '1 1'; $(id).style.strokeDashoffset = 1 - ease((t - a) / d); };
+S.paint = t => {
+  rise($('pt-l'), t, 23.55);
+  dash('p-sun', t, 24.0, 1.0); dash('p-h1', t, 24.7, 1.1); dash('p-h2', t, 25.6, 1.1); dash('p-bird', t, 26.5, .6);
+};
+
+// piano
+(() => {
+  const g = $('piano'), W = 70, X0 = 120, Y0 = 560, H = 440, ns = 'http://www.w3.org/2000/svg';
+  let h = `<rect x="${X0 - 18}" y="${Y0 - 40}" width="${12 * W + 36}" height="${H + 60}" rx="22" fill="#2b2320"/>`;
+  for (let i = 0; i < 12; i++) h += `<rect id="wk${i}" x="${X0 + i * W + 2}" y="${Y0}" width="${W - 4}" height="${H}" rx="8" fill="#fffaf2"/>`;
+  [0, 1, 3, 4, 5, 7, 8, 10].forEach(i => h += `<rect id="bk${i}" x="${X0 + (i + 1) * W - 21}" y="${Y0}" width="42" height="${H * .6}" rx="6" fill="#2b2320"/>`);
+  g.innerHTML = h;
+})();
+const MEL = [[27.55, 0], [27.85, 2], [28.15, 4], [28.45, 7], [28.8, 5], [29.1, 4], [29.45, 2], [29.8, 4], [30.15, 7], [30.5, 9], [30.85, 11]];
+const notesEl = $('notes');
+MEL.forEach(([, k], i) => { const n = document.createElement('div'); n.className = 'note'; n.textContent = i % 2 ? '♪' : '♫'; n.id = 'nt' + i; notesEl.appendChild(n); });
+S.music = t => {
+  rise($('mu-l'), t, 27.45);
+  for (let i = 0; i < 12; i++) $('wk' + i).setAttribute('fill', '#fffaf2');
+  MEL.forEach(([a, k], i) => {
+    const on = t >= a && t < a + .28, key = $('wk' + k);
+    if (on) key.setAttribute('fill', '#e9c9a6');
+    const n = $('nt' + i), q = (t - a) / 1.8;
+    if (q < 0 || q > 1) { n.style.opacity = 0; return; }
+    n.style.left = (120 + k * 70 + 8 + Math.sin(q * 6 + i) * 22) + 'px';
+    n.style.top = (500 - q * 240) + 'px';
+    n.style.opacity = Math.min(1, q * 6) * (1 - q);
+  });
+  rise($('mu-t'), t, 30.2);
+};
+S.wrong = t => {
+  rise($('wq-h'), t, 37.6, .6);
+  [[$('w1'), 42.4, 46.25], [$('w2'), 43.9, 46.5], [$('w3'), 44.9, 46.75]].forEach(([el, a, x]) => {
+    const p = io(t, a, .4); st(el, p * (1 - .5 * io(t, x + .3, .4)), 0, .9 + .1 * p);
+    el.querySelector('i').style.transform = `scaleX(${io(t, x, .35)})`;
+  });
+};
+S.phone = t => {
+  const p = io(t, 54.7, .6); st($('ph1'), p, (1 - p) * 80);
+  [['n1', 55.2], ['n2', 55.7], ['n3', 56.2]].forEach(([id, a]) => { const q = io(t, a, .4); st($(id), q, (1 - q) * -30); });
+  const L = $('lens'), u = cl((t - 56.3) / 2.8);
+  L.style.opacity = io(t, 56.3, .3) * (1 - io(t, 59.2, .3));
+  L.style.left = (110 + Math.sin(u * 9) * 90) + 'px'; L.style.top = (360 + u * 280 + Math.cos(u * 7) * 40) + 'px';
+  const c = io(t, 57.0, .3); st($('cnt'), c * (1 - io(t, 59.2, .3)), (1 - c) * 20);
+  $('cntn').textContent = Math.max(1, Math.min(9, Math.floor(1 + (t - 57.0) * 4)));
+  const m = io(t, 59.25, .4); st($('merak'), m, 0, .85 + .15 * m);
+};
+S.chat = t => {
+  rise($('c1'), t, 60.8, .4, 30);
+  const ty = io(t, 61.7, .2) * (1 - io(t, 62.35, .1)); $('c2').style.opacity = ty;
+  $('c2').querySelectorAll('i').forEach((d, i) => d.style.transform = `translateY(${Math.sin(t * 9 - i) * 5}px)`);
+  rise($('c3'), t, 62.4, .4, 30); rise($('c4'), t, 63.5, .4, 30);
+};
+S.scale = t => {
+  rise($('sc-l'), t, 66.3);
+  const w = [67.8, 68.6, 69.3].map(a => io(t, a, .35));
+  const ang = -(w[0] + w[1] + w[2]) * 4.6 + Math.sin(t * 2.2) * .4 * (w[2]);
+  const cx = 540, cy = 520, L = 290, r = ang * Math.PI / 180;
+  const ends = [-1, 1].map(s => [cx + s * L * Math.cos(r), cy + s * L * Math.sin(r)]);
+  const q = io(t, 71.1, .5), qm = io(t, 72.4, .4);
+  let h = `<rect x="${cx - 14}" y="${cy}" width="28" height="560" rx="10" fill="#8a6a50"/>
+    <ellipse cx="${cx}" cy="1085" rx="170" ry="26" fill="#7a5b44"/>
+    <line x1="${ends[0][0]}" y1="${ends[0][1]}" x2="${ends[1][0]}" y2="${ends[1][1]}" stroke="#2b2320" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="24" fill="#2b2320"/>`;
+  ends.forEach(([x, y], i) => {
+    const py = y + 230;
+    h += `<path d="M${x} ${y} L${x - 110} ${py} M${x} ${y} L${x + 110} ${py}" stroke="#5b4d46" stroke-width="4"/>
+      <path d="M${x - 130} ${py} Q ${x} ${py + 90} ${x + 130} ${py} Z" fill="${i ? '#7f8c70' : '#7d2a35'}"/>`;
+    if (i === 0) w.forEach((v, k) => { if (v > 0) h += `<rect x="${x - 95 + k * 66}" y="${py - 60 - (1 - v) * 120}" width="58" height="58" rx="10" fill="#2b2320" opacity="${v}"/>`; });
+    if (i === 1 && qm > 0) h += `<text x="${x}" y="${py - 22}" text-anchor="middle" font-family="Playfair Display" font-weight="700" font-size="${90 + Math.sin(t * 5) * 6}" fill="#7d2a35" opacity="${qm}">?</text>`;
+    const lab = i ? ['Onun', 'hissettikleri'] : ['Benim', 'ihtiyaçlarım'];
+    const op = i ? .45 + .55 * q : 1, col = i && q > 0 ? '#7d2a35' : '#2b2320';
+    h += `<text x="${x}" y="${py + 110}" text-anchor="middle" font-family="Inter" font-weight="700" font-size="40" fill="${col}" opacity="${op}">${lab[0]}</text>
+          <text x="${x}" y="${py + 158}" text-anchor="middle" font-family="Inter" font-weight="700" font-size="40" fill="${col}" opacity="${op}">${lab[1]}</text>`;
+  });
+  $('scale').innerHTML = h;
+};
+S.four = t => {
+  rise($('f-l'), t, 85.1);
+  [[$('f1'), 85.3], [$('f2'), 86.4], [$('f3'), 87.6], [$('f4'), 89.2]].forEach(([el, a]) => {
+    const p = io(t, a, .45); st(el, p, 0, .92 + .08 * p);
+  });
+};
+S.circ = t => {
+  const sep = io(t, 95.9, 1.3);
+  const A = $('cA'), B = $('cB');
+  A.style.left = lerp(540, 360, sep) + 'px'; B.style.left = lerp(540, 720, sep) + 'px';
+  A.style.top = B.style.top = '780px';
+  A.style.opacity = B.style.opacity = io(t, 95.8, .4);
+  // ghost square travels from Siz to O, O bends toward it, then springs back to itself
+  const gm = io(t, 101.8, 1.2), back = io(t, 103.7, .8);
+  const squish = io(t, 102.6, .6) * (1 - back);
+  B.style.borderRadius = lerp(50, 16, squish) + '%';
+  A.style.borderRadius = '50%';
+  const G = $('ghost');
+  G.style.left = lerp(360, 720, gm) + 'px'; G.style.top = '780px';
+  G.style.opacity = io(t, 101.8, .3) * (1 - back);
+  G.style.transform = `scale(${1 - .3 * back})`;
+  const rg = io(t, 99.8, .9);
+  $('ring').style.opacity = rg;
+  $('ring').style.transform = `rotate(${(t - 99.8) * 12}deg) scale(${.85 + .15 * rg})`;
+  const pa = io(t, 96.0, .5) * (1 - io(t, 99.6, .3)), pb = io(t, 99.8, .5) * (1 - io(t, 101.6, .3)), pc = io(t, 101.8, .5);
+  st($('ph-a'), pa, (1 - pa) * 20); st($('ph-b'), pb, (1 - pb) * 20); st($('ph-c'), pc, (1 - pc) * 20);
+};
+S.dark = t => {
+  [['d1', 113.1, 116.7], ['d2', 113.95, 116.9], ['d3', 115.25, 117.1]].forEach(([id, a, x]) => {
+    const p = io(t, a, .45); st($(id), p * (1 - .45 * io(t, x + .3, .4)), (1 - p) * 30);
+    $(id).querySelector('i').style.transform = `scaleX(${io(t, x, .35)})`;
+  });
+  rise($('d4'), t, 117.35, .6);
+};
+S.ask = t => {
+  rise($('a-l'), t, 131.6);
+  const p = io(t, 133.2, .5); st($('a1'), p, (1 - p) * 40);
+  $('a1s').style.opacity = 1; const q = io(t, 138.05, .5); st($('a1p'), q, (1 - q) * 20);
+  rise($('a2'), t, 141.4, .5, 50);
+};
+S.gap = t => {
+  rise($('g1'), t, 144.0, .6); const p = io(t, 146.8, .45); st($('g2'), p, 0, .9 + .1 * p); rise($('g3'), t, 147.9, .6);
+};
+
+// ---------- captions ----------
+const capEl = $('cap'); let capIdx = -1;
+function captions(t, seg) {
+  const type = seg[0];
+  const hide = NOCAPS || NOCAP.has(type) || (type === 'A' && NOCAP_A.some(([a, b]) => t >= a && t < b));
+  const i = hide ? -1 : CAPTIONS.findIndex(c => t >= c.s && t < c.e);
+  if (i !== capIdx) {
+    capIdx = i;
+    capEl.innerHTML = i < 0 ? '' : CAPTIONS[i].w.map(([w]) => `<span class="w">${w}</span>`).join(' ');
+  }
+  capEl.className = type === 'A' ? '' : (type === 'dark' ? 'onb dark' : 'onb');
+  if (i < 0) return;
+  const spans = capEl.querySelectorAll('.w'), ws = CAPTIONS[i].w;
+  spans.forEach((sp, k) => {
+    const seen = t >= ws[k][1] - .06, next = k + 1 < ws.length ? ws[k + 1][1] : CAPTIONS[i].e;
+    sp.classList.toggle('seen', seen);
+    sp.classList.toggle('now', seen && t < next - .02);
+  });
+}
+
+window.seek = t => {
+  const seg = SEG.find(s => t >= s[1] && t < s[2]) || SEG[SEG.length - 1];
+  const type = seg[0];
+  $('aroll').classList.toggle('on', type === 'A');
+  if (OVERLAY) img.style.visibility = 'hidden', document.querySelector('#aroll .vig').style.visibility = 'hidden';
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('on'));
+  if (type === 'A') aroll(t, seg);
+  else { $('s-' + type).classList.add('on'); S[type](t); }
+  captions(t, seg);
+};
+window.seek(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+@import url("node_modules/@fontsource/playfair-display/400.css");
+@import url("node_modules/@fontsource/playfair-display/600.css");
+@import url("node_modules/@fontsource/playfair-display/700.css");
+@import url("node_modules/@fontsource/playfair-display/400-italic.css");
+@import url("node_modules/@fontsource/playfair-display/600-italic.css");
+
+:root {
+  --cream: #f4ede3;
+  --paper: #e9dccb;
+  --ink: #2b2320;
+  --ink-soft: #5b4d46;
+  --wine: #7d2a35;
+  --wine-soft: #b4646e;
+  --sage: #7f8c70;
+  --peach: #f3c7a6;
+  --serif: "Playfair Display", Georgia, serif;
+  --sans: "Inter", "Liberation Sans", sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--cream); }
+body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+#stage { position: absolute; inset: 0; overflow: hidden; }
+body.overlay, body.overlay #stage { background: transparent; }
+
+.scene { position: absolute; inset: 0; display: none; }
+.scene.on { display: block; }
+.b { background: var(--cream); }
+.b.dark { background: #1f1a18; color: var(--cream); }
+
+/* soft paper grain so flat backgrounds don't feel digital */
+.b::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background:
+    radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(60, 40, 30, .14) 100%);
+}
+
+/* ---------- A-roll (portrait placeholder) ---------- */
+#aroll { position: absolute; inset: 0; display: none; overflow: hidden; background: #2a2522; }
+#aroll.on { display: block; }
+#aroll img {
+  position: absolute; left: 50%; top: 0; height: 1920px; width: 1440px;
+  margin-left: -720px; transform-origin: 50% 30%;
+  filter: sepia(.10) saturate(1.04) contrast(1.03) brightness(1.02);
+}
+#aroll .vig { position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 35%, transparent 50%, rgba(20, 12, 8, .45) 100%),
+              linear-gradient(to bottom, transparent 55%, rgba(15, 10, 8, .55) 100%); }
+
+/* ---------- captions ---------- */
+#cap {
+  position: absolute; left: 70px; right: 130px; top: 1230px; text-align: center;
+  font: 800 62px/1.18 var(--sans); letter-spacing: -.5px; color: #fff;
+  text-shadow: 0 3px 14px rgba(0, 0, 0, .55), 0 1px 3px rgba(0, 0, 0, .6);
+}
+#cap.onb { color: var(--ink); text-shadow: none; }
+#cap.onb.dark { color: var(--cream); }
+#cap .w { display: inline-block; margin: 0 .12em; opacity: .0; transform: translateY(8px); }
+#cap .w.seen { opacity: 1; transform: none; }
+#cap .w.now { color: var(--peach); }
+#cap.onb .w.now { color: var(--wine); }
+#cap.onb.dark .w.now { color: var(--peach); }
+
+/* A-roll text overlays */
+.ov { position: absolute; left: 80px; right: 140px; text-align: center; opacity: 0; }
+.hook { top: 210px; font: 700 66px/1.15 var(--serif); color: #fff;
+  text-shadow: 0 2px 18px rgba(0,0,0,.5); }
+.hook em { font-style: italic; color: var(--peach); font-weight: 600; }
+.kicker { font: 600 30px var(--sans); letter-spacing: 6px; text-transform: uppercase; }
+
+/* ---------- shared B-roll typography ---------- */
+.label { position: absolute; left: 0; right: 0; text-align: center;
+  font: 600 30px var(--sans); letter-spacing: 7px; text-transform: uppercase; color: var(--wine); }
+.big { position: absolute; left: 90px; right: 150px; text-align: center; font-family: var(--serif); }
+.rule { position: absolute; height: 3px; background: var(--wine); left: 50%; }
