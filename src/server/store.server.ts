@@ -177,7 +177,8 @@ export async function getStore(): Promise<Store> {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const forceMemory = process.env.MESELE_STORE === 'memory'
 
-  if (url && serviceKey && !forceMemory) {
+  // Supabase bilgileri varsa her zaman Supabase kullanılır (MESELE_STORE=memory yalnızca Supabase yokken geçerli).
+  if (url && serviceKey) {
     const { createSupabaseStore } = await import('./store-supabase.server')
     cached = createSupabaseStore(url, serviceKey)
     return cached
