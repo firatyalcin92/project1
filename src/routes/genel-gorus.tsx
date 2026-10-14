@@ -10,7 +10,7 @@ import { Button, Card, Notice, Paragraphs, cx } from '~/components/ui'
 import { generateOverviewFn, getOverviewFn } from '~/functions/overview'
 import { parseError } from '~/lib/errors'
 import { requireMember } from '~/lib/guard'
-import { EMOTION_CHIPS, REACTION_CHIPS } from '~/lib/questions'
+import { REACTION_CHIPS, feelingLabel } from '~/lib/questions'
 import { RELATIONSHIP_SECTIONS } from '~/lib/report-meta'
 import type { RelationshipReport } from '~/lib/report-schemas'
 import { formatDate } from '~/lib/turkish'
@@ -246,13 +246,19 @@ function ReportSections({ report }: { report: RelationshipReport }) {
 function Stats({ data, names }: { data: OverviewView; names: Record<Role, string> }) {
   const rows = (chips: readonly { id: string; label: string }[], src: OverviewView['stats']['emotions']): PairedRow[] =>
     chips.map((c) => ({ id: c.id, label: c.label, A: src.A[c.id] ?? 0, B: src.B[c.id] ?? 0 }))
+  // His listesi uzun: yalnızca seçilmiş olanlar, en sık 10 tanesi.
+  const feelingRows = (src: OverviewView['stats']['emotions']): PairedRow[] =>
+    [...new Set([...Object.keys(src.A), ...Object.keys(src.B)])]
+      .map((id) => ({ id, label: feelingLabel(id), A: src.A[id] ?? 0, B: src.B[id] ?? 0 }))
+      .sort((x, y) => y.A + y.B - (x.A + x.B))
+      .slice(0, 10)
   return (
     <Card className="space-y-6">
       <div>
         <p className="font-semibold">Seçimlerinizin dağılımı</p>
         <p className="mt-1 text-[13px] text-ink-faint">İkinizin seçtiği duygu ve tepkilerden sayılır.</p>
       </div>
-      <PairedBars title="Birincil duygular" rows={rows(EMOTION_CHIPS, data.stats.emotions)} names={names} />
+      <PairedBars title="En sık hissedilenler" rows={feelingRows(data.stats.emotions)} names={names} />
       <PairedBars title="Otomatik tepkiler" rows={rows(REACTION_CHIPS, data.stats.reactions)} names={names} />
     </Card>
   )

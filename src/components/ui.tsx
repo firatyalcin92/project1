@@ -297,21 +297,39 @@ export function TextArea({
 }
 
 /** Çoklu seçim çipi. */
-export function ChipToggle({ label, selected, onToggle }: { label: string; selected: boolean; onToggle: () => void }) {
+export function ChipToggle({
+  label,
+  selected,
+  onToggle,
+  shape = 'pill',
+  role,
+}: {
+  label: string
+  selected: boolean
+  onToggle: () => void
+  /** soft: uzun etiketler için iki satıra rahat taşan, köşeleri yumuşak çip */
+  shape?: 'pill' | 'soft'
+  role?: 'radio'
+}) {
   return (
     <button
       type="button"
-      aria-pressed={selected}
+      role={role}
+      aria-pressed={role ? undefined : selected}
+      aria-checked={role ? selected : undefined}
       onClick={onToggle}
       className={cx(
-        'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 py-2 text-[15px] font-medium transition',
+        'inline-flex min-h-11 items-center gap-1.5 border font-medium transition',
         'active:scale-[0.98]',
+        shape === 'pill'
+          ? 'rounded-full px-4 py-2 text-[15px]'
+          : 'rounded-2xl px-3.5 py-2 text-left text-[14px] leading-snug',
         selected
           ? 'border-clay bg-clay text-on-clay shadow-soft'
           : 'border-line-strong bg-surface text-ink hover:border-clay hover:text-clay-strong',
       )}
     >
-      {selected ? <IconCheck size={16} /> : null}
+      {selected ? <IconCheck size={16} className="shrink-0" /> : null}
       {label}
     </button>
   )

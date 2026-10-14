@@ -1,12 +1,16 @@
 import '@tanstack/react-start/server-only'
 import {
   ANSWER_QUESTION_IDS,
+  FEELING_AFTER,
+  FEELING_DURING,
   LIMITS,
   OTHER_CHIP,
   QUESTIONS,
   RECONSIDER_QUESTIONS,
   REFLECTION_ANSWER_ID,
+  STRONGEST_FEELING,
   allowedChipsFor,
+  strongestOptions,
   type AnswerQuestionId,
   type ReflectionId,
 } from '~/lib/questions'
@@ -120,8 +124,9 @@ function materialFor(member: MemberRow, b: Bundle): MemberMaterial {
 }
 
 function emptyAnswers(): Record<AnswerQuestionId, AnswerDraft> {
-  const blank = (): AnswerDraft => ({ text: '', tags: [] })
-  return { dusunce: blank(), duygular: blank(), ihtiyac: blank(), partner_ihtiyac: blank(), degisim: blank() }
+  const out = {} as Record<AnswerQuestionId, AnswerDraft>
+  for (const id of ANSWER_QUESTION_IDS) out[id] = { text: '', tags: [] }
+  return out
 }
 
 function emptyReflections(): ReconsiderationView['items'] {
@@ -130,7 +135,7 @@ function emptyReflections(): ReconsiderationView['items'] {
 
 function partnerNameOf(b: Bundle, member: AuthedMember) {
   if (b.couple.mode === 'solo') return b.couple.partner_name
-  return b.members.find((m) => m.id !== member.id)?.display_name ?? null
+  return b.members.find((m) => m.id !== member.id)?.display_name ?? b.couple.partner_name
 }
 
 // ---------------------------------------------------------------------------
@@ -314,30 +319,54 @@ async function assertCanAnswer(member: AuthedMember, disputeId: string) {
   return d
 }
 
+type AnswerInput = SaveAnswersInput['answers'][number]
+
+/**
+ * Çipleri izinli listeyle sınırla, metinleri kırp.
+ * - His alanlarında "başka bir şey" seçili değilse metin tutulmaz.
+ * - En çok etkileyen his tek seçimdir ve aynı gönderimde iki his alanından birinde
+ *   işaretlenmiş olmalıdır; değilse seçim düşer (nedeni korunur).
+ */
+export function normalizeAnswers(input: AnswerInput[]): AnswerInput[] {
+  const byId = new Map<string, AnswerInput>()
+  for (const a of input) {
+    const allowed = allowedChipsFor(a.questionId)
+    let tags = [...new Set(a.tags)].filter((t) => allowed.includes(t))
+    let text = a.text.trim()
+    if (a.questionId === FEELING_DURING || a.questionId === FEELING_AFTER) {
+      text = tags.includes(OTHER_CHIP) ? text.slice(0, LIMITS.other) : ''
+      if (!text) tags = tags.filter((t) => t !== OTHER_CHIP)
+    } else {
+      text = text.slice(0, LIMITS.text)
+    }
+    byId.set(a.questionId, { questionId: a.questionId, text, tags })
+  }
+
+  const strongest = byId.get(STRONGEST_FEELING)
+  if (strongest) {
+    const blank = { tags: [] as string[], text: '' }
+    const options = strongestOptions(byId.get(FEELING_DURING) ?? blank, byId.get(FEELING_AFTER) ?? blank)
+    const pick = strongest.tags.find((t) => options.some((o) => o.id === t))
+    strongest.tags = pick ? [pick] : []
+  }
+  return [...byId.values()]
+}
+
 export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput): Promise<DisputeView> {
   const d = await assertCanAnswer(member, input.disputeId)
   const store = await getStore()
 
   const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
-  const answers = input.answers.map((a) => {
-    const allowed = allowedChipsFor(a.questionId)
-    const tags = [...new Set(a.tags)].filter((t) => allowed.includes(t))
-    const limit = a.questionId === 'duygular' ? LIMITS.other : LIMITS.text
-    return { ...a, text: a.text.trim().slice(0, limit), tags }
-  })
+  const answers = normalizeAnswers(input.answers)
 
   if (input.submit) {
     const olay = QUESTIONS.find((q) => q.id === 'olay')!
     if (whatHappened.length < olay.minLength)
       fail('VALIDATION', 'Olayı biraz daha anlatır mısınız? Birkaç cümle yeterli.')
     for (const q of QUESTIONS) {
-      if (q.id === 'olay') continue
+      if (q.id === 'olay' || !q.textRequired) continue
       const a = answers.find((x) => x.questionId === q.id)
-      const realTags = (a?.tags ?? []).filter((t) => t !== OTHER_CHIP || (a?.text.length ?? 0) > 0)
-      if (q.chipsRequired && realTags.length === 0)
-        fail('VALIDATION', `"${q.title}" için en az bir seçenek işaretleyin.`)
-      if (q.textRequired && !(a && a.text.length >= q.minLength))
-        fail('VALIDATION', `"${q.title}" sorusunu biraz açar mısınız?`)
+      if (!(a && a.text.length >= q.minLength)) fail('VALIDATION', `"${q.title}" sorusunu biraz açar mısınız?`)
     }
   }
 

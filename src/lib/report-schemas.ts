@@ -138,6 +138,12 @@ export type SharedReport = z.infer<typeof SharedReportSchema>
 
 export const MyReportSchema = z.object({
   greeting: z.string().min(1).describe('Okuyana adıyla, "siz" diye seslenen 2 cümlelik sıcak açılış.'),
+  feelings: z
+    .string()
+    .min(1)
+    .describe(
+      'Okuyanın tartışma sırasında ve sonrasında hissettiklerinin yorumu, 3-5 cümle: aradaki değişim, en çok etkileyen his ve nedeni; olay ve karşılanmamış ihtiyaçla bağlantısı. Hisleri liste hâlinde sayma; tanı koyma; bilgi yetersizse belirsizliği söyle.',
+    ),
   partnerInner: z
     .string()
     .min(1)

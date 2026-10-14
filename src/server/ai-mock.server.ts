@@ -107,6 +107,7 @@ function mockShared(a: string, b: string): SharedReport {
 function mockMine(owner: string, partner: string, solo: boolean): MyReport {
   return {
     greeting: `${owner}, bu meseleye dürüstçe baktığınız için teşekkürler. Şimdi yalnızca sizin göreceğiniz bir aynaya ve bu akşam için bir yol haritasına bakalım.`,
+    feelings: `Tartışmanın içinde daha çok öfke ve haksızlık duygusu öne çıkmış; tartışma bittikten sonra ise yerini yalnızlığa ve kırgınlığa bırakmış görünüyor. Bu sık görülen bir geçiş: öfke çoğu zaman daha kırılgan bir duygunun önünde durur ve ses kesilince o duygu görünür olur. Sizi en çok etkileyen his, ${dative(partner)} ulaşamadığınız o anla bağlantılı görünüyor; altında görülmek ve önemsenmek ihtiyacı var gibi.`,
     partnerInner: `${solo ? 'Anlattıklarınızdan yola çıkarsak, muhtemelen ' : ''}${partner} o an önemsenmediğini hissediyordu; asıl ihtiyacı, sizin için öncelikli olduğunu bilmekti.`,
     needGuess: {
       match: solo ? 'tahmin' : 'kısmen',

@@ -11,10 +11,6 @@ export const createCoupleFn = createServerFn({ method: 'POST' })
   .validator(
     z.object({
       mode: z.enum(['couple', 'solo']).default('couple'),
-      coupleName: z
-        .string()
-        .max(LIMITS.coupleName * 2)
-        .default(''),
       displayName: z.string().max(LIMITS.displayName * 2),
       partnerName: z
         .string()

@@ -135,6 +135,10 @@ Tam liste ve açıklamalar: [`.env.example`](./.env.example).
 
 ## Supabase / Lovable Cloud kurulumu
 
+**Kurulum çalışıyor mu?** Yayındaki adrese `/durum` ekleyin (ör. `https://mesele-xxxx.onrender.com/durum`). Sayfa,
+anahtar göstermeden hangi deponun kullanıldığını ve sorun varsa ne yapılacağını söyler (tablolar yok, yanlış anahtar,
+hatalı adres…).
+
 Şema tek bir migration dosyasındadır: [`supabase/migrations/20261013000000_mesele_init.sql`](./supabase/migrations/20261013000000_mesele_init.sql).
 
 - **Supabase CLI:** `supabase link --project-ref <ref> && supabase db push`
@@ -179,18 +183,34 @@ completed ◄─ generating_reports ◄─ reconsideration_completed ◄─ reco
    (iki onay → ortak rapor açılır)
 ```
 
-| Adım                            | Ekranda                                                                                                                |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **1. Anlat**                    | Olay (açık uçlu) · Birincil duygular (çip) · Otomatik tepki (çip) · Gerçek ihtiyaç · Kendi payın · Gizlilik tercihi    |
-| **2. Partnerinin Gözünden Gör** | "[Ad]'ın Gözünden" metni + partnerin paylaştığı ham yanıtlar + senin anlatımının ona nasıl yansıtıldığı                |
-| **3. Yeniden Değerlendir**      | Ne dokundu · Altında ne olabilir · Kendi payına dair yeni fark · Ona tek cümle · Yakınlık (1–5, yalnızca sana)         |
-| **4. Çözüm Raporu**             | Sana Özel Ayna (hemen) + Ortak Rapor: Ortak Döngünüz, Kim Haklı?, Temel İhtiyaç Kesişimi, 3 onarım adımı, "Bugün için" |
+| Adım                            | Ekranda                                                                                                                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1. Anlat**                    | Olay · O an düşünce (+ tepki çipleri) · Tartışma sırasında / sonrasında hisler · En çok etkileyen his ve nedeni · İhtiyaç · Partnerin ihtiyacı · Kendinde değiştireceğin |
+| **2. Partnerinin Gözünden Gör** | "[Ad]'ın Gözünden" metni + partnerin paylaştığı ham yanıtlar + senin anlatımının ona nasıl yansıtıldığı                                                                  |
+| **3. Yeniden Değerlendir**      | Ne dokundu · Altında ne olabilir · Kendi payına dair yeni fark · Ona tek cümle · Yakınlık (1–5, yalnızca sana)                                                           |
+| **4. Çözüm Raporu**             | Sana Özel Ayna (hemen) + Ortak Rapor: Ortak Döngünüz, Kim Haklı?, Temel İhtiyaç Kesişimi, 3 onarım adımı, "Bugün için"                                                   |
 
 **Gizlilik (v2):** Ayrı bir "özel/açık" seçeneği yoktur — tıpkı çift seansında olduğu gibi. Kullanıcıya "Cevaplarınız
 eşinize olduğu gibi gösterilmez; danışman analizde kullanır ve ihtiyaç diliyle yansıtabilir" hatırlatması gösterilir.
 Partner hiçbir zaman diğerinin ham cevabını görmez; yalnızca danışmanın yazdığı metinleri görür.
 
-**Bireysel mod:** Partneri uygulamayı kullanmayan kişi, "Tek başıma danışmak istiyorum" ile başlar; aynı 6 soruyu
+**His soruları (v3):** 3. soruda iki ayrı çoklu seçim alanı vardır: _A · Tartışma sırasında_ ve _B · Tartışma
+sonrasında_ (7 grupta 55 seçenek + "Başka bir şey hissettim" metni). Seçim zorunlu değildir; 7'den fazla seçilince
+nazik bir hatırlatma çıkar. 4. soru, işaretlenen hisler arasından en çok etkileyeni ve (isteğe bağlı) nedenini sorar.
+Hepsi `answers` tablosunda ayrı satırlarda saklanır, şema değişikliği gerekmez:
+
+| `question_id`    | `selected_tags`                     | `text_answer`         |
+| ---------------- | ----------------------------------- | --------------------- |
+| `his_sirasinda`  | tartışma sırasında seçilen hisler   | "başka bir şey" metni |
+| `his_sonrasinda` | tartışma sonrasında seçilen hisler  | "başka bir şey" metni |
+| `en_etkili`      | en çok etkileyen his (tek)          | nedeni                |
+| `duygular`       | v2'den kalan eski kayıtlar (okunur) | eski "diğer" metni    |
+
+Danışman istemleri hisleri liste olarak tekrar etmez; sırasında → sonrasında değişimini, en çok etkileyen hissi ve
+bunların olay ve ihtiyaçla bağlantısını değerlendirir (tanı koymadan, bir partnerin hissini diğerinin niyetine kanıt
+saymadan, bilgi yetersizse belirsizliği söyleyerek). Kişisel raporda "Hislerinizin izi" bölümü bu yorumu taşır.
+
+**Bireysel mod:** Partneri uygulamayı kullanmayan kişi, "Tek başıma danışmak istiyorum" ile başlar; aynı soruları
 yanıtlar ve doğrudan size özel bir danışman raporu alır (partnerin olası bakış açısı, ihtiyaç dili cümlesi, bu akşamki
 konuşma rehberi). Ortak rapor ve Genel Görüş yalnızca çift modundadır.
 
@@ -200,15 +220,15 @@ dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı ayna
 
 ## Kırılmaz güvenlik kuralları — nerede uygulanıyor?
 
-| Kural                                 | Uygulama                                                                                                                                                                                                                                                                                                                                    | Test                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **Çift kodu bir şifre değildir**      | 6 hane, karışan karakter yok (`crypto.server.ts`). Kod yalnızca `joinCouple`'da çifti bulur; B rolü dolunca kod hiçbir şey açmaz (`unique(couple_id, role)`). Kimlik doğrulama yalnızca token ile. Koda katılma IP başına hız sınırlı.                                                                                                      | `flow.test.ts`                                                             |
-| **Cihaza özel gizli token**           | 256-bit (`crypto.getRandomValues`), base64url, yalnızca bir kez döner; istemcide `localStorage['mesele.member.v1']` (+ Capacitor Preferences yedeği). DB'de yalnızca SHA-256 `auth_token_hash`.                                                                                                                                             | `flow.test.ts`, `sql.test.ts`                                              |
-| **`x-mesele-member` + `memberAuth`**  | [`src/functions/middleware.ts`](./src/functions/middleware.ts): istemci başlığı ekler, sunucu hash'leyip üyeyi bulur. Her mesele erişimi `requireDispute` ile `member → couple → dispute` zincirini doğrular; yabancı mesele "bulunamadı" döner (IDOR).                                                                                     | `flow.test.ts`                                                             |
-| **RLS + sunucu izolasyonu**           | Tüm tablolarda RLS açık, politika yok, istemci rollerine yetki yok. Tüm okuma/yazma `createServerFn` içinde service role ile. Sunucu fonksiyonlarına yalnızca aynı kökenden istek (CSRF middleware, `src/start.ts`). `*.server.ts` dosyaları istemci paketine giremez.                                                                      | `sql.test.ts`                                                              |
-| **Ham cevaplar partnere dönmez (v2)** | Danışman iki tarafın tüm cevaplarını analizde kullanır; [`disputes.server.ts`](./src/server/disputes.server.ts) görünüm modeli partnere yalnızca AI metinlerini döner, ham cevapları asla. İstemler partner cevaplarını alıntılamayı yasaklar ve ihtiyaç diline çevirtir; ortak rapor iki onaya kadar istemciye gönderilmez. Service worker sunucu yanıtlarını önbelleğe almaz. | `flow.test.ts` |
-| **Çift AI çağrısını önleme**          | `mesele_claim_status` atomik `UPDATE … WHERE status = from` + 4 dakikalık bayat kilit. Sonuçlar `mesele_finish_*` ile yalnızca kilit sahibi tarafından, tek işlemde yazılır; hata olursa kilit bırakılıp durum geri alınır.                                                                                                                 | `sql.test.ts`, `flow.test.ts` (eşzamanlı çağrılar → tam 2 ve 3 AI çağrısı) |
-| **Geçmiş veri silinmez**              | Tamamlanan meseleler için silme yolu yok (`deleteDispute … status <> 'completed'`); yalnızca açan kişi, cevap aşamasındaki bir meseleyi kapatabilir.                                                                                                                                                                                        | —                                                                          |
+| Kural                                 | Uygulama                                                                                                                                                                                                                                                                                                                                                                        | Test                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Çift kodu bir şifre değildir**      | 6 hane, karışan karakter yok (`crypto.server.ts`). Kod yalnızca `joinCouple`'da çifti bulur; B rolü dolunca kod hiçbir şey açmaz (`unique(couple_id, role)`). Kimlik doğrulama yalnızca token ile. Koda katılma IP başına hız sınırlı.                                                                                                                                          | `flow.test.ts`                                                             |
+| **Cihaza özel gizli token**           | 256-bit (`crypto.getRandomValues`), base64url, yalnızca bir kez döner; istemcide `localStorage['mesele.member.v1']` (+ Capacitor Preferences yedeği). DB'de yalnızca SHA-256 `auth_token_hash`.                                                                                                                                                                                 | `flow.test.ts`, `sql.test.ts`                                              |
+| **`x-mesele-member` + `memberAuth`**  | [`src/functions/middleware.ts`](./src/functions/middleware.ts): istemci başlığı ekler, sunucu hash'leyip üyeyi bulur. Her mesele erişimi `requireDispute` ile `member → couple → dispute` zincirini doğrular; yabancı mesele "bulunamadı" döner (IDOR).                                                                                                                         | `flow.test.ts`                                                             |
+| **RLS + sunucu izolasyonu**           | Tüm tablolarda RLS açık, politika yok, istemci rollerine yetki yok. Tüm okuma/yazma `createServerFn` içinde service role ile. Sunucu fonksiyonlarına yalnızca aynı kökenden istek (CSRF middleware, `src/start.ts`). `*.server.ts` dosyaları istemci paketine giremez.                                                                                                          | `sql.test.ts`                                                              |
+| **Ham cevaplar partnere dönmez (v2)** | Danışman iki tarafın tüm cevaplarını analizde kullanır; [`disputes.server.ts`](./src/server/disputes.server.ts) görünüm modeli partnere yalnızca AI metinlerini döner, ham cevapları asla. İstemler partner cevaplarını alıntılamayı yasaklar ve ihtiyaç diline çevirtir; ortak rapor iki onaya kadar istemciye gönderilmez. Service worker sunucu yanıtlarını önbelleğe almaz. | `flow.test.ts`                                                             |
+| **Çift AI çağrısını önleme**          | `mesele_claim_status` atomik `UPDATE … WHERE status = from` + 4 dakikalık bayat kilit. Sonuçlar `mesele_finish_*` ile yalnızca kilit sahibi tarafından, tek işlemde yazılır; hata olursa kilit bırakılıp durum geri alınır.                                                                                                                                                     | `sql.test.ts`, `flow.test.ts` (eşzamanlı çağrılar → tam 2 ve 3 AI çağrısı) |
+| **Geçmiş veri silinmez**              | Tamamlanan meseleler için silme yolu yok (`deleteDispute … status <> 'completed'`); yalnızca açan kişi, cevap aşamasındaki bir meseleyi kapatabilir.                                                                                                                                                                                                                            | —                                                                          |
 
 ## Proje yapısı
 
@@ -293,7 +313,7 @@ Spesifikasyondaki tüm tablo ve sütunlar aynen korunmuştur. Akışın çalış
 
 | Tablo                  | Eklenen                                                     | Neden                                                     |
 | ---------------------- | ----------------------------------------------------------- | --------------------------------------------------------- |
-| `couples`              | `name`                                                      | `/olustur` ekranındaki "çift adı"                         |
+| `couples`              | `name`, `mode`, `partner_name`                              | Çift adı iki addan oluşur ("Fırat & Ayşe"); bireysel mod  |
 | `disputes`             | `created_by`, `created_at`, `updated_at`                    | Meseleyi kimin açtığı (kapatma yetkisi), kronolojik arşiv |
 | `dispute_entries`      | `perspective`, `submitted_at`, zaman damgaları              | "[Ad]'ın Gözünden" metni ve "anlatımı gönderdi" bilgisi   |
 | `reconsiderations`     | `updated_at`                                                | Taslak kaydı                                              |

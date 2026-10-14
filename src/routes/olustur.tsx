@@ -25,7 +25,6 @@ function CreateCouple() {
   const member = useMember()
   const navigate = useNavigate()
   const solo = Route.useSearch().mod === 'bireysel'
-  const [coupleName, setCoupleName] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [partnerName, setPartnerName] = useState('')
   const [created, setCreated] = useState<SessionResult | null>(null)
@@ -33,9 +32,7 @@ function CreateCouple() {
   const mutation = useMutation({
     mutationFn: () =>
       createCoupleFn({
-        data: solo
-          ? { mode: 'solo', coupleName: '', displayName, partnerName }
-          : { mode: 'couple', coupleName, displayName },
+        data: { mode: solo ? 'solo' : 'couple', displayName, partnerName },
       }),
     onSuccess: (res) => {
       saveMember({
@@ -54,9 +51,7 @@ function CreateCouple() {
 
   if (created) return <Created session={created} />
 
-  const ready = solo
-    ? displayName.trim().length > 0 && partnerName.trim().length > 0
-    : coupleName.trim().length > 0 && displayName.trim().length > 0
+  const ready = displayName.trim().length > 0 && partnerName.trim().length > 0
 
   return (
     <AppShell back="/">
@@ -92,17 +87,6 @@ function CreateCouple() {
           if (ready) mutation.mutate()
         }}
       >
-        {solo ? null : (
-          <TextField
-            label="Çiftinize bir ad verin"
-            hint="Sadece ikiniz göreceksiniz. Ör. “Biz”, “Ayşe & Fırat”, “Ev”"
-            value={coupleName}
-            onChange={setCoupleName}
-            maxLength={LIMITS.coupleName}
-            placeholder="Biz"
-            autoCapitalize="words"
-          />
-        )}
         <TextField
           label="Adınız"
           hint={solo ? 'Danışman size bu adla seslenecek.' : 'Partneriniz sizi bu adla görecek.'}
@@ -113,17 +97,19 @@ function CreateCouple() {
           autoCapitalize="words"
           autoComplete="given-name"
         />
-        {solo ? (
-          <TextField
-            label="Eşinizin / partnerinizin adı"
-            hint="Sorular ve rapor onun adıyla kişiselleşir. Ona hiçbir şey gönderilmez."
-            value={partnerName}
-            onChange={setPartnerName}
-            maxLength={LIMITS.displayName}
-            placeholder="Eşinizin adı"
-            autoCapitalize="words"
-          />
-        ) : null}
+        <TextField
+          label={solo ? 'Eşinizin / partnerinizin adı' : 'Partnerinizin adı'}
+          hint={
+            solo
+              ? 'Sorular ve rapor onun adıyla kişiselleşir. Ona hiçbir şey gönderilmez.'
+              : 'Sorular onun adıyla kişiselleşir. Partneriniz katılırken kendi adını yazacak.'
+          }
+          value={partnerName}
+          onChange={setPartnerName}
+          maxLength={LIMITS.displayName}
+          placeholder="Partnerinizin adı"
+          autoCapitalize="words"
+        />
         {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
         <BottomBar>
           <Button type="submit" size="lg" full disabled={!ready} loading={mutation.isPending}>

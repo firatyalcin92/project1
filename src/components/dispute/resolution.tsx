@@ -58,6 +58,14 @@ export function MyReportView({ report, partnerName, solo }: { report: MyReport; 
         <p className="text-[18px] leading-relaxed text-ink">{report.greeting}</p>
       </div>
 
+      {/* Eski raporlarda bu alan yok. */}
+      {report.feelings ? (
+        <section className="space-y-2">
+          <SectionTitle eyebrow="Sırasında ve sonrasında" title="Hislerinizin izi" />
+          <Paragraphs text={report.feelings} className="text-ink-soft" />
+        </section>
+      ) : null}
+
       <section className="space-y-2 rounded-2xl bg-partner-b-soft/70 p-4">
         <p className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
           {solo ? `${genitive(p)} olası iç dünyası` : `${genitive(p)} iç dünyası`}

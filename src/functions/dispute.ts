@@ -52,7 +52,7 @@ export const saveAnswersFn = createServerFn({ method: 'POST' })
           z.object({
             questionId: z.enum(ANSWER_QUESTION_IDS),
             text: z.string().max(LIMITS.text * 2),
-            tags: z.array(z.string().max(32)).max(24),
+            tags: z.array(z.string().max(32)).max(64),
           }),
         )
         .max(ANSWER_QUESTION_IDS.length),

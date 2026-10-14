@@ -17,9 +17,7 @@ export function reactNativeBridge(): ReactNativeWebView | null {
 }
 
 export type NativeMessage =
-  | { type: 'copy'; text: string }
-  | { type: 'share'; title: string; text: string; url?: string }
-  | { type: 'haptic' }
+  { type: 'copy'; text: string } | { type: 'share'; title: string; text: string; url?: string } | { type: 'haptic' }
 
 export function postToNative(message: NativeMessage): boolean {
   const bridge = reactNativeBridge()

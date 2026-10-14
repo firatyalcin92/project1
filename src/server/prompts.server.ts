@@ -1,12 +1,20 @@
 import '@tanstack/react-start/server-only'
 import {
   CLOSENESS_LABELS,
-  EMOTION_CHIPS,
+  FEELING_AFTER,
+  FEELING_CHIPS,
+  FEELING_DURING,
+  LEGACY_EMOTION_CHIPS,
+  LEGACY_FEELINGS,
   LIMITS,
   OTHER_CHIP,
   PATTERN_LABEL,
   REACTION_CHIPS,
   RECONSIDER_QUESTIONS,
+  STRONGEST_FEELING,
+  WHEN_LABEL,
+  feelingLabel,
+  strongestOptions,
 } from '~/lib/questions'
 import type { SharedReport } from '~/lib/report-schemas'
 import { dative, genitive, withName } from '~/lib/turkish'
@@ -56,6 +64,17 @@ Birbirine tepkili, konuşamayan çiftlerin bu akşam eve gittiklerinde konuşabi
 - Suçlama yok ama kaçamak da yok: kör noktaları nazik ama dürüst söyle.
 - Tekrara düşme: bir fikri bir kez, en uygun yerde söyle. Her alan yeni bir şey katsın.
 
+## Duygular
+Her kişi tartışma SIRASINDA ve SONRASINDA hissettiklerini ayrı ayrı işaretler, kendi kelimeleriyle başka hisler ekleyebilir ve onu en çok etkileyen hissi nedeniyle birlikte belirtir.
+- Seçilen hisleri liste hâlinde geri sayma. Onları olay anlatımı, karşılanmamış ihtiyaçlar ve iki partnerin tartışma sırasındaki davranışlarıyla birlikte değerlendir.
+- Sırasında ve sonrasında hissedilenler arasındaki farkı anlamlandır. Örnek: tartışma sırasında öfke, sonrasında yalnızlık ve kırgınlık seçildiyse, öfkenin daha kırılgan bir duygunun önünde durmuş olabileceğini ve o duygunun tartışma bitince görünür hâle geldiğini anlat.
+- "Anlaşılmadım", "dinlenmedim" gibi bir hissin hangi anla bağlantılı olduğunu yalnızca anlatım bunu destekliyorsa söyle.
+- En çok etkileyen hissi ve nedenini, o kişinin karşılanmamış ihtiyacına giden en önemli ipucu olarak kullan.
+- Hislerden kişilik özelliği ya da psikolojik tanı çıkarma.
+- Bir partnerin hissettiği duyguyu, diğer partnerin niyetinin kanıtı olarak sunma. "Suçlandığını hissetti" demek "suçlandı" demek değildir; hissi ve niyeti ayrı tut.
+- Bilgi yetersizse kesin hüküm verme; belirsizliği açıkça söyle (ör. "Anlattıklarınızdan tam anlaşılmıyor ama…").
+- İki partnerin duygularını ve ihtiyaçlarını eşit ciddiyetle ele al; birinin duygusunu diğerininkinden daha meşru gösterme.
+
 ## Partnerin cevapları — kesin kural
 - Bir kişinin yazdıklarını, partnerinin okuyacağı hiçbir metinde AYNEN ALINTILAMA, tırnak içinde aktarma, tanınır biçimde kopyalama.
 - Kaba, suçlayıcı, incitici ifadeleri olduğu gibi aktarma; onları ihtiyaç diline çevir. Örnek: "Hiç umursamıyorsun" → "Önemsendiğini hissetmeye ihtiyaç duyuyordu."
@@ -99,26 +118,19 @@ export function describeMember(
   const answer = (id: string) => m.answers.find((a) => a.question_id === id)
   const text = (id: string) => answer(id)?.text_answer.trim() ?? ''
 
-  if (m.entry?.what_happened.trim()) lines.push(`1. Ne oldu (kendi anlatımı): ${quote(m.entry.what_happened)}`)
+  if (m.entry?.what_happened.trim()) lines.push(`Ne oldu (kendi anlatımı): ${quote(m.entry.what_happened)}`)
 
-  if (text('dusunce')) lines.push(`2. O an içinden geçen düşünce: ${quote(text('dusunce'))}`)
+  if (text('dusunce')) lines.push(`O an içinden geçen düşünce: ${quote(text('dusunce'))}`)
   const reactions = labelsOf(answer('dusunce')?.selected_tags ?? [], REACTION_CHIPS)
   if (reactions) lines.push(`   O an yaptıkları: ${reactions}`)
 
-  const duygular = answer('duygular')
-  if (duygular) {
-    const chips = labelsOf(duygular.selected_tags, EMOTION_CHIPS)
-    const other =
-      duygular.selected_tags.includes(OTHER_CHIP) && duygular.text_answer.trim() ? duygular.text_answer.trim() : ''
-    const all = [chips, other ? `diğer: ${quote(other, LIMITS.other)}` : ''].filter(Boolean).join(', ')
-    if (all) lines.push(`3. Hissettikleri: ${all}`)
-  }
+  lines.push(...describeFeelings(m))
 
   if (text('ihtiyac'))
-    lines.push(`4. Kendi ihtiyacı (${genitive(partnerName)} ne yapmasını isterdi): ${quote(text('ihtiyac'))}`)
+    lines.push(`Kendi ihtiyacı (${genitive(partnerName)} ne yapmasını isterdi): ${quote(text('ihtiyac'))}`)
   if (text('partner_ihtiyac'))
-    lines.push(`5. ${genitive(partnerName)} ihtiyacına dair kendi tahmini: ${quote(text('partner_ihtiyac'))}`)
-  if (text('degisim')) lines.push(`6. Kendinde müdahale etmesi gerektiğini düşündüğü şey: ${quote(text('degisim'))}`)
+    lines.push(`${genitive(partnerName)} ihtiyacına dair kendi tahmini: ${quote(text('partner_ihtiyac'))}`)
+  if (text('degisim')) lines.push(`Kendinde müdahale etmesi gerektiğini düşündüğü şey: ${quote(text('degisim'))}`)
 
   // Eski (v1) kayıtlar için geriye uyum
   if (text('pay')) lines.push(`Tırmanmadaki kendi payı: ${quote(text('pay'))}`)
@@ -143,6 +155,74 @@ export function describeMember(
   }
 
   return lines.join('\n')
+}
+
+type AnswerLike = MemberMaterial['answers'][number]
+
+function feelingList(a: AnswerLike | undefined) {
+  if (!a) return ''
+  const chips = a.selected_tags
+    .map((id) => FEELING_CHIPS.find((c) => c.id === id))
+    .filter((c): c is NonNullable<typeof c> => Boolean(c))
+    .map((c) => `${c.label} [${c.group.toLocaleLowerCase('tr')}]`)
+  const other = a.selected_tags.includes(OTHER_CHIP) && a.text_answer.trim() ? a.text_answer.trim() : ''
+  if (other) chips.push(`kendi ifadesiyle: ${quote(other, LIMITS.other)}`)
+  return chips.join('; ')
+}
+
+/**
+ * Tartışma sırasında / sonrasında hissedilenler, aradaki değişim ve en çok etkileyen his.
+ * Eski (v2) "duygular" kaydı varsa o da okunur.
+ */
+export function describeFeelings(m: Pick<MemberMaterial, 'answers'>): string[] {
+  const lines: string[] = []
+  const answer = (id: string) => m.answers.find((a) => a.question_id === id)
+  const during = answer(FEELING_DURING)
+  const after = answer(FEELING_AFTER)
+  const strongest = answer(STRONGEST_FEELING)
+
+  if (during || after) {
+    const d = feelingList(during)
+    const a = feelingList(after)
+    lines.push(`Tartışma SIRASINDA hissettikleri: ${d || 'işaretlemedi (bilgi yok; tahmin yürütme)'}`)
+    lines.push(`Tartışma SONRASINDA hissettikleri: ${a || 'işaretlemedi (bilgi yok; tahmin yürütme)'}`)
+
+    const dIds = new Set((during?.selected_tags ?? []).filter((t) => t !== OTHER_CHIP))
+    const aIds = new Set((after?.selected_tags ?? []).filter((t) => t !== OTHER_CHIP))
+    if (dIds.size && aIds.size) {
+      const names = (ids: string[]) => ids.map(feelingLabel).join(', ') || '—'
+      lines.push(
+        `   Değişim: sonrasında da süren: ${names([...dIds].filter((x) => aIds.has(x)))} | yalnızca sırasında: ${names([...dIds].filter((x) => !aIds.has(x)))} | sonradan ortaya çıkan: ${names([...aIds].filter((x) => !dIds.has(x)))}`,
+      )
+    }
+  }
+
+  if (strongest) {
+    const toDraft = (a: AnswerLike | undefined) => ({ tags: a?.selected_tags ?? [], text: a?.text_answer ?? '' })
+    const option = strongestOptions(toDraft(during), toDraft(after)).find((o) => strongest.selected_tags.includes(o.id))
+    const why = strongest.text_answer.trim()
+    if (option || why) {
+      const label = option
+        ? `${option.id.startsWith('diger_') ? quote(option.label, LIMITS.other) : option.label} (${WHEN_LABEL[option.when]})`
+        : 'belirtmedi'
+      lines.push(`Onu en çok etkileyen his: ${label}`)
+      lines.push(`   Nedeni: ${why ? quote(why) : 'yazmadı'}`)
+    }
+  }
+
+  // v2'den kalan tek "Nasıl hissettiniz?" kaydı
+  const legacy = answer(LEGACY_FEELINGS)
+  if (legacy) {
+    const chips = legacy.selected_tags
+      .map((id) => LEGACY_EMOTION_CHIPS.find((c) => c.id === id)?.label)
+      .filter(Boolean)
+      .join(', ')
+    const other =
+      legacy.selected_tags.includes(OTHER_CHIP) && legacy.text_answer.trim() ? legacy.text_answer.trim() : ''
+    const all = [chips, other ? `diğer: ${quote(other, LIMITS.other)}` : ''].filter(Boolean).join(', ')
+    if (all) lines.push(`Hissettikleri: ${all}`)
+  }
+  return lines
 }
 
 function reflectionLabel(id: string, partnerName: string) {
@@ -181,7 +261,7 @@ export function buildReflectionPrompt(input: {
   whatHappened: string
   thought: string
 }): Prompt {
-  const user = `GÖREV: ${input.name} bir tartışmayı anlatıyor. Sıradaki soru "Peki kendinizi nasıl hissettiniz?" olacak. Bu sorudan hemen önce, bir danışmanın seansta yaptığı gibi, ${dative(input.name)} 2-3 cümlelik sıcak bir yansıtma yap.
+  const user = `GÖREV: ${input.name} bir tartışmayı anlatıyor. Sıradaki soru "Tartışma sırasında ve sonrasında neler hissettiniz?" olacak. Bu sorudan hemen önce, bir danışmanın seansta yaptığı gibi, ${dative(input.name)} 2-3 cümlelik sıcak bir yansıtma yap.
 - "Siz" diye seslen. Anlattığı olayı ve içinden geçen düşünceyi kendi kelimelerinle kısaca geri yansıt; duyulduğunu hissetsin.
 - Hissettiği olası duyguya nazikçe işaret edebilirsin ama etiketleme, yorum yapma, tavsiye verme, soru sorma.
 - Partner adı: ${input.partnerName || 'eşi'}.
@@ -208,6 +288,7 @@ Kurallar:
 - ${genitive(narrator.name)} cevaplarını ASLA aynen alıntılama; anlamı koru ama ihtiyaç diline çevir. Suçlayıcı cümleleri "${narrator.name} o an … hissetti, … ihtiyaç duyuyordu" diline çevir.
 - ${reader.name} hakkında hüküm verme.
 - ${narrator.name} hakkında üçüncü tekil şahısla yaz. readingNote alanında ${dative(reader.name)} "siz" diye seslen.
+- ${genitive(narrator.name)} işaretlediği hisleri liste hâlinde sayma. Tartışma sırasında ve sonrasında yaşadıklarının farkını ve onu en çok etkileyen hissi, olayla ve ihtiyacıyla bağlantılı biçimde anlat. Bu hisleri ${genitive(reader.name)} niyetinin kanıtı gibi sunma.
 - ${narrator.name} ${genitive(reader.name)} ihtiyacını tahmin etmeye çalıştıysa, bunu bir çaba ve iyi niyet olarak story içinde kısaca anabilirsin.
 - Kısa tut: story iki kısa paragraf; diğer alanlar birer cümle.
 
@@ -235,6 +316,7 @@ Nasıl:
 4. Ortak onarım adımları: Bu döngü yeniden başladığında İKİSİNİN de kullanacağı TAM 3 adım. Biri mutlaka mola (en az 20 dakika, ne zaman dönüleceğini söyleyerek), biri yumuşak başlangıç, biri yakınlığa davet. phrase doğal bir Türkçe cümle.
 5. tonight: İkisinin birlikte yapacağı küçük, somut bir ritüel (konuşma rehberi değil; o kişisel raporlarda).
 6. Yeniden değerlendirme notları varsa, birbirlerini anlamak için attıkları adımları takdir et.
+7. Hisler: Döngünün "birincil duygu" katmanını, ikisinin tartışma sırasında ve sonrasında işaretlediği hislerden ve onları en çok etkileyen histen kur. Hisleri liste hâlinde sayma; ikisinin duygularına eşit yer ver.
 
 ${header(a)}
 ${describeMember(a, b.name, opts) || emptyNote(a)}
@@ -246,14 +328,15 @@ ${describeMember(b, a.name, opts) || emptyNote(b)}`
 }
 
 const PERSONAL_GUIDE = (owner: string, partner: string) => `- greeting: ${dative(owner)} "siz" diye seslen.
+- feelings: ${genitive(owner)} tartışma sırasında ve sonrasında işaretlediği hisleri LİSTE HÂLİNDE TEKRAR ETMEDEN yorumla (3-5 cümle): sırasında ile sonrasında arasındaki değişimi anlamlandır; onu en çok etkileyen hissi ve nedenini olayla ve karşılanmamış ihtiyacıyla bağla. Anlatım bir bağlantıyı desteklemiyorsa onu kesinmiş gibi kurma. His işaretlemediyse bunu nazikçe söyle ve tahmin yürütme. ${genitive(partner)} hislerini burada değil partnerInner içinde, ihtiyaç diliyle ele al.
 - partnerInner: ${genitive(partner)} o an iç dünyasında olanı (birincil duygu + ihtiyaç) ihtiyaç diliyle anlat.
-- needGuess: ${genitive(owner)} ${genitive(partner)} ihtiyacına dair tahminini (5. soru) ele al.
+- needGuess: ${genitive(owner)} ${genitive(partner)} ihtiyacına dair tahminini ("ihtiyacına dair kendi tahmini" satırı) ele al.
 - yourPlace: Döngüdeki yeri; 2 cümle, ortak döngüyü tekrar anlatmadan.
 - patterns: ${genitive(owner)} KENDİ cevaplarında gerçekten görülen bilişsel çarpıtma ve iletişim kalıpları (felaketleştirme, genelleme, zihin okuma, etiketleme, meli-malı, cezalandırma isteği, talep dili, suçlama, savunma, duvar örme). Görmüyorsan boş dizi ver; uydurma. Her birine yapıcı bir alternatif yaz.
-- needsLanguage: ${genitive(owner)} kendi ihtiyacını (4. soru) ${dative(partner)} suçlamadan nasıl söyleyeceğini öğret. insteadOf: muhtemelen kurduğu suçlayıcı ya da talep eden cümle. say: bunun yerine BİREBİR kurması gereken cümle (gözlem → duygu → ihtiyaç → rica), ${dative(partner)} "sen" diye.
+- needsLanguage: ${genitive(owner)} kendi ihtiyacını ("Kendi ihtiyacı" satırı) ${dative(partner)} suçlamadan nasıl söyleyeceğini öğret. insteadOf: muhtemelen kurduğu suçlayıcı ya da talep eden cümle. say: bunun yerine BİREBİR kurması gereken cümle (gözlem → duygu → ihtiyaç → rica), ${dative(partner)} "sen" diye.
 - understanding: ${dative(partner)} onun bakış açısını anladığını gösteren, birebir söylenecek bir cümle.
 - tonight: Bu akşam konuşmayı nasıl yöneteceği: açılış cümlesi, 3 kısa adım, kaçınılacak tek şey.
-- selfChange: Kendinde değiştirmek istediği şeyi (6. soru) somut bir alışkanlığa çevir.
+- selfChange: Kendinde değiştirmek istediği şeyi ("Kendinde müdahale etmesi gerektiğini düşündüğü şey" satırı) somut bir alışkanlığa çevir.
 - strength ve closing birer cümle.`
 
 /** 4. Adım: Kişisel rapor — yalnızca sahibi okur. */
@@ -303,7 +386,7 @@ GÖREV: ${owner.name} partneriyle (${partnerName}) yaşadığı bir tartışma i
 
 Önemli:
 - Elinde yalnızca ${genitive(owner.name)} anlatımı var. ${genitive(partnerName)} iç dünyasını ve ihtiyacını, anlatımdan yola çıkan OLASI bir okuma olarak yaz ("muhtemelen", "belki" diliyle); kesin bilgi gibi sunma ve ${partnerName} hakkında hüküm verme.
-- needGuess.match değeri "tahmin" olsun; text alanında ${genitive(owner.name)} tahminini (5. soru) olası başka ihtiyaçlarla zenginleştir.
+- needGuess.match değeri "tahmin" olsun; text alanında ${genitive(owner.name)} tahminini olası başka ihtiyaçlarla zenginleştir.
 - Döngüyü yourPlace içinde iki taraflı ama adil biçimde, 2-3 cümleyle göster.
 - Rapor ${genitive(owner.name)} bu akşam ${withName(partnerName)} konuşmayı açabilmesine odaklansın.
 
@@ -342,7 +425,7 @@ export function buildRelationshipPrompt(input: {
       }
       for (const role of ['A', 'B'] as const) {
         const c = d.chips[role]
-        const e = labelsOf(c.emotions, EMOTION_CHIPS)
+        const e = [...new Set(c.emotions)].map(feelingLabel).join(', ')
         const r = labelsOf(c.reactions, REACTION_CHIPS)
         if (e || r) parts.push(`   ${names[role]}: duygular: ${e || '—'}; tepkiler: ${r || '—'}`)
       }
@@ -353,12 +436,13 @@ export function buildRelationshipPrompt(input: {
   const totals = (['A', 'B'] as const)
     .map((role) => {
       const t = input.totals[role]
-      const fmt = (rec: Record<string, number>, chips: readonly { id: string; label: string }[]) =>
+      const fmt = (rec: Record<string, number>, label: (id: string) => string) =>
         Object.entries(rec)
           .sort((x, y) => y[1] - x[1])
-          .map(([id, n]) => `${chips.find((c) => c.id === id)?.label ?? id}: ${n}`)
+          .map(([id, n]) => `${label(id)}: ${n}`)
           .join(', ') || '—'
-      return `${names[role]} — duygular: ${fmt(t.emotions, EMOTION_CHIPS)} | tepkiler: ${fmt(t.reactions, REACTION_CHIPS)}`
+      const reaction = (id: string) => REACTION_CHIPS.find((c) => c.id === id)?.label ?? id
+      return `${names[role]} — duygular: ${fmt(t.emotions, feelingLabel)} | tepkiler: ${fmt(t.reactions, reaction)}`
     })
     .join('\n')
 

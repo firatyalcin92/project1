@@ -55,7 +55,7 @@ beforeEach(() => {
 })
 
 async function pair() {
-  const a = await createCouple({ mode: 'couple', coupleName: 'Biz', displayName: 'Fırat' })
+  const a = await createCouple({ mode: 'couple', displayName: 'Fırat', partnerName: 'Ayşe' })
   const b = await joinCouple({ code: a.couple.code.toLowerCase(), displayName: 'Ayşe' })
   const ma = await authenticateMember(a.token)
   const mb = await authenticateMember(b.token)
@@ -70,7 +70,13 @@ const fullAnswers = (
   whatHappened: raw,
   answers: [
     { questionId: 'dusunce' as const, text: '“Yine beni dinlemiyor” diye düşündüm', tags: ['israr', 'uydurma-cip'] },
-    { questionId: 'duygular' as const, text: 'sıkışmışlık', tags: ['gorulmemis', 'yalniz', 'diger'] },
+    {
+      questionId: 'his_sirasinda' as const,
+      text: 'sıkışmışlık',
+      tags: ['ofkelendim', 'dinlenmedim', 'diger', 'uydurma-his'],
+    },
+    { questionId: 'his_sonrasinda' as const, text: '', tags: ['yalniz', 'kirildim', 'dinlenmedim'] },
+    { questionId: 'en_etkili' as const, text: 'Çünkü kapı kapanınca tek başıma kaldım', tags: ['yalniz'] },
     { questionId: 'ihtiyac' as const, text: 'Beni duyduğunu söylemesi', tags: [] },
     { questionId: 'partner_ihtiyac' as const, text: 'Yorgun olduğunu fark etmemi', tags: [] },
     { questionId: 'degisim' as const, text: 'Sesimi yükseltmemek', tags: [] },
@@ -112,7 +118,7 @@ describe('kimlik doğrulama ve eşleştirme', () => {
 
   it('başka bir çiftin üyesi meseleyi göremez (IDOR)', async () => {
     const { ma } = await pair()
-    const other = await createCouple({ mode: 'couple', coupleName: 'Onlar', displayName: 'Mert' })
+    const other = await createCouple({ mode: 'couple', displayName: 'Mert', partnerName: 'Ece' })
     const mo = await authenticateMember(other.token)
     const { id } = await createDispute(ma, 'Cumartesi planı')
     await expect(getDisputeView(mo, id)).rejects.toThrow(/\[NOT_FOUND\]/)
@@ -143,7 +149,12 @@ describe('çift akışı: ham cevaplar partnere dönmez, analiz hepsini kullanı
     expect(afterA.status).toBe('answers_in_progress')
     expect(afterA.mine.reflection).toBe(r.reflection)
     expect(afterA.mine.answers.dusunce.tags).toEqual(['israr']) // geçersiz çip ayıklanır
-    expect(afterA.mine.answers.duygular.tags).toEqual(['gorulmemis', 'yalniz', 'diger'])
+    expect(afterA.mine.answers.his_sirasinda).toEqual({
+      text: 'sıkışmışlık',
+      tags: ['ofkelendim', 'dinlenmedim', 'diger'],
+    })
+    expect(afterA.mine.answers.his_sonrasinda.tags).toEqual(['yalniz', 'kirildim', 'dinlenmedim'])
+    expect(afterA.mine.answers.en_etkili).toEqual({ text: 'Çünkü kapı kapanınca tek başıma kaldım', tags: ['yalniz'] })
     await expect(saveAnswers(ma, fullAnswers(id))).rejects.toThrow(/\[CONFLICT\]/)
 
     const afterB = await saveAnswers(mb, fullAnswers(id, RAW_B))
@@ -215,7 +226,7 @@ describe('çift akışı: ham cevaplar partnere dönmez, analiz hepsini kullanı
 
 describe('bireysel (solo) mod', () => {
   it('tek kişi anlatır, tek bir danışman raporu alır; ortak rapor ve kod ile katılım yoktur', async () => {
-    const s = await createCouple({ mode: 'solo', coupleName: '', displayName: 'Fırat', partnerName: 'Ayşe' })
+    const s = await createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: 'Ayşe' })
     expect(s.couple.mode).toBe('solo')
     await expect(joinCouple({ code: s.couple.code, displayName: 'Ayşe' })).rejects.toThrow(/\[NOT_FOUND\]/)
     const m = await authenticateMember(s.token)
@@ -239,8 +250,11 @@ describe('bireysel (solo) mod', () => {
     await expect(ensureOverview(m)).rejects.toThrow(/\[CONFLICT\]/)
   })
 
-  it('bireysel modda partner adı zorunludur', async () => {
-    await expect(createCouple({ mode: 'solo', coupleName: '', displayName: 'Fırat', partnerName: '' })).rejects.toThrow(
+  it('partner adı her iki modda da zorunludur', async () => {
+    await expect(createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: '' })).rejects.toThrow(
+      /\[VALIDATION\]/,
+    )
+    await expect(createCouple({ mode: 'couple', displayName: 'Fırat', partnerName: ' ' })).rejects.toThrow(
       /\[VALIDATION\]/,
     )
   })
@@ -291,8 +305,183 @@ describe('Genel Görüş', () => {
     const o = await getOverview(mb)
     expect(o.status).toBe('ready')
     expect(o.report?.horsemen.items).toHaveLength(4)
-    expect(o.stats.emotions.A.gorulmemis).toBe(10)
+    // Hem sırasında hem sonrasında seçilen his, mesele başına bir kez sayılır.
+    expect(o.stats.emotions.A.dinlenmedim).toBe(10)
+    expect(o.stats.emotions.B.ofkelendim).toBe(10)
+    expect(o.stats.emotions.A.diger).toBeUndefined()
+    expect(calls[0]!.user).toContain('Dinlenmediğimi hissettim')
     expect(o.stats.reactions.B.israr).toBe(10)
     expect(o.canRefresh).toBe(false)
+  })
+})
+
+describe('çift oluşturma: çift adı sorulmaz', () => {
+  it('ad ve partner adı yeterli; partner katılana kadar panelde yazılan ad görünür', async () => {
+    const a = await createCouple({ mode: 'couple', displayName: 'Fırat', partnerName: 'Ayşe' })
+    expect(a.couple.name).toBe('Fırat & Ayşe')
+    const ma = await authenticateMember(a.token)
+    expect((await buildPanel(ma)).partnerName).toBe('Ayşe')
+    await joinCouple({ code: a.couple.code, displayName: 'Ayşegül' })
+    expect((await buildPanel(ma)).partnerName).toBe('Ayşegül')
+  })
+})
+
+describe('his soruları (sırasında / sonrasında / en çok etkileyen)', () => {
+  const RAW_WHY = 'NEDEN-HAM-CEVAP o an bana bir yabancı gibi baktı'
+  const RAW_OTHER = 'DIGER-HAM-HIS içimde bir boşluk'
+
+  const feelingAnswers = (
+    disputeId: string,
+    overrides: Record<string, { text: string; tags: string[] }>,
+    raw = RAW_A,
+  ) => {
+    const base = fullAnswers(disputeId, raw)
+    return {
+      ...base,
+      answers: base.answers.map((a) => (overrides[a.questionId] ? { ...a, ...overrides[a.questionId] } : a)),
+    }
+  }
+
+  it('her alan ayrı satırda, doğru kişiye bağlı saklanır; partner göremez', async () => {
+    const store = createMemoryStore()
+    __setStoreForTests(store)
+    const { ma, mb } = await pair()
+    const { id } = await createDispute(ma, 'Akşam yemeği')
+    await saveAnswers(
+      ma,
+      feelingAnswers(id, {
+        his_sirasinda: { text: '', tags: ['ofkelendim', 'haksizlik'] },
+        his_sonrasinda: { text: RAW_OTHER, tags: ['yalniz', 'diger'] },
+        en_etkili: { text: RAW_WHY, tags: ['yalniz'] },
+      }),
+    )
+
+    const rows = (await store.getAnswers([id])).filter((r) => r.member_id === ma.id)
+    const row = (q: string) => rows.find((r) => r.question_id === q)
+    expect(row('his_sirasinda')?.selected_tags).toEqual(['ofkelendim', 'haksizlik'])
+    expect(row('his_sonrasinda')?.selected_tags).toEqual(['yalniz', 'diger'])
+    expect(row('his_sonrasinda')?.text_answer).toBe(RAW_OTHER)
+    expect(row('en_etkili')?.selected_tags).toEqual(['yalniz'])
+    expect(row('en_etkili')?.text_answer).toBe(RAW_WHY)
+    expect(rows.every((r) => r.member_id === ma.id)).toBe(true)
+
+    // Partnerin görünümünde bu cevaplar yok
+    const vb = await getDisputeView(mb, id)
+    expect(vb.mine.answers.en_etkili).toEqual({ text: '', tags: [] })
+    expect(JSON.stringify(vb)).not.toContain('NEDEN-HAM-CEVAP')
+    expect(JSON.stringify(vb)).not.toContain('DIGER-HAM-HIS')
+  })
+
+  it('geçersiz seçimler ayıklanır: tek en etkili his, seçilmemiş his kabul edilmez', async () => {
+    const { ma } = await pair()
+    const { id } = await createDispute(ma, 'Tatil')
+    const set = (o: Record<string, { text: string; tags: string[] }>) =>
+      saveAnswers(ma, { ...feelingAnswers(id, o), submit: false })
+
+    // Seçilmemiş bir his "en etkili" olamaz; neden metni korunur.
+    let v = await set({
+      his_sirasinda: { text: '', tags: ['ofkelendim'] },
+      his_sonrasinda: { text: '', tags: [] },
+      en_etkili: { text: 'çünkü', tags: ['yalniz'] },
+    })
+    expect(v.mine.answers.en_etkili).toEqual({ text: 'çünkü', tags: [] })
+
+    // Birden fazla gönderilirse yalnızca ilk geçerli olan kalır.
+    v = await set({
+      his_sirasinda: { text: '', tags: ['ofkelendim', 'kirildim'] },
+      his_sonrasinda: { text: '', tags: [] },
+      en_etkili: { text: '', tags: ['uydurma', 'kirildim', 'ofkelendim'] },
+    })
+    expect(v.mine.answers.en_etkili.tags).toEqual(['kirildim'])
+
+    // "Başka bir şey" seçili değilse metin tutulmaz; metin yoksa "diger" düşer.
+    v = await set({
+      his_sirasinda: { text: 'yazı ama çip yok', tags: ['ofkelendim'] },
+      his_sonrasinda: { text: '  ', tags: ['diger'] },
+      en_etkili: { text: '', tags: [] },
+    })
+    expect(v.mine.answers.his_sirasinda).toEqual({ text: '', tags: ['ofkelendim'] })
+    expect(v.mine.answers.his_sonrasinda).toEqual({ text: '', tags: [] })
+
+    // Kendi yazdığı his de "en etkili" seçilebilir.
+    v = await set({
+      his_sirasinda: { text: '', tags: [] },
+      his_sonrasinda: { text: 'boşluk', tags: ['diger'] },
+      en_etkili: { text: '', tags: ['diger_sonrasinda'] },
+    })
+    expect(v.mine.answers.en_etkili.tags).toEqual(['diger_sonrasinda'])
+
+    // His soruları isteğe bağlıdır: hiç seçim yapmadan gönderilebilir.
+    v = await saveAnswers(ma, {
+      ...feelingAnswers(id, {
+        his_sirasinda: { text: '', tags: [] },
+        his_sonrasinda: { text: '', tags: [] },
+        en_etkili: { text: '', tags: [] },
+      }),
+      submit: true,
+    })
+    expect(v.mine.submittedAt).toBeTruthy()
+  })
+
+  it('yapay zekâ istemleri hisleri, değişimi ve en çok etkileyen hissi kullanır', async () => {
+    const { ma, mb } = await pair()
+    const { id } = await createDispute(ma, 'Akşam yemeği')
+    await saveAnswers(
+      ma,
+      feelingAnswers(id, {
+        his_sirasinda: { text: '', tags: ['ofkelendim', 'dinlenmedim'] },
+        his_sonrasinda: { text: RAW_OTHER, tags: ['yalniz', 'dinlenmedim', 'diger'] },
+        en_etkili: { text: RAW_WHY, tags: ['yalniz'] },
+      }),
+    )
+    await saveAnswers(
+      mb,
+      feelingAnswers(
+        id,
+        {
+          his_sirasinda: { text: '', tags: [] },
+          his_sonrasinda: { text: '', tags: [] },
+          en_etkili: { text: '', tags: [] },
+        },
+        RAW_B,
+      ),
+    )
+    await ensurePerspectives(ma, id)
+    const fromA = calls.find((c) => c.task === 'perspective' && c.user.includes('FIRAT-HAM-CEVAP'))!
+    expect(fromA.user).toContain('Tartışma SIRASINDA hissettikleri: Öfkelendim [öfke ve haksızlık]; Dinlenmediğimi')
+    expect(fromA.user).toContain('Tartışma SONRASINDA hissettikleri: Yalnız hissettim')
+    expect(fromA.user).toContain(`kendi ifadesiyle: «« ${RAW_OTHER} »»`)
+    expect(fromA.user).toMatch(
+      /Değişim: sonrasında da süren: Dinlenmediğimi hissettim \| yalnızca sırasında: Öfkelendim \| sonradan ortaya çıkan: Yalnız hissettim/,
+    )
+    expect(fromA.user).toContain('Onu en çok etkileyen his: Yalnız hissettim (tartışma sonrasında)')
+    expect(fromA.user).toContain(`Nedeni: «« ${RAW_WHY} »»`)
+    expect(fromA.user).toMatch(/niyetinin kanıtı gibi sunma/)
+    expect(fromA.system).toMatch(/## Duygular/)
+    expect(fromA.system).toMatch(/liste hâlinde geri sayma/)
+    expect(fromA.system).toMatch(/tanı çıkarma/)
+    expect(fromA.system).toMatch(/belirsizliği açıkça söyle/)
+    expect(fromA.system).toMatch(/eşit ciddiyetle/)
+
+    // His seçmeyen partner için "tahmin yürütme" notu
+    const fromB = calls.find((c) => c.task === 'perspective' && c.user.includes('AYSE-HAM-CEVAP'))!
+    expect(fromB.user).toContain('işaretlemedi (bilgi yok; tahmin yürütme)')
+
+    // Partnerin okuyacağı görünüm ham "neden" metnini taşımaz
+    const vb = await getDisputeView(mb, id)
+    expect(JSON.stringify(vb)).not.toContain('NEDEN-HAM-CEVAP')
+
+    await saveReconsideration(ma, reflections(id))
+    await saveReconsideration(mb, reflections(id))
+    calls = []
+    await ensureReports(ma, id)
+    const mine = calls.filter((c) => c.task === 'my_report')
+    expect(mine).toHaveLength(2)
+    for (const m of mine) expect(m.user).toMatch(/- feelings: .*LİSTE HÂLİNDE TEKRAR ETMEDEN/)
+    const shared = calls.find((c) => c.task === 'shared_report')!
+    expect(shared.user).toContain(RAW_WHY) // ortak analiz de kullanır…
+    expect(shared.user).toMatch(/Hisleri liste hâlinde sayma; ikisinin duygularına eşit yer ver/)
+    const va = await getDisputeView(ma, id)
+    expect(va.report?.mine?.feelings).toBeTruthy()
   })
 })

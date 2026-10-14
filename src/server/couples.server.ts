@@ -43,16 +43,20 @@ function session(token: string, member: MemberRow, couple: CoupleRow): SessionRe
   }
 }
 
+/** Çift adı artık sorulmaz; iki addan kendiliğinden oluşur (ör. "Fırat & Ayşe"). */
+export function coupleNameFor(displayName: string, partnerName: string | null) {
+  return partnerName ? `${displayName} & ${partnerName}` : displayName
+}
+
 export async function createCouple(input: {
   mode: 'couple' | 'solo'
-  coupleName: string
   displayName: string
   partnerName?: string
 }): Promise<SessionResult> {
   const displayName = cleanName(input.displayName, LIMITS.displayName, 'Adınız')
   const solo = input.mode === 'solo'
-  const partnerName = solo ? cleanName(input.partnerName ?? '', LIMITS.displayName, 'Eşinizin adı') : null
-  const coupleName = solo ? displayName : cleanName(input.coupleName, LIMITS.coupleName, 'Çift adı')
+  const partnerName = cleanName(input.partnerName ?? '', LIMITS.displayName, 'Partnerinizin adı')
+  const coupleName = solo ? displayName : coupleNameFor(displayName, partnerName)
   const store = await getStore()
 
   let couple: CoupleRow | null = null
@@ -121,7 +125,8 @@ export async function buildPanel(member: AuthedMember): Promise<PanelView> {
     couple: { name: couple.name, code: couple.code, mode: couple.mode },
     me: { id: me.id, role: me.role, name: me.display_name },
     partner: partner ? { id: partner.id, role: partner.role, name: partner.display_name } : null,
-    partnerName: couple.mode === 'solo' ? couple.partner_name : (partner?.display_name ?? null),
+    // Partner henüz katılmadıysa, çifti oluşturanın yazdığı ad kullanılır.
+    partnerName: couple.mode === 'solo' ? couple.partner_name : (partner?.display_name ?? couple.partner_name),
     active: await activeSummary(member, disputes),
     recent: completed.slice(0, 3).map((d) => summarize(d, member.id)),
     completedCount: completed.length,

@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { QueryError } from '~/components/boundaries'
-import { AnswerWizard } from '~/components/dispute/answer-wizard'
+import { AnswerWizard, answerBody } from '~/components/dispute/answer-wizard'
 import { MyPerspectiveDisclosure, PerspectiveCard } from '~/components/dispute/perspective'
 import { ReconsiderForm } from '~/components/dispute/reconsider-form'
 import { MyReportView, SharedGate, SharedReportView } from '~/components/dispute/resolution'
@@ -16,7 +16,7 @@ import { Button, Card, Disclosure, LinkButton, Notice } from '~/components/ui'
 import { cancelDisputeFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import { requireMember } from '~/lib/guard'
-import { OTHER_CHIP, QUESTIONS, chipLabel, type AnswerQuestionId } from '~/lib/questions'
+import { QUESTIONS } from '~/lib/questions'
 import { formatDate, genitive } from '~/lib/turkish'
 import type { DisputeView } from '~/lib/views'
 
@@ -261,19 +261,12 @@ function MyAnswersSummary({ view }: { view: DisputeView }) {
     <dl className="space-y-3">
       <p className="text-sm font-semibold">Anlattıklarınız</p>
       {QUESTIONS.map((q) => {
-        const a = q.id === 'olay' ? null : view.mine.answers[q.id as AnswerQuestionId]
-        const text = q.id === 'olay' ? view.mine.whatHappened : a!.text
-        const tags = (a?.tags ?? []).filter((t) => t !== OTHER_CHIP)
-        if (!text && tags.length === 0) return null
+        const body = answerBody(q, view.mine)
+        if (!body) return null
         return (
           <div key={q.id}>
             <dt className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{q.title}</dt>
-            <dd className="mt-1 text-[15px] leading-relaxed text-ink">
-              {tags.length ? (
-                <span className="text-ink-soft">{tags.map((t) => chipLabel(q.id, t)).join(', ')}. </span>
-              ) : null}
-              {text}
-            </dd>
+            <dd className="mt-1 text-[15px] leading-relaxed text-ink">{body}</dd>
           </div>
         )
       })}

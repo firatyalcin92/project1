@@ -19,7 +19,7 @@ const UNIQUE_VIOLATION = '23505'
 
 function check(error: PostgrestError | null, context: string) {
   if (error) {
-    console.error(`[mesele] supabase ${context}:`, error.message)
+    console.error(`[mesele] supabase ${context}: [${error.code}] ${error.message}`)
     throw new MeseleError('INTERNAL', 'Kayıt sırasında bir sorun oluştu. Lütfen tekrar dene.')
   }
 }
