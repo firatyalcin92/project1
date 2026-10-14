@@ -22,6 +22,21 @@ const Safety = z
 export type Safety = z.infer<typeof Safety>
 
 // ---------------------------------------------------------------------------
+// 1. Adım: Danışmanın yansıtması (3. sorudan önce)
+// ---------------------------------------------------------------------------
+
+export const ReflectionSchema = z.object({
+  reflection: z
+    .string()
+    .min(1)
+    .describe(
+      'Kişinin anlattıklarına 2-3 cümlelik, "siz" hitaplı, sıcak bir yansıtma. Soru sorma, yorum ya da tavsiye verme.',
+    ),
+})
+
+export type Reflection = z.infer<typeof ReflectionSchema>
+
+// ---------------------------------------------------------------------------
 // 2. Adım: "[Partner]'ın Gözünden"
 // ---------------------------------------------------------------------------
 
@@ -46,7 +61,7 @@ export const PerspectiveSchema = z.object({
   readingNote: z
     .string()
     .min(1)
-    .describe('Okuyan partnere tek cümlelik nazik not: savunmaya geçmeden, merakla okuması için.'),
+    .describe('Okuyan partnere "siz" hitabıyla tek cümlelik nazik not: savunmaya geçmeden, merakla okuması için.'),
 })
 
 export type Perspective = z.infer<typeof PerspectiveSchema>
@@ -116,41 +131,77 @@ export const SharedReportSchema = z.object({
 export type SharedReport = z.infer<typeof SharedReportSchema>
 
 // ---------------------------------------------------------------------------
-// 4. Adım: Kişisel Rapor — Sana Özel Ayna
+// 4. Adım: Kişisel Rapor — Size Özel Ayna ve Yönlendirme
 // ---------------------------------------------------------------------------
+// Ortak rapordan farkı: döngüyü yeniden anlatmaz; kişiye ne yapacağını, ne
+// söyleyeceğini ve hangi düşünce kalıbına dikkat edeceğini söyler.
 
 export const MyReportSchema = z.object({
-  greeting: z.string().min(1).describe('Raporu okuyan kişiye adıyla seslenen, 2 cümlelik sıcak açılış.'),
-  mirror: z.object({
-    partnerWords: z
-      .string()
-      .describe(
-        "Partnerin paylaştığı anlatımdan kısa bir söz ya da davranış (örn. 'Hiç umursamıyorsun'). Yoksa boş metin.",
-      ),
-    meaning: z
-      .string()
-      .min(1)
-      .describe(
-        "Ayna: 'Ayşe ... derken aslında hissettiği ... idi.' Partnerin yüzeydeki sözünün altındaki duygu ve ihtiyaç.",
-      ),
-  }),
-  yourPlace: z.string().min(1).describe('Okuyan kişinin döngüdeki yeri; şefkatle, suçlamadan.'),
-  blindSpots: z
+  greeting: z.string().min(1).describe('Okuyana adıyla, "siz" diye seslenen 2 cümlelik sıcak açılış.'),
+  partnerInner: z
+    .string()
+    .min(1)
+    .describe(
+      'Partnerin o an iç dünyasında olan: hissettiği birincil duygu ve ihtiyacı, ihtiyaç diliyle. Partnerin cümlelerini ASLA aynen alıntılama.',
+    ),
+  needGuess: z
+    .object({
+      match: z
+        .enum(['yakın', 'kısmen', 'uzak', 'tahmin'])
+        .describe('Okuyanın partner ihtiyacı tahmini gerçeğe ne kadar yakın; bireysel modda "tahmin".'),
+      text: z
+        .string()
+        .min(1)
+        .describe(
+          'Okuyanın partnerin ihtiyacına dair tahmini ile partnerin asıl ihtiyacının karşılaştırması, 2-3 cümle.',
+        ),
+    })
+    .describe('Bakış açısı alma: "Siz onun şuna ihtiyaç duyduğunu düşünmüşsünüz; aslında…"'),
+  yourPlace: z
+    .string()
+    .min(1)
+    .describe('Okuyanın döngüdeki yeri, 2 cümle. Ortak rapordaki döngü anlatımını tekrar etme.'),
+  patterns: z
     .array(
       z.object({
-        title: z.string().min(1),
-        insight: z.string().min(1).describe('Şefkatli ama dürüst geri bildirim, 1-2 cümle.'),
+        name: z
+          .string()
+          .min(1)
+          .describe(
+            'Kalıbın adı: Felaketleştirme, Genelleme (hep/hiç), Zihin okuma, Etiketleme, Kişiselleştirme, Meli-malı düşüncesi, Cezalandırma isteği, Talep dili, Suçlama, Savunma, Duvar örme vb.',
+          ),
+        seenIn: z.string().min(1).describe('Okuyanın KENDİ anlatımında bunun nerede göründüğü, kısaca.'),
+        reframe: z.string().min(1).describe('Aynı düşüncenin yapıcı, gerçekçi hâli.'),
       }),
     )
-    .min(1)
     .max(3)
-    .describe('İletişim kör noktaları'),
-  strength: z.string().min(1).describe('Bu meselede gösterdiği bir güç ya da iyi niyet.'),
-  repair: z.object({
-    suggestion: z.string().min(1).describe('Yalnızca onun görebileceği kişisel onarım önerisi.'),
-    phrase: z.string().min(1).describe('Partnerine söyleyebileceği tek bir onarım cümlesi, tırnaksız.'),
+    .describe('Okuyanın kendi cevaplarında görülen bilişsel çarpıtmalar ve iletişim kalıpları (yoksa boş dizi).'),
+  needsLanguage: z.object({
+    explain: z
+      .string()
+      .min(1)
+      .describe('İhtiyacını partnerine suçlamadan nasıl söyleyeceği: gözlem → duygu → ihtiyaç → rica, 2-3 cümle.'),
+    insteadOf: z.string().min(1).describe('Muhtemelen kurduğu ya da kuracağı suçlayıcı/talep cümlesi, tırnaksız.'),
+    say: z
+      .string()
+      .min(1)
+      .describe('Bunun yerine birebir kurması gereken ihtiyaç dili cümlesi, tırnaksız, "sen" hitabıyla partnere.'),
   }),
-  selfCompassion: z.string().min(1).describe('Kendine şefkat notu, tek cümle.'),
+  understanding: z
+    .string()
+    .min(1)
+    .describe('Partnerine onun bakış açısını anladığını gösteren, birebir söylenecek cümle, tırnaksız.'),
+  tonight: z.object({
+    opener: z.string().min(1).describe('Bu akşam konuşmayı açacağı ilk cümle, tırnaksız.'),
+    steps: z.array(z.string().min(1)).min(3).max(3).describe('Konuşmayı yönetmek için 3 kısa adım.'),
+    avoid: z.string().min(1).describe('Bu konuşmada kesinlikle kaçınması gereken tek şey.'),
+  }),
+  selfChange: z
+    .string()
+    .min(1)
+    .describe('Kendinde değiştirmek istediği şeyi somut, uygulanabilir bir alışkanlığa çevir.'),
+  strength: z.string().min(1).describe('Bu meselede gösterdiği bir güç ya da iyi niyet, tek cümle.'),
+  closing: z.string().min(1).describe('Kısa, umut veren kapanış; tek cümle.'),
   safety: Safety,
 })
 

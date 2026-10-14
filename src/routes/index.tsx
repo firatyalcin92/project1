@@ -14,29 +14,29 @@ const STEPS = [
   {
     n: 1,
     title: 'Anlat',
-    body: 'Her biriniz kendi telefonundan, kimse sözünü kesmeden anlatır. Ne oldu, ne hissettin, neye ihtiyacın vardı.',
+    body: 'Her biriniz kendi telefonundan, kimse sözünüzü kesmeden anlatır: ne oldu, ne düşündünüz, ne hissettiniz, neye ihtiyacınız vardı.',
   },
   {
     n: 2,
     title: 'Partnerinin Gözünden Gör',
-    body: 'Partnerinin o an ne yaşadığını, savunmaya geçmeden, onun gözünden okursun.',
+    body: 'Partnerinizin o an ne yaşadığını, savunmaya geçmeden, onun gözünden okursunuz.',
   },
   {
     n: 3,
     title: 'Yeniden Değerlendir',
-    body: 'Okuduktan sonra içinde ne değişti? Yeni bir cümle kurarsın.',
+    body: 'Okuduktan sonra içinizde ne değişti? Yeni bir cümle kurarsınız.',
   },
   {
     n: 4,
     title: 'Çözüm Raporu',
-    body: 'Ortak döngünüz, ihtiyaç aynanız ve bir dahaki sefere kullanacağınız üç onarım adımı.',
+    body: 'Ortak döngünüz, ihtiyaç aynanız ve bu akşam partnerinize birebir söyleyebileceğiniz cümleler.',
   },
 ]
 
 const MANIFESTO = [
   { icon: IconLoop, text: 'Düşmanınız birbiriniz değil; aranıza yerleşen döngü.' },
   { icon: IconHeart, text: 'Öfkenin altında hep daha kırılgan bir duygu bekler.' },
-  { icon: IconLock, text: 'Paylaşmak istemediğin hiçbir şey partnerine gösterilmez.' },
+  { icon: IconLock, text: 'Cevaplarınız partnerinize olduğu gibi gösterilmez; danışman ihtiyaç diliyle aktarır.' },
   { icon: IconSparkle, text: 'Kimse kazanmaz. İlişki kazanır.' },
 ]
 
@@ -76,6 +76,19 @@ function Landing() {
             <LinkButton to="/katil" variant="secondary" size="lg" full>
               Partnerimin koduyla katıl
             </LinkButton>
+            <Link
+              to="/olustur"
+              search={{ mod: 'bireysel' }}
+              className="card mt-1 flex items-center gap-3 px-4 py-3.5 text-left transition hover:shadow-lift"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-ink">Tek başıma danışmak istiyorum</span>
+                <span className="block text-[13px] leading-snug text-ink-soft">
+                  Eşiniz uygulamayı kullanmasa da, yaşadığınız tartışma için yönlendirme alın.
+                </span>
+              </span>
+              <IconArrowRight size={18} className="shrink-0 text-ink-faint" />
+            </Link>
             <Link
               to="/katil"
               search={{ mod: 'anahtar' }}
@@ -142,8 +155,8 @@ function Landing() {
             Hesap yok. E-posta yok. Şifre yok.
           </h2>
           <p className="mt-2 leading-relaxed text-ink-soft">
-            Telefonuna, yalnızca ona özel gizli bir anahtar kaydedilir. Partnerinle eşleşmek için 6 haneli bir çift kodu
-            paylaşırsınız; kod yalnızca sizi buluşturur, kimseye kapı açmaz.
+            Telefonunuza, yalnızca ona özel gizli bir anahtar kaydedilir. Partnerinle eşleşmek için 6 haneli bir çift
+            kodu paylaşırsınız; kod yalnızca sizi buluşturur, kimseye kapı açmaz.
           </p>
         </section>
 

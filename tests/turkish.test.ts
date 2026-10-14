@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ablative, accusative, dative, genitive, withName } from '~/lib/turkish'
+import { ablative, accusative, dative, genitive, locative, withName } from '~/lib/turkish'
 
 describe('Türkçe ek uyumu', () => {
   it.each([
@@ -33,6 +33,12 @@ describe('Türkçe ek uyumu', () => {
     ['Can', 'Can’dan'],
   ])('ayrılma hâli: %s -> %s', (name, expected) => {
     expect(ablative(name)).toBe(expected)
+  })
+
+  it('bulunma hâli', () => {
+    expect(locative('Ayşe')).toBe('Ayşe’de')
+    expect(locative('Fırat')).toBe('Fırat’ta')
+    expect(locative('Can')).toBe('Can’da')
   })
 
   it('belirtme ve "ile" ekleri', () => {

@@ -40,12 +40,12 @@ export function WaitingForPartner({ view, children }: { view: DisputeView; child
           <LogoMark size={72} className="animate-breathe" />
         </div>
         <h2 className="text-[22px] font-semibold">
-          {view.step === 1 ? 'Anlattın. Teşekkürler.' : 'Yeniden düşündün. Teşekkürler.'}
+          {view.step === 1 ? 'Anlattınız. Teşekkürler.' : 'Yeniden düşündünüz. Teşekkürler.'}
         </h2>
         <p className="mx-auto max-w-sm leading-relaxed text-ink-soft">
           {partner
             ? `Şimdi ${genitive(partner)} ${phase} bekliyoruz. Hazır olduğunda bu ekran kendiliğinden ilerleyecek.`
-            : 'Partnerin henüz katılmadı. Çift kodunuzu panelden paylaşabilirsin.'}
+            : 'Partneriniz henüz katılmadı. Çift kodunuzu panelden paylaşabilirsiniz.'}
         </p>
         {partner ? (
           <Button
@@ -60,7 +60,7 @@ export function WaitingForPartner({ view, children }: { view: DisputeView; child
               setNote(r === 'copied' ? 'Mesaj panoya kopyalandı.' : r === 'shared' ? 'Hatırlatma gönderildi.' : null)
             }}
           >
-            <IconShare size={18} /> Nazikçe hatırlat
+            <IconShare size={18} /> Nazikçe hatırlatın
           </Button>
         ) : null}
         {note ? <p className="text-sm text-sage">{note}</p> : null}
@@ -87,7 +87,7 @@ const MESSAGES = {
     'Döngünüzün haritasını çıkarıyoruz…',
     'İkinizin de haklı olduğu yerleri buluyoruz…',
     'Onarım cümlelerinizi seçiyoruz…',
-    'Sana özel aynanı hazırlıyoruz…',
+    'Size özel raporunuzu hazırlıyoruz…',
   ],
 } as const
 

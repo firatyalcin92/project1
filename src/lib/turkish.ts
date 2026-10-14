@@ -110,3 +110,10 @@ export function formatMonth(iso: string) {
 export function alsoAfter(word: string) {
   return twoWay(word) === 'a' ? 'da' : 'de'
 }
+
+/** Bulunma hâli (-da/-de/-ta/-te): Ayşe’de, Fırat’ta */
+export function locative(name: string) {
+  const n = clean(name)
+  if (!n) return n
+  return `${n}’${endsWithHard(n) ? 't' : 'd'}${twoWay(n)}`
+}

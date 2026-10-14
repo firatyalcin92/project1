@@ -9,8 +9,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react'
 import { copyText } from '~/lib/native'
-import { VISIBILITY_LABEL, type Visibility } from '~/lib/questions'
-import { IconAlert, IconCheck, IconCopy, IconLock, IconUsers } from './icons'
+import { IconAlert, IconCheck, IconCopy } from './icons'
 
 export function cx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(' ')
@@ -315,55 +314,6 @@ export function ChipToggle({ label, selected, onToggle }: { label: string; selec
       {selected ? <IconCheck size={16} /> : null}
       {label}
     </button>
-  )
-}
-
-/** Partnerimle paylaş / Yalnızca Danışman AI seçimi. */
-export function VisibilityToggle({
-  value,
-  onChange,
-  partnerName,
-  compact,
-}: {
-  value: Visibility
-  onChange: (v: Visibility) => void
-  partnerName?: string
-  compact?: boolean
-}) {
-  const options: { v: Visibility; icon: ReactNode; label: string }[] = [
-    {
-      v: 'partner',
-      icon: <IconUsers size={16} />,
-      label: partnerName ? `${partnerName} görsün` : VISIBILITY_LABEL.partner,
-    },
-    { v: 'private', icon: <IconLock size={16} />, label: VISIBILITY_LABEL.private },
-  ]
-  return (
-    <div
-      role="radiogroup"
-      className={cx('inline-flex rounded-full border border-line bg-sunken p-1', compact ? 'text-[13px]' : 'text-sm')}
-    >
-      {options.map((o) => (
-        <button
-          key={o.v}
-          type="button"
-          role="radio"
-          aria-checked={value === o.v}
-          onClick={() => onChange(o.v)}
-          className={cx(
-            'inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 font-medium transition',
-            value === o.v
-              ? o.v === 'private'
-                ? 'bg-ink text-paper shadow-soft'
-                : 'bg-surface text-ink shadow-soft'
-              : 'text-ink-faint hover:text-ink',
-          )}
-        >
-          {o.icon}
-          {o.label}
-        </button>
-      ))}
-    </div>
   )
 }
 

@@ -13,7 +13,8 @@ function pollInterval(v: DisputeView | undefined): number | false {
   if (v.status === 'draft' || v.status === 'answers_in_progress') return v.progress.meSubmitted ? 5000 : false
   if (v.status === 'perspectives_ready' || v.status === 'reconsideration_in_progress')
     return v.progress.meReconsidered ? 5000 : 15000
-  if (v.status === 'completed' && v.report && !v.report.shared.unlocked && v.report.shared.approvedByMe) return 4000
+  if (v.status === 'completed' && v.report?.shared && !v.report.shared.unlocked && v.report.shared.approvedByMe)
+    return 4000
   return false
 }
 

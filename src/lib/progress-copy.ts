@@ -5,40 +5,49 @@ import type { ActiveDisputeSummary } from './views'
 export function activeLine(
   a: ActiveDisputeSummary,
   partnerName: string | null,
+  solo = false,
 ): { text: string; cta: string; waiting: boolean } {
-  const p = partnerName ?? 'Partnerin'
+  const p = partnerName ?? 'Partneriniz'
   switch (a.status) {
     case 'draft':
     case 'answers_in_progress':
       if (!a.meDone)
         return {
-          text: 'Senin anlatman bekleniyor. Kimse sözünü kesmeyecek.',
-          cta: 'Anlatmaya devam et',
+          text: 'Sizin anlatmanız bekleniyor. Kimse sözünüzü kesmeyecek.',
+          cta: 'Anlatmaya devam edin',
           waiting: false,
         }
       if (!partnerName)
-        return { text: 'Sen anlattın. Partnerin katıldığında o da anlatacak.', cta: 'Meseleyi aç', waiting: true }
-      return { text: `Sen anlattın. Şimdi ${genitive(p)} anlatması bekleniyor.`, cta: 'Meseleyi aç', waiting: true }
+        return { text: 'Anlattınız. Partneriniz katıldığında o da anlatacak.', cta: 'Meseleyi açın', waiting: true }
+      return { text: `Anlattınız. Şimdi ${genitive(p)} anlatması bekleniyor.`, cta: 'Meseleyi açın', waiting: true }
     case 'both_answers_completed':
     case 'generating_perspectives':
       return {
         text: 'İkiniz de anlattınız. MESELE birbirinizin gözünden metinleri hazırlıyor.',
-        cta: 'Meseleyi aç',
+        cta: 'Meseleyi açın',
         waiting: false,
       }
     case 'perspectives_ready':
     case 'reconsideration_in_progress':
       if (!a.meDone)
-        return { text: `${genitive(p)} gözünden okumaya hazırsın.`, cta: `${genitive(p)} gözünden oku`, waiting: false }
+        return {
+          text: `${genitive(p)} gözünden okumaya hazırsınız.`,
+          cta: `${genitive(p)} gözünden okuyun`,
+          waiting: false,
+        }
       return {
-        text: `Sen yeniden değerlendirdin. Şimdi ${genitive(p)} tamamlaması bekleniyor.`,
-        cta: 'Meseleyi aç',
+        text: `Yeniden değerlendirdiniz. Şimdi ${genitive(p)} tamamlaması bekleniyor.`,
+        cta: 'Meseleyi açın',
         waiting: true,
       }
     case 'reconsideration_completed':
     case 'generating_reports':
-      return { text: 'Çözüm raporunuz hazırlanıyor.', cta: 'Meseleyi aç', waiting: false }
+      return {
+        text: solo ? 'Danışman raporunuz hazırlanıyor.' : 'Çözüm raporunuz hazırlanıyor.',
+        cta: 'Meseleyi açın',
+        waiting: false,
+      }
     case 'completed':
-      return { text: 'Çözüm raporunuz hazır.', cta: 'Raporu aç', waiting: false }
+      return { text: 'Raporunuz hazır.', cta: 'Raporu açın', waiting: false }
   }
 }

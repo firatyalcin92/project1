@@ -12,12 +12,16 @@ const s = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ?
 
 export function mockGenerate(task: AiTask, ctx: Record<string, unknown>): unknown {
   switch (task) {
+    case 'reflection':
+      return {
+        reflection: `${s(ctx.owner, 'Siz')}, anlattıklarınızı okudum. O an söylediklerinizin karşılık bulmadığını ve içinizde “yine aynı yerdeyiz” duygusunun büyüdüğünü hissediyorum. Bu sizin için kolay bir an olmamış.`,
+      }
     case 'perspective':
       return mockPerspective(s(ctx.narrator, 'Partnerin'), s(ctx.reader, 'Sen'))
     case 'shared_report':
       return mockShared(s(ctx.a, 'A'), s(ctx.b, 'B'))
     case 'my_report':
-      return mockMine(s(ctx.owner, 'Sen'), s(ctx.partner, 'Partnerin'))
+      return mockMine(s(ctx.owner, 'Siz'), s(ctx.partner, 'Eşiniz'), ctx.solo === true)
     case 'relationship_report':
       return mockRelationship(s(ctx.a, 'A'), s(ctx.b, 'B'))
   }
@@ -29,7 +33,7 @@ function mockPerspective(narrator: string, reader: string): Perspective {
     story: `${narrator} o akşamı, içinde biriken yorgunluğu paylaşmak isteyerek başlattığını anlatıyor. Söyledikleri karşılık bulmadığında, sözlerinin havada asılı kaldığını hissetmiş.\n\nSonra ses tonları yükseldikçe ${narrator} kendini korumaya çalışmış; ama içinde asıl istediği şey kavga değil, yanında birinin olduğunu bilmekmiş.`,
     beneath: `Yükselen sesin altında belki de yalnız kalma korkusu vardı.`,
     need: `${narrator} en çok, "Seni duyuyorum, buradayım" cümlesine ihtiyaç duymuş.`,
-    readingNote: `${reader}, bunu okurken savunmaya geçmek çok doğal; bir an durup sadece merak etmeyi dene.`,
+    readingNote: `${reader}, bunu okurken savunmaya geçmek çok doğal; bir an durup sadece merak etmeyi deneyin.`,
   }
 }
 
@@ -100,27 +104,46 @@ function mockShared(a: string, b: string): SharedReport {
   }
 }
 
-function mockMine(owner: string, partner: string): MyReport {
+function mockMine(owner: string, partner: string, solo: boolean): MyReport {
   return {
-    greeting: `${owner}, bu meseleye dürüstçe baktığın için teşekkürler. Şimdi sadece senin göreceğin bir aynaya bakalım.`,
-    mirror: {
-      partnerWords: 'Hiç umursamıyorsun',
-      meaning: `${partner} "Hiç umursamıyorsun" derken aslında hissettiği, senin için önemli olup olmadığına dair bir korkuydu.`,
+    greeting: `${owner}, bu meseleye dürüstçe baktığınız için teşekkürler. Şimdi yalnızca sizin göreceğiniz bir aynaya ve bu akşam için bir yol haritasına bakalım.`,
+    partnerInner: `${solo ? 'Anlattıklarınızdan yola çıkarsak, muhtemelen ' : ''}${partner} o an önemsenmediğini hissediyordu; asıl ihtiyacı, sizin için öncelikli olduğunu bilmekti.`,
+    needGuess: {
+      match: solo ? 'tahmin' : 'kısmen',
+      text: `Siz ${dative(partner)} biraz yalnız kalmak istediğini düşünmüşsünüz. Bu kısmen doğru; ama ${partner} aynı zamanda geri dönüleceğini, konunun yarım bırakılmayacağını bilmek istiyordu.`,
     },
-    yourPlace: `Bu dansta sen daha çok geri çekilen taraftasın: gerginlik arttığında susmak seni korumanın yolu. Ama bu sessizlik ${dative(partner)} kapanan bir kapı gibi görünüyor.`,
-    blindSpots: [
+    yourPlace: `Bu dansta siz daha çok geri çekilen taraftasınız. Sessizliğiniz sizin için mola, ${genitive(partner)} içinse kapanan bir kapı.`,
+    patterns: [
       {
-        title: 'Sessizliğin yankısı',
-        insight: `Senin için mola olan sessizlik, ${partner} için terk edilmişlik gibi yankılanabiliyor.`,
+        name: 'Genelleme',
+        seenIn: '“Bu hep böyle olacak” düşüncenizde.',
+        reframe: 'Bu kez böyle oldu; bir dahakini farklı yönetebiliriz.',
       },
-      { title: 'Çözüm acelesi', insight: 'Hemen çözüm önermek bazen "seni duymadım" gibi algılanabiliyor.' },
+      {
+        name: 'Zihin okuma',
+        seenIn: 'Onun sizi bilerek dinlemediğini varsaymanızda.',
+        reframe: 'Belki o da yorgundu; ona sormadan bilemem.',
+      },
     ],
-    strength: 'Kendi payını görmeye istekli olman, bu ilişkideki en değerli kaynaklardan biri.',
-    repair: {
-      suggestion: 'Bir dahaki sefere çekilmeden önce, ne zaman döneceğini söyleyerek çekil.',
-      phrase: 'Seni bırakmıyorum; biraz sakinleşip yanına geleceğim.',
+    needsLanguage: {
+      explain:
+        'İhtiyacınızı suçlamadan söylemek için önce ne gördüğünüzü, sonra ne hissettiğinizi, en son neye ihtiyaç duyduğunuzu ve küçük bir ricayı söyleyin.',
+      insteadOf: 'Sen beni hiç dinlemiyorsun.',
+      say: 'Konuşurken telefona baktığında kendimi önemsiz hissettim; beni dinlediğini bilmeye ihtiyacım var. Birkaç dakika sadece bana odaklanabilir misin?',
     },
-    selfCompassion: 'Kendini korumaya çalışman bir kusur değil; sadece daha iyi bir yol öğreniyorsun.',
+    understanding: `Senin o akşam çok yorgun olduğunu ve benim ısrarımın sana yük gibi geldiğini şimdi daha iyi anlıyorum.`,
+    tonight: {
+      opener: 'Dünkü konuşmayı kavga etmeden, sadece birbirimizi anlamak için bir kez daha konuşabilir miyiz?',
+      steps: [
+        'Önce onu dinleyin, araya girmeden.',
+        'Duyduğunuzu kendi cümlelerinizle geri söyleyin.',
+        'Sonra kendi ihtiyacınızı yukarıdaki cümleyle söyleyin.',
+      ],
+      avoid: '“Sen hep…” ya da “Sen hiç…” ile başlayan cümleler.',
+    },
+    selfChange: 'Sesiniz yükselmeye başladığında “20 dakika ara verip döneceğim” deyip gerçekten geri dönmek.',
+    strength: 'Kendi payınızı görmeye istekli olmanız bu ilişkideki en değerli kaynaklardan biri.',
+    closing: 'Kendinizi korumaya çalışmanız bir kusur değil; sadece daha iyi bir yol öğreniyorsunuz.',
     safety: { concern: false, message: '' },
   }
 }

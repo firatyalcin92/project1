@@ -1,4 +1,4 @@
-import type { AnswerQuestionId, ReflectionId, Visibility } from './questions'
+import type { AnswerQuestionId, ReflectionId } from './questions'
 import type { MyReport, Perspective, RelationshipReport, SharedReport } from './report-schemas'
 import type { DisputeStatus, Step } from './status'
 
@@ -8,10 +8,13 @@ export type Role = 'A' | 'B'
 
 export type MemberInfo = { id: string; role: Role; name: string }
 
+/** couple: iki partner birlikte · solo: kişi tek başına danışıyor */
+export type Mode = 'couple' | 'solo'
+
 export type SessionResult = {
   token: string
   member: MemberInfo
-  couple: { id: string; name: string; code: string }
+  couple: { id: string; name: string; code: string; mode: Mode }
 }
 
 export type DisputeSummary = {
@@ -32,31 +35,29 @@ export type ActiveDisputeSummary = DisputeSummary & {
 export type OverviewStatus = 'locked' | 'available' | 'generating' | 'ready'
 
 export type PanelView = {
-  couple: { name: string; code: string }
+  couple: { name: string; code: string; mode: Mode }
   me: MemberInfo
   partner: MemberInfo | null
+  /** Çift modunda partnerin adı (katıldıysa), bireysel modda kişinin yazdığı ad */
+  partnerName: string | null
   active: ActiveDisputeSummary | null
   recent: DisputeSummary[]
   completedCount: number
   overview: { threshold: number; completed: number; status: OverviewStatus }
 }
 
-export type AnswerDraft = { text: string; tags: string[]; visibility: Visibility }
+export type AnswerDraft = { text: string; tags: string[] }
 
 export type MyAnswersView = {
   whatHappened: string
-  eventVisibility: Visibility
   answers: Record<AnswerQuestionId, AnswerDraft>
+  /** Danışmanın 3. sorudan önceki yansıtması */
+  reflection: string
   submittedAt: string | null
 }
 
-export type PartnerSharedView = {
-  whatHappened: string | null
-  answers: Partial<Record<AnswerQuestionId, { text: string; tags: string[] }>>
-}
-
 export type ReconsiderationView = {
-  items: Record<ReflectionId, { text: string; visibility: Visibility }>
+  items: Record<ReflectionId, { text: string }>
   closeness: number | null
   submittedAt: string | null
 }
@@ -70,8 +71,10 @@ export type DisputeView = {
   completedAt: string | null
   createdByMe: boolean
   canCancel: boolean
+  mode: Mode
   me: MemberInfo
   partner: MemberInfo | null
+  partnerName: string | null
   progress: {
     meSubmitted: boolean
     partnerSubmitted: boolean
@@ -81,22 +84,21 @@ export type DisputeView = {
   /** Üretim sürüyor mu; kilit bayatsa istemci yeniden tetikleyebilir. */
   generation: { active: boolean; stale: boolean }
   mine: MyAnswersView
-  /** "Partnerinin Gözünden": yalnızca perspectives_ready ve sonrasında dolu. */
-  partnerView: { perspective: Perspective | null; shared: PartnerSharedView } | null
+  /** "Partnerinin Gözünden": yalnızca perspectives_ready ve sonrasında dolu (AI metni; ham cevaplar asla). */
+  partnerView: { perspective: Perspective | null } | null
   /** Senin anlatımının partnerine nasıl yansıtıldığı (şeffaflık). */
   myPerspective: Perspective | null
   myReconsideration: ReconsiderationView
-  /** Partnerinin paylaşmayı seçtiği yeniden değerlendirme notları; mesele tamamlanınca görünür. */
-  partnerReflections: Partial<Record<ReflectionId, string>> | null
   report: {
     mine: MyReport | null
+    /** Bireysel modda ortak rapor yoktur. */
     shared: {
       approvedByMe: boolean
       approvedByPartner: boolean
       unlocked: boolean
       /** İki partner de onaylayana kadar null. */
       report: SharedReport | null
-    }
+    } | null
   } | null
 }
 
@@ -106,6 +108,7 @@ export type OverviewStats = {
 }
 
 export type OverviewView = {
+  mode: Mode
   threshold: number
   completed: number
   status: OverviewStatus

@@ -2,14 +2,14 @@ import { useMutation } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { saveReconsiderationFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
-import { CLOSENESS_LABELS, LIMITS, RECONSIDER_QUESTIONS, type ReflectionId, type Visibility } from '~/lib/questions'
+import { CLOSENESS_LABELS, LIMITS, RECONSIDER_QUESTIONS, type ReflectionId } from '~/lib/questions'
 import { alsoAfter, dative, genitive } from '~/lib/turkish'
 import type { DisputeView } from '~/lib/views'
 import { IconArrowLeft } from '../icons'
 import { BottomBar } from '../layout'
-import { Button, Notice, TextArea, VisibilityToggle, cx } from '../ui'
+import { Button, Notice, TextArea, cx } from '../ui'
 
-type Items = Record<ReflectionId, { text: string; visibility: Visibility }>
+type Items = Record<ReflectionId, { text: string }>
 
 export function ReconsiderForm({
   view,
@@ -54,10 +54,10 @@ export function ReconsiderForm({
         <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-clay-strong">
           3. Adım · Yeniden Değerlendir
         </p>
-        <h2 className="text-[24px] leading-snug font-semibold">Okuduktan sonra içinde ne değişti?</h2>
+        <h2 className="text-[24px] leading-snug font-semibold">Okuduktan sonra içinizde ne değişti?</h2>
         <p className="leading-relaxed text-ink-soft">
-          Haklı ya da haksız aramadan, sadece fark ettiklerini yaz. Paylaştıkların çözüm raporunuza ve {dative(partner)}{' '}
-          bırakacağın cümleye dönüşecek.
+          Haklı ya da haksız aramadan, sadece fark ettiklerinizi yazın. Yazdıklarınız {dative(partner)} olduğu gibi
+          gösterilmez; danışman bunları çözüm raporunuzda ihtiyaç diliyle kullanır.
         </p>
       </div>
 
@@ -76,17 +76,11 @@ export function ReconsiderForm({
             minRows={3}
             placeholder={q.placeholder}
           />
-          <VisibilityToggle
-            value={items[q.id].visibility}
-            onChange={(v) => set(q.id, { visibility: v })}
-            partnerName={partner}
-            compact
-          />
         </section>
       ))}
 
       <section className="space-y-3">
-        <p className="text-[16px] font-semibold">Şu an kendini {dative(partner)} ne kadar yakın hissediyorsun?</p>
+        <p className="text-[16px] font-semibold">Şu an kendinizi {dative(partner)} ne kadar yakın hissediyorsunuz?</p>
         <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="Yakınlık">
           {CLOSENESS_LABELS.map((label, i) => (
             <button
@@ -107,7 +101,7 @@ export function ReconsiderForm({
             </button>
           ))}
         </div>
-        <p className="text-[13px] text-ink-faint">Bu puan yalnızca sana özel aynanda kullanılır; {partner} görmez.</p>
+        <p className="text-[13px] text-ink-faint">Bu puan size özel raporunuzda kullanılır.</p>
       </section>
 
       {save.isError ? <Notice tone="error">{parseError(save.error).message}</Notice> : null}
@@ -116,7 +110,7 @@ export function ReconsiderForm({
         {confirming ? (
           <div className="space-y-3">
             <p className="text-center text-sm text-ink-soft">
-              Gönderdikten sonra değiştiremezsin. {genitive(partner)} {alsoAfter(genitive(partner))} tamamlamasıyla
+              Gönderdikten sonra değiştiremezsiniz. {genitive(partner)} {alsoAfter(genitive(partner))} tamamlamasıyla
               çözüm raporunuz hazırlanacak.
             </p>
             <div className="flex gap-2">

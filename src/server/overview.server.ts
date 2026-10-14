@@ -53,10 +53,15 @@ async function collect(coupleId: string) {
     perDispute.set(d.id, { A: { emotions: [], reactions: [] }, B: { emotions: [], reactions: [] } })
 
   for (const a of answers) {
-    if (a.visibility !== 'partner') continue
     const role = roleOf.get(a.member_id)
     if (!role) continue
-    const bucket = a.question_id === 'duygular' ? 'emotions' : a.question_id === 'tepkiler' ? 'reactions' : null
+    // v2: tepki çipleri "dusunce" sorusunda; v1 kayıtları için "tepkiler" de sayılır.
+    const bucket =
+      a.question_id === 'duygular'
+        ? 'emotions'
+        : a.question_id === 'dusunce' || a.question_id === 'tepkiler'
+          ? 'reactions'
+          : null
     if (!bucket) continue
     for (const tag of a.selected_tags) {
       stats[bucket][role][tag] = (stats[bucket][role][tag] ?? 0) + 1
@@ -64,12 +69,13 @@ async function collect(coupleId: string) {
     perDispute.get(a.dispute_id)?.[role][bucket].push(...a.selected_tags)
   }
 
-  return { members, completed, stats, perDispute }
+  const couple = await store.getCouple(coupleId)
+  return { members, completed, stats, perDispute, mode: couple?.mode ?? 'couple' }
 }
 
 export async function getOverview(member: AuthedMember): Promise<OverviewView> {
   const store = await getStore()
-  const { members, completed, stats } = await collect(member.coupleId)
+  const { members, completed, stats, mode } = await collect(member.coupleId)
   const ready = await store.getReadyRelationshipReport(member.coupleId)
   const status = await overviewStatus(member.coupleId, completed.length)
   const me = members.find((m) => m.id === member.id)!
@@ -81,6 +87,7 @@ export async function getOverview(member: AuthedMember): Promise<OverviewView> {
     (!ready || completed.length - ready.dispute_count >= OVERVIEW_REFRESH_EVERY)
 
   return {
+    mode,
     threshold: OVERVIEW_THRESHOLD,
     completed: completed.length,
     status,
@@ -96,7 +103,8 @@ export async function getOverview(member: AuthedMember): Promise<OverviewView> {
 
 export async function ensureOverview(member: AuthedMember): Promise<OverviewView> {
   const store = await getStore()
-  const { members, completed, stats, perDispute } = await collect(member.coupleId)
+  const { members, completed, stats, perDispute, mode } = await collect(member.coupleId)
+  if (mode === 'solo') fail('CONFLICT', 'Genel Görüş, iki partnerin birlikte kullandığı çift modunda açılır.')
 
   if (completed.length < OVERVIEW_THRESHOLD) {
     fail('CONFLICT', `Genel Görüş, ${OVERVIEW_THRESHOLD} mesele birlikte tamamlandığında açılır.`)

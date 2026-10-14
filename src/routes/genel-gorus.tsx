@@ -250,7 +250,7 @@ function Stats({ data, names }: { data: OverviewView; names: Record<Role, string
     <Card className="space-y-6">
       <div>
         <p className="font-semibold">Seçimlerinizin dağılımı</p>
-        <p className="mt-1 text-[13px] text-ink-faint">Yalnızca partnerle paylaşılan yanıtlardan sayılır.</p>
+        <p className="mt-1 text-[13px] text-ink-faint">İkinizin seçtiği duygu ve tepkilerden sayılır.</p>
       </div>
       <PairedBars title="Birincil duygular" rows={rows(EMOTION_CHIPS, data.stats.emotions)} names={names} />
       <PairedBars title="Otomatik tepkiler" rows={rows(REACTION_CHIPS, data.stats.reactions)} names={names} />

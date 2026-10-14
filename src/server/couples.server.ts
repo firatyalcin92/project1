@@ -39,18 +39,30 @@ function session(token: string, member: MemberRow, couple: CoupleRow): SessionRe
   return {
     token,
     member: { id: member.id, role: member.role, name: member.display_name },
-    couple: { id: couple.id, name: couple.name, code: couple.code },
+    couple: { id: couple.id, name: couple.name, code: couple.code, mode: couple.mode },
   }
 }
 
-export async function createCouple(input: { coupleName: string; displayName: string }): Promise<SessionResult> {
-  const coupleName = cleanName(input.coupleName, LIMITS.coupleName, 'Çift adı')
-  const displayName = cleanName(input.displayName, LIMITS.displayName, 'Adın')
+export async function createCouple(input: {
+  mode: 'couple' | 'solo'
+  coupleName: string
+  displayName: string
+  partnerName?: string
+}): Promise<SessionResult> {
+  const displayName = cleanName(input.displayName, LIMITS.displayName, 'Adınız')
+  const solo = input.mode === 'solo'
+  const partnerName = solo ? cleanName(input.partnerName ?? '', LIMITS.displayName, 'Eşinizin adı') : null
+  const coupleName = solo ? displayName : cleanName(input.coupleName, LIMITS.coupleName, 'Çift adı')
   const store = await getStore()
 
   let couple: CoupleRow | null = null
   for (let i = 0; i < 6 && !couple; i++) {
-    const created = await store.createCouple({ code: generateCoupleCode(), name: coupleName })
+    const created = await store.createCouple({
+      code: generateCoupleCode(),
+      name: coupleName,
+      mode: solo ? 'solo' : 'couple',
+      partner_name: partnerName,
+    })
     if (created !== 'code_taken') couple = created
   }
   if (!couple) return fail('INTERNAL', 'Kod üretilemedi. Lütfen tekrar dene.')
@@ -62,12 +74,13 @@ export async function createCouple(input: { coupleName: string; displayName: str
 
 export async function joinCouple(input: { code: string; displayName: string }): Promise<SessionResult> {
   const code = normalizeCode(input.code)
-  const displayName = cleanName(input.displayName, LIMITS.displayName, 'Adın')
+  const displayName = cleanName(input.displayName, LIMITS.displayName, 'Adınız')
   if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) fail('VALIDATION', 'Çift kodu 6 karakterden oluşur (ör. WWPX6G).')
 
   const store = await getStore()
   const couple = await store.getCoupleByCode(code)
-  if (!couple) return fail('NOT_FOUND', 'Bu kodla bir çift bulamadık. Harfleri kontrol eder misin?')
+  if (!couple || couple.mode === 'solo')
+    return fail('NOT_FOUND', 'Bu kodla bir çift bulamadık. Harfleri kontrol eder misiniz?')
 
   const members = await store.listMembers(couple.id)
   if (members.some((m) => m.role === 'B')) {
@@ -105,9 +118,10 @@ export async function buildPanel(member: AuthedMember): Promise<PanelView> {
   const completed = disputes.filter((d) => d.status === 'completed')
 
   return {
-    couple: { name: couple.name, code: couple.code },
+    couple: { name: couple.name, code: couple.code, mode: couple.mode },
     me: { id: me.id, role: me.role, name: me.display_name },
     partner: partner ? { id: partner.id, role: partner.role, name: partner.display_name } : null,
+    partnerName: couple.mode === 'solo' ? couple.partner_name : (partner?.display_name ?? null),
     active: await activeSummary(member, disputes),
     recent: completed.slice(0, 3).map((d) => summarize(d, member.id)),
     completedCount: completed.length,

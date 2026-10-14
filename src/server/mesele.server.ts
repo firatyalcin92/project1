@@ -36,7 +36,7 @@ export type AiConfig = {
   timeoutMs: number
 }
 
-export type AiTask = 'perspective' | 'shared_report' | 'my_report' | 'relationship_report'
+export type AiTask = 'reflection' | 'perspective' | 'shared_report' | 'my_report' | 'relationship_report'
 
 let warnedMock = false
 

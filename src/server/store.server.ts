@@ -1,5 +1,4 @@
 import '@tanstack/react-start/server-only'
-import type { Visibility } from '~/lib/questions'
 import type { DisputeStatus } from '~/lib/status'
 import { MeseleError } from './errors.server'
 
@@ -11,7 +10,19 @@ import { MeseleError } from './errors.server'
 
 export type Role = 'A' | 'B'
 
-export type CoupleRow = { id: string; code: string; name: string; created_at: string }
+/** v1'den kalan sütun; v2'de her zaman 'partner' yazılır. */
+export type Visibility = 'private' | 'partner'
+
+export type CoupleMode = 'couple' | 'solo'
+
+export type CoupleRow = {
+  id: string
+  code: string
+  name: string
+  mode: CoupleMode
+  partner_name: string | null
+  created_at: string
+}
 
 export type MemberRow = {
   id: string
@@ -98,7 +109,12 @@ export type Lock = { lockedAt: string }
 export interface Store {
   readonly kind: 'supabase' | 'memory'
 
-  createCouple(input: { code: string; name: string }): Promise<CoupleRow | 'code_taken'>
+  createCouple(input: {
+    code: string
+    name: string
+    mode: CoupleMode
+    partner_name: string | null
+  }): Promise<CoupleRow | 'code_taken'>
   getCouple(id: string): Promise<CoupleRow | null>
   getCoupleByCode(code: string): Promise<CoupleRow | null>
   listMembers(coupleId: string): Promise<MemberRow[]>

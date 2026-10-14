@@ -74,28 +74,31 @@ function PanelSkeleton() {
 }
 
 function PanelBody({ data }: { data: PanelView }) {
-  const partnerName = data.partner?.name ?? null
+  const partnerName = data.partnerName
+  const solo = data.couple.mode === 'solo'
   return (
     <div className="space-y-5 pb-6">
       <div className="animate-rise">
         <Eyebrow>{data.couple.name}</Eyebrow>
         <h1 className="mt-1 text-[28px] leading-tight font-semibold">Merhaba {data.me.name}.</h1>
         <p className="mt-1 text-ink-soft">
-          {partnerName ? (
+          {solo ? (
+            <>Bireysel danışma · {partnerName ? withName(partnerName) : 'eşinizle'} yaşadığınız meseleler</>
+          ) : partnerName ? (
             <>
               <span className="font-medium text-ink">{withName(partnerName)}</span> eşleştiniz.
             </>
           ) : (
-            'Partnerinin katılmasını bekliyoruz.'
+            'Partnerinizin katılmasını bekliyoruz.'
           )}
         </p>
       </div>
 
-      {!data.partner ? <InviteCard code={data.couple.code} myName={data.me.name} /> : null}
+      {!solo && !data.partner ? <InviteCard code={data.couple.code} myName={data.me.name} /> : null}
 
-      {data.active ? <ActiveCard data={data} /> : <NewDisputeCard hasPartner={Boolean(data.partner)} />}
+      {data.active ? <ActiveCard data={data} /> : <NewDisputeCard hasPartner={solo || Boolean(data.partner)} />}
 
-      <OverviewCard data={data} />
+      {solo ? null : <OverviewCard data={data} />}
 
       <RecentCard data={data} />
 
@@ -111,9 +114,9 @@ function InviteCard({ code, myName }: { code: string; myName: string }) {
   return (
     <Card className="animate-rise space-y-4 border-clay/30 bg-clay-soft/40">
       <div>
-        <p className="font-semibold">Partnerini davet et</p>
+        <p className="font-semibold">Partnerinizi davet edin</p>
         <p className="mt-1 text-sm text-ink-soft">
-          Bu kodu partnerine gönder. Kendi telefonundan “Partnerimin koduyla katıl” diyerek size katılacak.
+          Bu kodu partnerinize gönderin. Kendi telefonundan “Partnerimin koduyla katıl” diyerek size katılacak.
         </p>
       </div>
       <CodeTiles code={code} />
@@ -133,7 +136,8 @@ function InviteCard({ code, myName }: { code: string; myName: string }) {
 
 function ActiveCard({ data }: { data: PanelView }) {
   const a = data.active!
-  const line = activeLine(a, data.partner?.name ?? null)
+  const solo = data.couple.mode === 'solo'
+  const line = activeLine(a, data.partnerName, solo)
   return (
     <Card className="animate-rise space-y-4">
       <div className="flex items-start justify-between gap-3">
@@ -143,7 +147,7 @@ function ActiveCard({ data }: { data: PanelView }) {
         </div>
         <span className="shrink-0 text-xs text-ink-faint">{formatDate(a.createdAt)}</span>
       </div>
-      <StepTrack step={a.step} partnerName={data.partner?.name} />
+      <StepTrack step={a.step} partnerName={data.partner?.name} solo={solo} />
       <p className="leading-relaxed text-ink-soft">{line.text}</p>
       {line.waiting ? (
         <p className="flex items-center gap-2 text-[13px] text-ink-faint">
@@ -182,7 +186,9 @@ function NewDisputeCard({ hasPartner }: { hasPartner: boolean }) {
           <IconPlus size={18} /> Yeni bir mesele aç
         </Button>
         {!hasPartner ? (
-          <p className="text-[13px] text-ink-faint">Şimdi başlayabilirsin; partnerin katıldığında o da anlatacak.</p>
+          <p className="text-[13px] text-ink-faint">
+            Şimdi başlayabilirsiniz; partneriniz katıldığında o da anlatacak.
+          </p>
         ) : null}
       </Card>
     )
@@ -294,8 +300,8 @@ function DeviceCard() {
     >
       <div className="space-y-4 text-sm leading-relaxed text-ink-soft">
         <p>
-          MESELE’de şifre yok: bu telefona özel, gizli bir anahtar kayıtlı. Telefonunu değiştirirsen ya da uygulamayı
-          silersen geri dönebilmek için anahtarını güvenli bir yere (ör. parola yöneticine) kaydet.
+          MESELE’de şifre yok: bu telefona özel, gizli bir anahtar kayıtlı. Telefonunuzu değiştirirseniz ya da
+          uygulamayı silerseniz geri dönebilmek için anahtarınızı güvenli bir yere (ör. parola yöneticinize) kaydedin.
         </p>
         {reveal ? (
           <div className="space-y-2">
@@ -309,12 +315,14 @@ function DeviceCard() {
             Anahtarımı göster
           </Button>
         )}
-        <Notice tone="warn">Bu anahtarı partnerin dâhil kimseyle paylaşma; senin yerine yanıt verebilirler.</Notice>
+        <Notice tone="warn">
+          Bu anahtarı partneriniz dâhil kimseyle paylaşmayın; sizin yerinize yanıt verebilirler.
+        </Notice>
         <div className="border-t border-line pt-4">
           {confirm ? (
             <div className="space-y-2">
               <p className="text-ink">
-                Emin misin? Anahtarını yedeklemediysen bu çifte bu cihazdan bir daha giremezsin.
+                Emin misiniz? Anahtarınızı yedeklemediyseniz bu hesaba bu cihazdan bir daha giremezsiniz.
               </p>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" onClick={() => setConfirm(false)}>

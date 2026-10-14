@@ -2,16 +2,18 @@ import '@tanstack/react-start/server-only'
 import {
   ANSWER_QUESTION_IDS,
   LIMITS,
+  OTHER_CHIP,
   QUESTIONS,
   RECONSIDER_QUESTIONS,
+  REFLECTION_ANSWER_ID,
   allowedChipsFor,
   type AnswerQuestionId,
   type ReflectionId,
-  type Visibility,
 } from '~/lib/questions'
 import {
   MyReportSchema,
   PerspectiveSchema,
+  ReflectionSchema,
   SharedReportSchema,
   type MyReport,
   type Perspective,
@@ -39,12 +41,15 @@ import { generateJson } from './mesele.server'
 import {
   buildMyReportPrompt,
   buildPerspectivePrompt,
+  buildReflectionPrompt,
   buildSharedReportPrompt,
+  buildSoloReportPrompt,
   type MemberMaterial,
 } from './prompts.server'
 import {
   getStore,
   type AnswerRow,
+  type CoupleRow,
   type DisputeRow,
   type EntryRow,
   type MemberRow,
@@ -52,6 +57,12 @@ import {
   type Reflections,
   type ReportRow,
 } from './store.server'
+
+/**
+ * Dil kuralı (v2): Gizlilik seçeneği yok; ama partnerin ham cevapları bu dosyadan
+ * istemciye ASLA dönmez. Partner yalnızca danışmanın ihtiyaç diliyle yazdığı
+ * metinleri ("…'nın Gözünden", raporlar) görür.
+ */
 
 // ---------------------------------------------------------------------------
 // Yardımcılar
@@ -76,6 +87,7 @@ export function summarize(d: DisputeRow, memberId: string): DisputeSummary {
 }
 
 type Bundle = {
+  couple: CoupleRow
   members: MemberRow[]
   entries: EntryRow[]
   answers: AnswerRow[]
@@ -84,13 +96,15 @@ type Bundle = {
 
 async function loadBundle(d: DisputeRow): Promise<Bundle> {
   const store = await getStore()
-  const [members, entries, answers, reconsiderations] = await Promise.all([
+  const [couple, members, entries, answers, reconsiderations] = await Promise.all([
+    store.getCouple(d.couple_id),
     store.listMembers(d.couple_id),
     store.getEntries([d.id]),
     store.getAnswers([d.id]),
     store.getReconsiderations([d.id]),
   ])
-  return { members, entries, answers, reconsiderations }
+  if (!couple) return fail('NOT_FOUND', 'Aradığınız mesele bulunamadı.')
+  return { couple, members, entries, answers, reconsiderations }
 }
 
 function materialFor(member: MemberRow, b: Bundle): MemberMaterial {
@@ -106,14 +120,17 @@ function materialFor(member: MemberRow, b: Bundle): MemberMaterial {
 }
 
 function emptyAnswers(): Record<AnswerQuestionId, AnswerDraft> {
-  const blank = (): AnswerDraft => ({ text: '', tags: [], visibility: 'partner' })
-  return { duygular: blank(), tepkiler: blank(), ihtiyac: blank(), pay: blank() }
+  const blank = (): AnswerDraft => ({ text: '', tags: [] })
+  return { dusunce: blank(), duygular: blank(), ihtiyac: blank(), partner_ihtiyac: blank(), degisim: blank() }
 }
 
 function emptyReflections(): ReconsiderationView['items'] {
-  return Object.fromEntries(
-    RECONSIDER_QUESTIONS.map((q) => [q.id, { text: '', visibility: 'partner' as Visibility }]),
-  ) as ReconsiderationView['items']
+  return Object.fromEntries(RECONSIDER_QUESTIONS.map((q) => [q.id, { text: '' }])) as ReconsiderationView['items']
+}
+
+function partnerNameOf(b: Bundle, member: AuthedMember) {
+  if (b.couple.mode === 'solo') return b.couple.partner_name
+  return b.members.find((m) => m.id !== member.id)?.display_name ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -129,21 +146,23 @@ export async function getDisputeView(member: AuthedMember, disputeId: string): P
 }
 
 function buildView(member: AuthedMember, d: DisputeRow, b: Bundle, reports: ReportRow[]): DisputeView {
+  const solo = b.couple.mode === 'solo'
   const me = b.members.find((m) => m.id === member.id)!
-  const partner = b.members.find((m) => m.id !== member.id) ?? null
+  const partner = solo ? null : (b.members.find((m) => m.id !== member.id) ?? null)
 
   const myEntry = b.entries.find((e) => e.member_id === member.id)
   const partnerEntry = partner ? b.entries.find((e) => e.member_id === partner.id) : undefined
   const myRec = b.reconsiderations.find((r) => r.member_id === member.id)
   const partnerRec = partner ? b.reconsiderations.find((r) => r.member_id === partner.id) : undefined
 
+  // Yalnızca KENDİ cevapları döner.
   const answers = emptyAnswers()
+  let reflection = ''
   for (const a of b.answers) {
-    if (a.member_id !== member.id || !(ANSWER_QUESTION_IDS as readonly string[]).includes(a.question_id)) continue
-    answers[a.question_id as AnswerQuestionId] = {
-      text: a.text_answer,
-      tags: a.selected_tags,
-      visibility: a.visibility,
+    if (a.member_id !== member.id) continue
+    if (a.question_id === REFLECTION_ANSWER_ID) reflection = a.text_answer
+    else if ((ANSWER_QUESTION_IDS as readonly string[]).includes(a.question_id)) {
+      answers[a.question_id as AnswerQuestionId] = { text: a.text_answer, tags: a.selected_tags }
     }
   }
 
@@ -151,57 +170,45 @@ function buildView(member: AuthedMember, d: DisputeRow, b: Bundle, reports: Repo
   if (myRec) {
     for (const q of RECONSIDER_QUESTIONS) {
       const item = myRec.reflections.items?.[q.id]
-      if (item) items[q.id] = { text: item.text, visibility: item.visibility }
+      if (item) items[q.id] = { text: item.text }
     }
   }
 
-  // --- Partnerin Gözünden: yalnızca paylaşılanlar, yalnızca perspectives_ready'den sonra ---
-  let partnerView: DisputeView['partnerView'] = null
-  if (partner && perspectivesVisible(d.status)) {
-    const shared: NonNullable<DisputeView['partnerView']>['shared'] = { whatHappened: null, answers: {} }
-    if (partnerEntry && partnerEntry.event_visibility === 'partner' && partnerEntry.what_happened.trim()) {
-      shared.whatHappened = partnerEntry.what_happened
-    }
-    for (const a of b.answers) {
-      if (a.member_id !== partner.id || a.visibility !== 'partner') continue
-      if (!(ANSWER_QUESTION_IDS as readonly string[]).includes(a.question_id)) continue
-      shared.answers[a.question_id as AnswerQuestionId] = { text: a.text_answer, tags: a.selected_tags }
-    }
-    partnerView = { perspective: (partnerEntry?.perspective as Perspective | null) ?? null, shared }
-  }
-
-  // --- Partnerin yeniden değerlendirme notları: yalnızca paylaşılanlar, yalnızca tamamlanınca ---
-  let partnerReflections: DisputeView['partnerReflections'] = null
-  if (d.status === 'completed' && partnerRec) {
-    partnerReflections = {}
-    for (const q of RECONSIDER_QUESTIONS) {
-      const item = partnerRec.reflections.items?.[q.id]
-      if (item && item.visibility === 'partner' && item.text.trim()) partnerReflections[q.id] = item.text
-    }
-  }
+  // Partnerin Gözünden: yalnızca AI metni; ham cevaplar asla.
+  const partnerView: DisputeView['partnerView'] =
+    partner && perspectivesVisible(d.status)
+      ? { perspective: (partnerEntry?.perspective as Perspective | null) ?? null }
+      : null
 
   let report: DisputeView['report'] = null
   if (d.status === 'completed') {
-    const approvedByMe = me.role === 'A' ? d.shared_approved_a : d.shared_approved_b
-    const approvedByPartner = me.role === 'A' ? d.shared_approved_b : d.shared_approved_a
-    const unlocked = d.shared_approved_a && d.shared_approved_b
-    report = {
-      mine: (reports.find((r) => r.member_id === member.id)?.my_report as MyReport | undefined) ?? null,
-      shared: {
-        approvedByMe,
-        approvedByPartner,
-        unlocked,
-        // Kırılmaz kural: iki partner de onaylayana kadar ortak rapor istemciye gönderilmez.
-        report: unlocked ? ((d.shared_report as SharedReport | null) ?? null) : null,
-      },
+    const mine = (reports.find((r) => r.member_id === member.id)?.my_report as MyReport | undefined) ?? null
+    if (solo) {
+      report = { mine, shared: null }
+    } else {
+      const approvedByMe = me.role === 'A' ? d.shared_approved_a : d.shared_approved_b
+      const approvedByPartner = me.role === 'A' ? d.shared_approved_b : d.shared_approved_a
+      const unlocked = d.shared_approved_a && d.shared_approved_b
+      report = {
+        mine,
+        shared: {
+          approvedByMe,
+          approvedByPartner,
+          unlocked,
+          // İki partner de onaylayana kadar ortak rapor istemciye gönderilmez.
+          report: unlocked ? ((d.shared_report as SharedReport | null) ?? null) : null,
+        },
+      }
     }
   }
 
   return {
     ...summarize(d, member.id),
     canCancel: d.created_by === member.id && isAnswerPhase(d.status),
+    mode: b.couple.mode,
     me: toInfo(me),
     partner: partner ? toInfo(partner) : null,
+    partnerName: partnerNameOf(b, member),
     progress: {
       meSubmitted: Boolean(myEntry?.submitted_at),
       partnerSubmitted: Boolean(partnerEntry?.submitted_at),
@@ -214,8 +221,8 @@ function buildView(member: AuthedMember, d: DisputeRow, b: Bundle, reports: Repo
     },
     mine: {
       whatHappened: myEntry?.what_happened ?? '',
-      eventVisibility: myEntry?.event_visibility ?? 'partner',
       answers,
+      reflection,
       submittedAt: myEntry?.submitted_at ?? null,
     },
     partnerView,
@@ -225,7 +232,6 @@ function buildView(member: AuthedMember, d: DisputeRow, b: Bundle, reports: Repo
       closeness: myRec?.reflections.closeness ?? null,
       submittedAt: myRec?.submitted_at ?? null,
     },
-    partnerReflections,
     report,
   }
 }
@@ -267,12 +273,10 @@ export async function activeSummary(
 export async function createDispute(member: AuthedMember, title: string): Promise<{ id: string }> {
   const store = await getStore()
   const clean = title.replace(/\s+/g, ' ').trim()
-  if (clean.length < 2) fail('VALIDATION', 'Meseleye kısa da olsa bir ad ver.')
+  if (clean.length < 2) fail('VALIDATION', 'Meseleye kısa da olsa bir ad verin.')
   const existing = await store.listDisputes(member.coupleId)
   const open = existing.find((d) => d.status !== 'completed')
-  if (open) {
-    fail('CONFLICT', `Önce açık olan "${open.title}" meselesini birlikte tamamlayalım.`)
-  }
+  if (open) fail('CONFLICT', `Önce açık olan "${open.title}" meselesini tamamlayalım.`)
   const d = await store.createDispute({
     couple_id: member.coupleId,
     created_by: member.id,
@@ -297,39 +301,43 @@ export async function cancelDispute(member: AuthedMember, disputeId: string) {
 export type SaveAnswersInput = {
   disputeId: string
   whatHappened: string
-  eventVisibility: Visibility
-  answers: { questionId: AnswerQuestionId; text: string; tags: string[]; visibility: Visibility }[]
+  answers: { questionId: AnswerQuestionId; text: string; tags: string[] }[]
   submit: boolean
 }
 
-export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput): Promise<DisputeView> {
-  const d = await requireDispute(member, input.disputeId)
+async function assertCanAnswer(member: AuthedMember, disputeId: string) {
+  const d = await requireDispute(member, disputeId)
   if (!isAnswerPhase(d.status)) fail('CONFLICT', 'Bu meselede anlatma adımı tamamlandı.')
-
   const store = await getStore()
   const [entry] = (await store.getEntries([d.id])).filter((e) => e.member_id === member.id)
-  if (entry?.submitted_at) fail('CONFLICT', 'Anlatımını zaten gönderdin. Şimdi partnerini bekliyoruz.')
+  if (entry?.submitted_at) fail('CONFLICT', 'Anlatımınızı zaten gönderdiniz.')
+  return d
+}
+
+export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput): Promise<DisputeView> {
+  const d = await assertCanAnswer(member, input.disputeId)
+  const store = await getStore()
 
   const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
   const answers = input.answers.map((a) => {
     const allowed = allowedChipsFor(a.questionId)
     const tags = [...new Set(a.tags)].filter((t) => allowed.includes(t))
-    return { ...a, text: a.text.trim().slice(0, LIMITS.text), tags }
+    const limit = a.questionId === 'duygular' ? LIMITS.other : LIMITS.text
+    return { ...a, text: a.text.trim().slice(0, limit), tags }
   })
 
   if (input.submit) {
-    if (whatHappened.length < (QUESTIONS[0]?.minLength ?? 20)) {
-      fail('VALIDATION', 'Olayı biraz daha anlatır mısın? Birkaç cümle yeterli.')
-    }
+    const olay = QUESTIONS.find((q) => q.id === 'olay')!
+    if (whatHappened.length < olay.minLength)
+      fail('VALIDATION', 'Olayı biraz daha anlatır mısınız? Birkaç cümle yeterli.')
     for (const q of QUESTIONS) {
       if (q.id === 'olay') continue
       const a = answers.find((x) => x.questionId === q.id)
-      if (q.chipsRequired && !(a && a.tags.length > 0)) {
-        fail('VALIDATION', `"${q.title}" için en az bir seçenek işaretle.`)
-      }
-      if (q.textRequired && !(a && a.text.length >= q.minLength)) {
-        fail('VALIDATION', `"${q.title}" sorusunu biraz açar mısın?`)
-      }
+      const realTags = (a?.tags ?? []).filter((t) => t !== OTHER_CHIP || (a?.text.length ?? 0) > 0)
+      if (q.chipsRequired && realTags.length === 0)
+        fail('VALIDATION', `"${q.title}" için en az bir seçenek işaretleyin.`)
+      if (q.textRequired && !(a && a.text.length >= q.minLength))
+        fail('VALIDATION', `"${q.title}" sorusunu biraz açar mısınız?`)
     }
   }
 
@@ -337,7 +345,7 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
     dispute_id: d.id,
     member_id: member.id,
     what_happened: whatHappened,
-    event_visibility: input.eventVisibility,
+    event_visibility: 'partner',
     ...(input.submit ? { submitted_at: new Date().toISOString() } : {}),
   })
   await store.upsertAnswers(
@@ -347,27 +355,56 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
       question_id: a.questionId,
       text_answer: a.text,
       selected_tags: a.tags,
-      visibility: a.visibility,
+      visibility: 'partner' as const,
     })),
   )
   await store.syncProgress(d.id)
   return getDisputeView(member, d.id)
 }
 
-// ---------------------------------------------------------------------------
-// 2. Adım: Partnerinin Gözünden (AI)
-// ---------------------------------------------------------------------------
-
-/** Partner hiçbir şeyi paylaşmamayı seçtiyse AI çağrılmaz; nazik bir sabit metin gösterilir. */
-function quietPerspective(narrator: string, reader: string): Perspective {
-  return {
-    headline: `${narrator} bu kez anlatımını yalnızca danışmanla paylaşmayı seçti.`,
-    story: `Bazen bir şeyi başkasına anlatmadan önce kendimize anlatmamız gerekir. ${narrator} bu meseleyi düşündü, yazdı ve şimdilik kendine sakladı.\n\nBu bir kapı kapatma değil; belki sadece biraz zamana ihtiyaç duyan bir kapı.`,
-    beneath: 'Paylaşmamanın altında çoğu zaman korunma ihtiyacı yatar.',
-    need: `${narrator} şu an belki de en çok, acele ettirilmemeye ihtiyaç duyuyor.`,
-    readingNote: `${reader}, bunu bir ret gibi değil, güvenin yavaş yavaş inşa edildiği bir an gibi okumayı dene.`,
+/** 3. sorudan önce: danışmanın kısa yansıtması. Hızlı modelle üretilir ve saklanır. */
+export async function reflectAnswers(
+  member: AuthedMember,
+  input: { disputeId: string; whatHappened: string; thought: string },
+): Promise<{ reflection: string }> {
+  const d = await assertCanAnswer(member, input.disputeId)
+  const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
+  const thought = input.thought.trim().slice(0, LIMITS.text)
+  if (whatHappened.length < 20 || thought.length < 3) {
+    fail('VALIDATION', 'Önce ilk iki soruyu biraz anlatır mısınız?')
   }
+  const bundle = await loadBundle(d)
+  const prompt = buildReflectionPrompt({
+    name: member.name,
+    partnerName: partnerNameOf(bundle, member) ?? '',
+    whatHappened,
+    thought,
+  })
+  const { reflection } = await generateJson({
+    task: 'reflection',
+    schema: ReflectionSchema,
+    system: prompt.system,
+    user: prompt.user,
+    speed: 'fast',
+    mockContext: { owner: member.name },
+  })
+  const store = await getStore()
+  await store.upsertAnswers([
+    {
+      dispute_id: d.id,
+      member_id: member.id,
+      question_id: REFLECTION_ANSWER_ID,
+      text_answer: reflection.slice(0, LIMITS.reflection),
+      selected_tags: [],
+      visibility: 'partner',
+    },
+  ])
+  return { reflection }
 }
+
+// ---------------------------------------------------------------------------
+// 2. Adım: Partnerinin Gözünden (AI) — yalnızca çift modu
+// ---------------------------------------------------------------------------
 
 export async function ensurePerspectives(member: AuthedMember, disputeId: string): Promise<DisputeView> {
   const d = await requireDispute(member, disputeId)
@@ -383,7 +420,7 @@ export async function ensurePerspectives(member: AuthedMember, disputeId: string
   try {
     const bundle = await loadBundle(d)
     const [a, b] = bundle.members
-    if (!a || !b) fail('CONFLICT', 'Partnerin henüz katılmadı.')
+    if (!a || !b) fail('CONFLICT', 'Partneriniz henüz katılmadı.')
     const pairs: [MemberRow, MemberRow][] = [
       [a!, b!],
       [b!, a!],
@@ -396,16 +433,14 @@ export async function ensurePerspectives(member: AuthedMember, disputeId: string
           narrator: materialFor(narrator, bundle),
           reader: { name: reader.display_name },
         })
-        perspectives[narrator.id] = prompt.hasContent
-          ? await generateJson({
-              task: 'perspective',
-              schema: PerspectiveSchema,
-              system: prompt.system,
-              user: prompt.user,
-              speed: 'fast',
-              mockContext: { narrator: narrator.display_name, reader: reader.display_name },
-            })
-          : quietPerspective(narrator.display_name, reader.display_name)
+        perspectives[narrator.id] = await generateJson({
+          task: 'perspective',
+          schema: PerspectiveSchema,
+          system: prompt.system,
+          user: prompt.user,
+          speed: 'fast',
+          mockContext: { narrator: narrator.display_name, reader: reader.display_name },
+        })
       }),
     )
     const ok = await store.finishPerspectives(d.id, lock, perspectives)
@@ -418,12 +453,12 @@ export async function ensurePerspectives(member: AuthedMember, disputeId: string
 }
 
 // ---------------------------------------------------------------------------
-// 3. Adım: Yeniden Değerlendir
+// 3. Adım: Yeniden Değerlendir — yalnızca çift modu
 // ---------------------------------------------------------------------------
 
 export type SaveReconsiderationInput = {
   disputeId: string
-  items: { id: ReflectionId; text: string; visibility: Visibility }[]
+  items: { id: ReflectionId; text: string }[]
   closeness: number | null
   submit: boolean
 }
@@ -434,15 +469,12 @@ export async function saveReconsideration(member: AuthedMember, input: SaveRecon
 
   const store = await getStore()
   const [existing] = (await store.getReconsiderations([d.id])).filter((r) => r.member_id === member.id)
-  if (existing?.submitted_at) fail('CONFLICT', 'Yeniden değerlendirmeni zaten gönderdin.')
+  if (existing?.submitted_at) fail('CONFLICT', 'Yeniden değerlendirmenizi zaten gönderdiniz.')
 
   const reflections: Reflections = { items: {}, closeness: null }
   for (const q of RECONSIDER_QUESTIONS) {
     const item = input.items.find((i) => i.id === q.id)
-    reflections.items[q.id] = {
-      text: (item?.text ?? '').trim().slice(0, LIMITS.reflection),
-      visibility: item?.visibility ?? 'partner',
-    }
+    reflections.items[q.id] = { text: (item?.text ?? '').trim().slice(0, LIMITS.reflection), visibility: 'partner' }
   }
   if (typeof input.closeness === 'number') {
     reflections.closeness = Math.min(5, Math.max(1, Math.round(input.closeness)))
@@ -451,7 +483,7 @@ export async function saveReconsideration(member: AuthedMember, input: SaveRecon
   if (input.submit) {
     for (const q of RECONSIDER_QUESTIONS) {
       if (q.required && (reflections.items[q.id]?.text.length ?? 0) < 3) {
-        fail('VALIDATION', 'Yeniden değerlendirme sorularını kısaca da olsa yanıtlar mısın?')
+        fail('VALIDATION', 'Yeniden değerlendirme sorularını kısaca da olsa yanıtlar mısınız?')
       }
     }
   }
@@ -482,13 +514,31 @@ export async function ensureReports(member: AuthedMember, disputeId: string): Pr
 
   try {
     const bundle = await loadBundle(d)
+
+    if (bundle.couple.mode === 'solo') {
+      const owner = bundle.members[0]
+      if (!owner) fail('CONFLICT', 'Hesap bulunamadı.')
+      const partnerName = bundle.couple.partner_name ?? 'Eşiniz'
+      const p = buildSoloReportPrompt({ title: d.title, owner: materialFor(owner!, bundle), partnerName })
+      const mine = await generateJson({
+        task: 'my_report',
+        schema: MyReportSchema,
+        system: p.system,
+        user: p.user,
+        mockContext: { owner: owner!.display_name, partner: partnerName, solo: true },
+      })
+      const ok = await store.finishReports(d.id, lock, null, { [owner!.id]: mine })
+      if (!ok) console.warn(`[mesele] ${d.id}: rapor kilidi el değiştirmiş, sonuç yazılmadı.`)
+      return getDisputeView(member, d.id)
+    }
+
     const a = bundle.members.find((m) => m.role === 'A')
     const b = bundle.members.find((m) => m.role === 'B')
-    if (!a || !b) fail('CONFLICT', 'Partnerin henüz katılmadı.')
+    if (!a || !b) fail('CONFLICT', 'Partneriniz henüz katılmadı.')
     const matA = materialFor(a!, bundle)
     const matB = materialFor(b!, bundle)
 
-    // Önce ortak rapor: kişisel raporlar onunla aynı döngü dilini konuşsun.
+    // Önce ortak rapor: kişisel raporlar onu tekrar etmesin diye ona bakar.
     const sharedPrompt = buildSharedReportPrompt({ title: d.title, a: matA, b: matB })
     const shared = await generateJson({
       task: 'shared_report',

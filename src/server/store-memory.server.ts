@@ -62,9 +62,9 @@ export function createMemoryStore(): Store {
   return {
     kind: 'memory',
 
-    async createCouple({ code, name }) {
+    async createCouple({ code, name, mode, partner_name }) {
       if ([...t.couples.values()].some((c) => c.code === code)) return 'code_taken'
-      const row: CoupleRow = { id: crypto.randomUUID(), code, name, created_at: now() }
+      const row: CoupleRow = { id: crypto.randomUUID(), code, name, mode, partner_name, created_at: now() }
       t.couples.set(row.id, row)
       return clone(row)
     },
@@ -205,7 +205,10 @@ export function createMemoryStore(): Store {
       if (d.status === 'draft' || d.status === 'answers_in_progress') {
         const entries = [...t.entries.values()].filter((e) => e.dispute_id === disputeId)
         const answers = [...t.answers.values()].filter((a) => a.dispute_id === disputeId)
-        if (entries.filter((e) => e.submitted_at).length >= 2) next = 'both_answers_completed'
+        const solo = t.couples.get(d.couple_id)?.mode === 'solo'
+        const submitted = entries.filter((e) => e.submitted_at).length
+        if (solo && submitted >= 1) next = 'reconsideration_completed'
+        else if (submitted >= 2) next = 'both_answers_completed'
         else if (entries.length > 0 || answers.length > 0) next = 'answers_in_progress'
       } else if (d.status === 'perspectives_ready' || d.status === 'reconsideration_in_progress') {
         const recs = [...t.reconsiderations.values()].filter((r) => r.dispute_id === disputeId)

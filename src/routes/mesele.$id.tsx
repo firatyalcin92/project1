@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { QueryError } from '~/components/boundaries'
 import { AnswerWizard } from '~/components/dispute/answer-wizard'
-import { MyPerspectiveDisclosure, PartnerWords, PerspectiveCard } from '~/components/dispute/perspective'
+import { MyPerspectiveDisclosure, PerspectiveCard } from '~/components/dispute/perspective'
 import { ReconsiderForm } from '~/components/dispute/reconsider-form'
 import { MyReportView, SharedGate, SharedReportView } from '~/components/dispute/resolution'
 import { useDispute } from '~/components/dispute/use-dispute'
@@ -16,7 +16,7 @@ import { Button, Card, Disclosure, LinkButton, Notice } from '~/components/ui'
 import { cancelDisputeFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import { requireMember } from '~/lib/guard'
-import { QUESTIONS, chipLabel, type AnswerQuestionId } from '~/lib/questions'
+import { OTHER_CHIP, QUESTIONS, chipLabel, type AnswerQuestionId } from '~/lib/questions'
 import { formatDate, genitive } from '~/lib/turkish'
 import type { DisputeView } from '~/lib/views'
 
@@ -46,7 +46,12 @@ function DisputePage() {
         <QueryError error={query.error} onRetry={() => query.refetch()} />
       ) : (
         <div className="space-y-5 pb-6">
-          <StepTrack step={displayStep!} done={view!.status === 'completed'} partnerName={view!.partner?.name} />
+          <StepTrack
+            step={displayStep!}
+            done={view!.status === 'completed'}
+            partnerName={view!.partner?.name}
+            solo={view!.mode === 'solo'}
+          />
           <Phase view={view!} onView={query.setView} reflecting={reflecting} setReflecting={setReflecting} />
         </div>
       )}
@@ -92,14 +97,14 @@ function Phase({ view, onView, reflecting, setReflecting }: PhaseProps) {
 // ---------------------------------------------------------------------------
 
 function ReconsiderPhase({ view, onView, reflecting, setReflecting }: PhaseProps) {
-  const partner = view.partner?.name ?? 'Partnerin'
+  const partner = view.partner?.name ?? 'Partneriniz'
   const perspective = view.partnerView?.perspective
 
   if (view.progress.meReconsidered) {
     return (
       <WaitingForPartner view={view}>
         {perspective ? (
-          <Disclosure summary={<span>{genitive(partner)} gözünden metni yeniden oku</span>}>
+          <Disclosure summary={<span>{genitive(partner)} gözünden metni yeniden okuyun</span>}>
             <PerspectiveCard perspective={perspective} name={partner} tone={view.partner?.role === 'A' ? 'a' : 'b'} />
           </Disclosure>
         ) : null}
@@ -118,8 +123,8 @@ function ReconsiderPhase({ view, onView, reflecting, setReflecting }: PhaseProps
           2. Adım · Partnerinin Gözünden Gör
         </p>
         <p className="leading-relaxed text-ink-soft">
-          Şimdi bir an kendi hikâyeni kenara koy. Bu, {genitive(partner)} o an yaşadıkları; doğru ya da yanlış değil,
-          onun gerçeği.
+          Şimdi bir an kendi hikâyenizi kenara koyun. Bu, {genitive(partner)} o an yaşadıkları; doğru ya da yanlış
+          değil, onun gerçeği. Danışman, onun cevaplarını ihtiyaç diliyle sizin için yeniden anlattı.
         </p>
       </div>
       {perspective ? (
@@ -127,7 +132,6 @@ function ReconsiderPhase({ view, onView, reflecting, setReflecting }: PhaseProps
       ) : (
         <Notice tone="info">{partner} için metin hazırlanamadı.</Notice>
       )}
-      <PartnerWords view={view} />
       <MyPerspectiveDisclosure view={view} />
       <BottomBar>
         <Button
@@ -153,8 +157,9 @@ const COUNSELOR_URL = import.meta.env.VITE_COUNSELOR_URL as string | undefined
 
 function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeView) => void }) {
   const report = view.report
-  const partner = view.partner?.name ?? 'Partnerin'
-  const unlocked = Boolean(report?.shared.unlocked && report.shared.report)
+  const solo = view.mode === 'solo'
+  const partner = view.partnerName ?? 'Partneriniz'
+  const unlocked = Boolean(report?.shared?.unlocked && report.shared.report)
   const [tab, setTab] = useState<'mine' | 'shared'>(unlocked ? 'shared' : 'mine')
   // İki onay tamamlandığı an (yoklamayla) ortak rapora geç.
   useEffect(() => {
@@ -166,8 +171,12 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
   return (
     <div className="space-y-5">
       <div className="animate-rise space-y-1">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-clay-strong">4. Adım · Çözüm Raporu</p>
-        <h1 className="text-[26px] leading-tight font-semibold">Döngü Analizi ve İhtiyaç Aynası</h1>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-clay-strong">
+          {solo ? 'Danışman Raporu' : '4. Adım · Çözüm Raporu'}
+        </p>
+        <h1 className="text-[26px] leading-tight font-semibold">
+          {solo ? 'Bu akşam için bir yol haritası' : 'Döngü Analizi ve İhtiyaç Aynası'}
+        </h1>
         {view.completedAt ? <p className="text-sm text-ink-faint">{formatDate(view.completedAt)}</p> : null}
       </div>
 
@@ -176,7 +185,7 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
           {(
             [
               ['shared', 'Ortak Rapor'],
-              ['mine', 'Sana Özel Ayna'],
+              ['mine', 'Size Özel Ayna'],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -196,13 +205,13 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
       {showMine && report.mine ? (
         <>
           <SafetyNote safety={report.mine.safety} />
-          <MyReportView report={report.mine} partnerName={view.partner?.name ?? ''} />
+          <MyReportView report={report.mine} partnerName={view.partnerName ?? ''} solo={solo} />
         </>
       ) : null}
 
-      {unlocked ? (
+      {solo ? null : unlocked ? (
         tab === 'shared' ? (
-          <SharedReportView report={report.shared.report!} view={view} />
+          <SharedReportView report={report.shared!.report!} view={view} />
         ) : null
       ) : (
         <SharedGate view={view} onView={onView} />
@@ -250,17 +259,15 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
 function MyAnswersSummary({ view }: { view: DisputeView }) {
   return (
     <dl className="space-y-3">
-      <p className="text-sm font-semibold">Senin anlattıkların</p>
+      <p className="text-sm font-semibold">Anlattıklarınız</p>
       {QUESTIONS.map((q) => {
-        const text = q.id === 'olay' ? view.mine.whatHappened : view.mine.answers[q.id as AnswerQuestionId].text
-        const tags = q.id === 'olay' ? [] : view.mine.answers[q.id as AnswerQuestionId].tags
-        const vis = q.id === 'olay' ? view.mine.eventVisibility : view.mine.answers[q.id as AnswerQuestionId].visibility
+        const a = q.id === 'olay' ? null : view.mine.answers[q.id as AnswerQuestionId]
+        const text = q.id === 'olay' ? view.mine.whatHappened : a!.text
+        const tags = (a?.tags ?? []).filter((t) => t !== OTHER_CHIP)
         if (!text && tags.length === 0) return null
         return (
           <div key={q.id}>
-            <dt className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-faint">
-              {q.title} {vis === 'private' ? '· yalnızca danışman' : ''}
-            </dt>
+            <dt className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{q.title}</dt>
             <dd className="mt-1 text-[15px] leading-relaxed text-ink">
               {tags.length ? (
                 <span className="text-ink-soft">{tags.map((t) => chipLabel(q.id, t)).join(', ')}. </span>
@@ -285,7 +292,7 @@ function CancelDispute({ view }: { view: DisputeView }) {
     <div className="pt-2 text-center">
       {confirm ? (
         <div className="space-y-2">
-          <p className="text-sm text-ink-soft">Bu mesele ve iki tarafın taslakları silinecek. Emin misin?</p>
+          <p className="text-sm text-ink-soft">Bu mesele ve taslaklar silinecek. Emin misiniz?</p>
           <div className="flex justify-center gap-2">
             <Button variant="secondary" size="sm" onClick={() => setConfirm(false)}>
               Vazgeç

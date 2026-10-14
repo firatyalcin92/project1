@@ -10,8 +10,16 @@ const TEN_MINUTES = 10 * 60 * 1000
 export const createCoupleFn = createServerFn({ method: 'POST' })
   .validator(
     z.object({
-      coupleName: z.string().max(LIMITS.coupleName * 2),
+      mode: z.enum(['couple', 'solo']).default('couple'),
+      coupleName: z
+        .string()
+        .max(LIMITS.coupleName * 2)
+        .default(''),
       displayName: z.string().max(LIMITS.displayName * 2),
+      partnerName: z
+        .string()
+        .max(LIMITS.displayName * 2)
+        .optional(),
     }),
   )
   .handler(async ({ data }) => {

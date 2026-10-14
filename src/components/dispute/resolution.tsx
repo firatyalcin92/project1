@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { approveSharedReportFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import type { MyReport, SharedReport } from '~/lib/report-schemas'
-import { genitive, withName } from '~/lib/turkish'
+import { dative, genitive } from '~/lib/turkish'
 import type { DisputeView, Role } from '~/lib/views'
 import { IconArrowRight, IconCheck, IconHeart, IconLock, IconLoop, IconSparkle, IconUnlock } from '../icons'
 import { SafetyNote } from '../safety'
@@ -37,63 +37,117 @@ function Phrase({ text }: { text: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Kişisel rapor — Sana Özel Ayna
+// Kişisel rapor — Size Özel Ayna ve Yönlendirme
 // ---------------------------------------------------------------------------
 
-export function MyReportView({ report, partnerName }: { report: MyReport; partnerName: string }) {
+const MATCH_LABEL: Record<MyReport['needGuess']['match'], string> = {
+  yakın: 'Tahmininiz çok yakın',
+  kısmen: 'Tahmininiz kısmen doğru',
+  uzak: 'Tahmininiz biraz uzak',
+  tahmin: 'Olası ihtiyaçları',
+}
+
+export function MyReportView({ report, partnerName, solo }: { report: MyReport; partnerName: string; solo?: boolean }) {
+  const p = partnerName || 'Eşiniz'
   return (
     <Card as="article" className="animate-rise space-y-6">
       <div className="space-y-2">
         <Eyebrow className="flex items-center gap-1.5">
-          <IconLock size={14} /> Sana Özel Ayna · yalnızca sen görüyorsun
+          <IconLock size={14} /> {solo ? 'Danışman Raporu · size özel' : 'Size Özel Ayna · yalnızca siz görüyorsunuz'}
         </Eyebrow>
         <p className="text-[18px] leading-relaxed text-ink">{report.greeting}</p>
       </div>
 
-      <section className="space-y-3 rounded-2xl bg-partner-b-soft/70 p-4">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Ayna</p>
-        {report.mirror.partnerWords ? (
-          <p className="font-display text-xl italic text-ink">“{report.mirror.partnerWords}”</p>
-        ) : null}
-        <p className="leading-relaxed text-ink">{report.mirror.meaning}</p>
+      <section className="space-y-2 rounded-2xl bg-partner-b-soft/70 p-4">
+        <p className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
+          {solo ? `${genitive(p)} olası iç dünyası` : `${genitive(p)} iç dünyası`}
+        </p>
+        <Paragraphs text={report.partnerInner} className="text-ink" />
       </section>
 
       <section className="space-y-2">
-        <SectionTitle title="Döngüdeki yerin" />
+        <SectionTitle eyebrow="Onun yerine geçebildiniz mi?" title={MATCH_LABEL[report.needGuess.match]} />
+        <Paragraphs text={report.needGuess.text} className="text-ink-soft" />
+      </section>
+
+      <section className="space-y-2">
+        <SectionTitle title="Döngüdeki yeriniz" />
         <Paragraphs text={report.yourPlace} className="text-ink-soft" />
       </section>
 
+      {report.patterns.length ? (
+        <section className="space-y-3">
+          <SectionTitle eyebrow="Fark etmeniz gereken kalıplar" title="Düşüncelerinizin sizi götürdüğü yer" />
+          <ul className="space-y-3">
+            {report.patterns.map((pt) => (
+              <li key={pt.name} className="space-y-1.5 rounded-2xl border border-line p-4">
+                <p className="font-semibold">{pt.name}</p>
+                <p className="text-[14px] leading-relaxed text-ink-soft">{pt.seenIn}</p>
+                <p className="text-[14px] leading-relaxed text-ink">
+                  <span className="font-semibold text-sage">Bunun yerine: </span>
+                  {pt.reframe}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="space-y-3">
-        <SectionTitle title="İletişim kör noktaların" />
-        <ul className="space-y-3">
-          {report.blindSpots.map((b) => (
-            <li key={b.title} className="rounded-2xl border border-line p-4">
-              <p className="font-semibold">{b.title}</p>
-              <p className="mt-1 leading-relaxed text-ink-soft">{b.insight}</p>
-            </li>
-          ))}
-        </ul>
+        <SectionTitle eyebrow="İhtiyaç dili" title={`${dative(p)} ihtiyacınızı böyle söyleyin`} />
+        <Paragraphs text={report.needsLanguage.explain} className="text-ink-soft" />
+        <div className="rounded-2xl border border-danger/30 bg-danger-soft/50 px-4 py-3">
+          <p className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">Şöyle demek yerine</p>
+          <p className="mt-1 text-[15px] text-ink-soft line-through decoration-danger/50">
+            “{report.needsLanguage.insteadOf}”
+          </p>
+        </div>
+        <p className="text-sm font-medium text-ink">Tam olarak şu cümleyi kurun:</p>
+        <Phrase text={report.needsLanguage.say} />
       </section>
 
-      <section className="flex gap-3 rounded-2xl bg-sage-soft p-4">
-        <IconSparkle size={20} className="mt-0.5 shrink-0 text-sage" />
+      <section className="space-y-3">
+        <SectionTitle eyebrow="Anladığınızı gösterin" title={`${dative(p)} söyleyebileceğiniz cümle`} />
+        <Phrase text={report.understanding} />
+      </section>
+
+      <section className="space-y-3 rounded-2xl bg-sage-soft p-4">
+        <p className="flex items-center gap-2 font-semibold">
+          <IconArrowRight size={18} className="text-sage" /> Bu akşam konuşurken
+        </p>
+        <div className="space-y-1">
+          <p className="text-sm text-ink-soft">Konuşmayı şöyle açın:</p>
+          <p className="font-display text-[17px] leading-relaxed text-ink italic">“{report.tonight.opener}”</p>
+        </div>
+        <ol className="space-y-1.5">
+          {report.tonight.steps.map((st, i) => (
+            <li key={i} className="flex gap-2.5 text-[15px] leading-relaxed text-ink">
+              <span className="font-display font-semibold text-sage tabular-nums">{i + 1}.</span>
+              {st}
+            </li>
+          ))}
+        </ol>
+        <p className="text-[14px] leading-relaxed text-ink">
+          <span className="font-semibold">Kaçının: </span>
+          {report.tonight.avoid}
+        </p>
+      </section>
+
+      <section className="space-y-2">
+        <SectionTitle title="Kendinizde değiştireceğiniz" />
+        <Paragraphs text={report.selfChange} className="text-ink-soft" />
+      </section>
+
+      <section className="flex gap-3 rounded-2xl bg-honey-soft p-4">
+        <IconSparkle size={20} className="mt-0.5 shrink-0 text-honey" />
         <div>
-          <p className="font-semibold">Güçlü yanın</p>
+          <p className="font-semibold">Güçlü yanınız</p>
           <p className="mt-1 leading-relaxed text-ink">{report.strength}</p>
         </div>
       </section>
 
-      <section className="space-y-3">
-        <SectionTitle title="Sana özel onarım önerisi" />
-        <p className="leading-relaxed text-ink-soft">{report.repair.suggestion}</p>
-        <p className="text-sm font-medium text-ink">
-          {partnerName ? withName(partnerName) : 'Partnerinle'} paylaşabileceğin bir cümle:
-        </p>
-        <Phrase text={report.repair.phrase} />
-      </section>
-
-      <p className="border-t border-line pt-4 text-center font-display text-[17px] italic text-ink-soft">
-        {report.selfCompassion}
+      <p className="border-t border-line pt-4 text-center font-display text-[17px] text-ink-soft italic">
+        {report.closing}
       </p>
     </Card>
   )
@@ -104,8 +158,8 @@ export function MyReportView({ report, partnerName }: { report: MyReport; partne
 // ---------------------------------------------------------------------------
 
 export function SharedGate({ view, onView }: { view: DisputeView; onView: (v: DisputeView) => void }) {
-  const shared = view.report!.shared
-  const partner = view.partner?.name ?? 'Partnerin'
+  const shared = view.report!.shared!
+  const partner = view.partner?.name ?? 'Partneriniz'
   const approve = useMutation({
     mutationFn: () => approveSharedReportFn({ data: { disputeId: view.id } }),
     onSuccess: onView,
@@ -118,11 +172,11 @@ export function SharedGate({ view, onView }: { view: DisputeView; onView: (v: Di
       </span>
       <h3 className="text-[22px] font-semibold">Ortak raporunuz hazır</h3>
       <p className="mx-auto max-w-sm leading-relaxed text-ink-soft">
-        Döngü analiziniz ve ihtiyaç aynanız, ikiniz de “hazırım” dediğinizde açılır. Önce kendi aynanı okumanı öneririz;
-        sonra mümkünse yan yana oturup birlikte açın.
+        Döngü analiziniz ve ihtiyaç aynanız, ikiniz de “hazırım” dediğinizde açılır. Önce kendi raporunuzu okumanızı
+        öneririz; sonra mümkünse yan yana oturup birlikte açın.
       </p>
       <ul className="mx-auto flex max-w-xs flex-col gap-2 text-left text-sm">
-        <ApprovalRow label="Sen" done={shared.approvedByMe} />
+        <ApprovalRow label="Siz" done={shared.approvedByMe} />
         <ApprovalRow label={partner} done={shared.approvedByPartner} />
       </ul>
       {approve.isError ? <Notice tone="error">{parseError(approve.error).message}</Notice> : null}
@@ -206,10 +260,6 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
     A: view.me.role === 'A' ? view.me.name : (view.partner?.name ?? 'A'),
     B: view.me.role === 'B' ? view.me.name : (view.partner?.name ?? 'B'),
   } as Record<Role, string>
-  const myLine =
-    view.myReconsideration.items.tek_cumle?.visibility === 'partner' ? view.myReconsideration.items.tek_cumle.text : ''
-  const partnerLine = view.partnerReflections?.tek_cumle ?? ''
-
   return (
     <article className="animate-rise space-y-5">
       <SafetyNote safety={report.safety} />
@@ -220,24 +270,6 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
         </Eyebrow>
         <Paragraphs text={report.opening} className="text-[17px] text-ink" />
       </Card>
-
-      {myLine || partnerLine ? (
-        <Card className="space-y-3">
-          <SectionTitle title="Birbirinize söylemek istedikleriniz" />
-          {partnerLine && view.partner ? (
-            <div className="rounded-2xl bg-sunken px-4 py-3">
-              <p className="text-[13px] text-ink-faint">{view.partner.name}</p>
-              <p className="font-display text-[17px] italic text-ink">“{partnerLine}”</p>
-            </div>
-          ) : null}
-          {myLine ? (
-            <div className="rounded-2xl bg-sunken px-4 py-3">
-              <p className="text-[13px] text-ink-faint">Sen</p>
-              <p className="font-display text-[17px] italic text-ink">“{myLine}”</p>
-            </div>
-          ) : null}
-        </Card>
-      ) : null}
 
       <Card className="space-y-4">
         <SectionTitle eyebrow="Ortak döngünüz" title={report.cycle.name} icon={<IconLoop size={14} />} />
@@ -308,7 +340,7 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
 
       <Card className="space-y-2 border-sage/40 bg-sage-soft">
         <p className="flex items-center gap-2 font-semibold">
-          <IconArrowRight size={18} className="text-sage" /> Bugün için
+          <IconArrowRight size={18} className="text-sage" /> Birlikte, bugün için
         </p>
         <p className="leading-relaxed text-ink">{report.tonight}</p>
       </Card>

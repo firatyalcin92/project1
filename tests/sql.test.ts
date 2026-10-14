@@ -1,13 +1,14 @@
 import { PGlite } from '@electric-sql/pglite'
 import { createHash, randomBytes } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-const migration = readFileSync(
-  join(import.meta.dirname, '../supabase/migrations/20261013000000_mesele_init.sql'),
-  'utf8',
-)
+const migrationsDir = join(import.meta.dirname, '../supabase/migrations')
+const migrations = readdirSync(migrationsDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .map((f) => readFileSync(join(migrationsDir, f), 'utf8'))
 
 let db: PGlite
 
@@ -43,7 +44,7 @@ beforeAll(async () => {
   db = new PGlite()
   // Supabase'in hazır getirdiği rolleri taklit et.
   await db.exec(`create role anon; create role authenticated; create role service_role;`)
-  await db.exec(migration)
+  for (const m of migrations) await db.exec(m)
 })
 
 afterAll(async () => {
@@ -120,6 +121,36 @@ describe('mesele_sync_progress', () => {
     expect((await one<{ s: string }>('select mesele_sync_progress($1) as s', [disputeId])).s).toBe(
       'both_answers_completed',
     )
+  })
+})
+
+describe('bireysel (solo) mod', () => {
+  it('tek gönderimle doğrudan rapor aşamasına geçer', async () => {
+    const couple = await one<{ id: string }>(
+      `insert into couples (code, name, mode, partner_name) values ($1, 'Fırat', 'solo', 'Ayşe') returning id`,
+      [uniqueCode()],
+    )
+    const m = await one<{ id: string }>(
+      `insert into couple_members (couple_id, role, display_name, auth_token_hash) values ($1, 'A', 'Fırat', $2) returning id`,
+      [couple.id, uniqueHash()],
+    )
+    const d = await one<{ id: string }>(
+      `insert into disputes (couple_id, created_by, title) values ($1, $2, 'x') returning id`,
+      [couple.id, m.id],
+    )
+    await db.query(
+      `insert into dispute_entries (dispute_id, member_id, what_happened, submitted_at) values ($1, $2, 'y', now())`,
+      [d.id, m.id],
+    )
+    expect((await one<{ s: string }>('select mesele_sync_progress($1) as s', [d.id])).s).toBe(
+      'reconsideration_completed',
+    )
+  })
+
+  it('mod alanı yalnızca couple / solo kabul eder', async () => {
+    await expect(
+      db.query(`insert into couples (code, name, mode) values ($1, 'x', 'grup')`, [uniqueCode()]),
+    ).rejects.toThrow()
   })
 })
 

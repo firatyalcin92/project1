@@ -9,12 +9,13 @@ import {
   ensureReports,
   getDisputeView,
   listDisputeSummaries,
+  reflectAnswers,
   saveAnswers,
   saveReconsideration,
 } from '~/server/disputes.server'
+import { rateLimit } from '~/server/rate-limit.server'
 import { memberAuth } from './middleware'
 
-const visibility = z.enum(['private', 'partner'])
 const disputeId = z.object({ disputeId: z.uuid() })
 const reflectionIds = RECONSIDER_QUESTIONS.map((q) => q.id) as [ReflectionId, ...ReflectionId[]]
 
@@ -46,14 +47,12 @@ export const saveAnswersFn = createServerFn({ method: 'POST' })
     z.object({
       disputeId: z.uuid(),
       whatHappened: z.string().max(LIMITS.text * 2),
-      eventVisibility: visibility,
       answers: z
         .array(
           z.object({
             questionId: z.enum(ANSWER_QUESTION_IDS),
             text: z.string().max(LIMITS.text * 2),
-            tags: z.array(z.string().max(32)).max(12),
-            visibility,
+            tags: z.array(z.string().max(32)).max(24),
           }),
         )
         .max(ANSWER_QUESTION_IDS.length),
@@ -61,6 +60,20 @@ export const saveAnswersFn = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data, context }) => saveAnswers(context.member, data))
+
+export const reflectAnswersFn = createServerFn({ method: 'POST' })
+  .middleware([memberAuth])
+  .validator(
+    z.object({
+      disputeId: z.uuid(),
+      whatHappened: z.string().max(LIMITS.text * 2),
+      thought: z.string().max(LIMITS.text * 2),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    rateLimit('reflect', 30, 10 * 60 * 1000)
+    return reflectAnswers(context.member, data)
+  })
 
 export const requestPerspectivesFn = createServerFn({ method: 'POST' })
   .middleware([memberAuth])
@@ -73,7 +86,7 @@ export const saveReconsiderationFn = createServerFn({ method: 'POST' })
     z.object({
       disputeId: z.uuid(),
       items: z
-        .array(z.object({ id: z.enum(reflectionIds), text: z.string().max(LIMITS.reflection * 2), visibility }))
+        .array(z.object({ id: z.enum(reflectionIds), text: z.string().max(LIMITS.reflection * 2) }))
         .max(reflectionIds.length),
       closeness: z.number().int().min(1).max(5).nullable(),
       submit: z.boolean(),
