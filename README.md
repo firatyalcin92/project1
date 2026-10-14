@@ -29,6 +29,17 @@ Gottman yaklaşımlarından ilham alınarak tasarlandı.
 
 ---
 
+## En kolay yol: tek linkle yayınla (Render)
+
+1. [Bu bağlantıya](https://render.com/deploy?repo=https://github.com/firatyalcin92/project1) tıkla, GitHub ile giriş yap.
+2. `OPENAI_API_KEY` sorulunca anahtarı yapıştır → **Apply / Deploy**.
+3. 3–5 dakika sonra `https://mesele-xxxx.onrender.com` gibi bir link verir. iPhone Safari'de aç → Paylaş →
+   **Ana Ekrana Ekle**.
+
+GitHub'a gönderilen her güncelleme otomatik yayınlanır. Ücretsiz planda sunucu 15 dakika kullanılmazsa uyur (ilk
+açılış ~1 dk sürer) ve bellekteki veriler silinir; kalıcı veri için Supabase bağlanmalı. Kendi alan adın için
+Render'da *Settings → Custom Domain* → `mesele.firatyalcin.blog`, cPanel'de *Zone Editor*'da gösterilen CNAME kaydı.
+
 ## Windows + iPhone (Expo Go) ile test
 
 Expo Go yalnızca React Native uygulamalarını açabilir; MESELE ise bir web uygulamasıdır. Bu yüzden `mobile/`

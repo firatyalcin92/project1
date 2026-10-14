@@ -1,0 +1,21 @@
+# Render "Blueprint": GitHub'daki her güncellemede MESELE'yi otomatik derleyip yayınlar.
+# Kurulum: https://render.com/deploy?repo=https://github.com/firatyalcin92/project1
+services:
+  - type: web
+    name: mesele
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      # Supabase bağlanana kadar veriler bellekte tutulur (sunucu uyuyunca/yeniden başlayınca silinir).
+      - key: MESELE_STORE
+        value: memory
+      # Kurulumda Render bu değeri sorar; anahtar GitHub'a girmez.
+      - key: OPENAI_API_KEY
+        sync: false
