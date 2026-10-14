@@ -5,7 +5,7 @@
  * içerik taşır; ASLA önbelleğe alınmaz. Yalnızca adı hash'li statik dosyalar,
  * ikonlar ve çevrimdışı sayfa saklanır.
  */
-const VERSION = 'mesele-v1'
+const VERSION = 'mesele-v2'
 const STATIC_CACHE = `${VERSION}-static`
 const PRECACHE = [
   '/offline.html',
