@@ -1,0 +1,38 @@
+# Her push'ta: testler + derleme geçerse Render'da yeni yayını başlatır.
+# Kurulum (bir kez): Render → mesele → Settings → Deploy Hook adresini kopyalayın,
+# GitHub → Settings → Secrets and variables → Actions → New repository secret
+# adı RENDER_DEPLOY_HOOK olacak şekilde yapıştırın.
+name: Test ve Render yayını
+
+on:
+  push:
+    branches: [claude/mesele-couple-conflict-app-36jqe8]
+  workflow_dispatch:
+
+concurrency:
+  group: render-deploy
+  cancel-in-progress: true
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit -p .
+      - run: npm test
+      - run: npm run build
+      - name: Render yayınını başlat
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK tanımlı değil; Render yayını başlatılmadı."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Render yayını başlatıldı."

@@ -2,6 +2,8 @@ import '@tanstack/react-start/server-only'
 import {
   ANSWER_QUESTION_IDS,
   FEELINGS,
+  FEELING_MAX,
+  FEELING_MIN,
   LIMITS,
   OTHER_CHIP,
   QUESTIONS,
@@ -9,6 +11,7 @@ import {
   REFLECTION_ANSWER_ID,
   STRONGEST_FEELING,
   allowedChipsFor,
+  feelingCount,
   strongestOptions,
   type AnswerQuestionId,
   type ReflectionId,
@@ -322,7 +325,7 @@ type AnswerInput = SaveAnswersInput['answers'][number]
 
 /**
  * Çipleri izinli listeyle sınırla, metinleri kırp.
- * - His listesinde "başka bir şey" seçili değilse metin tutulmaz.
+ * - His listesinde "başka bir şey" seçili değilse metin tutulmaz; en fazla 7 his tutulur.
  * - En çok etkileyen his tek seçimdir ve aynı gönderimde his listesinde
  *   işaretlenmiş olmalıdır; değilse seçim düşer (nedeni korunur).
  */
@@ -333,6 +336,7 @@ export function normalizeAnswers(input: AnswerInput[]): AnswerInput[] {
     let tags = [...new Set(a.tags)].filter((t) => allowed.includes(t))
     let text = a.text.trim()
     if (a.questionId === FEELINGS) {
+      tags = tags.slice(0, FEELING_MAX) // en fazla 7 his ("başka bir şey" de bir sayılır)
       text = tags.includes(OTHER_CHIP) ? text.slice(0, LIMITS.other) : ''
       if (!text) tags = tags.filter((t) => t !== OTHER_CHIP)
     } else {
@@ -361,11 +365,18 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
     const olay = QUESTIONS.find((q) => q.id === 'olay')!
     if (whatHappened.length < olay.minLength)
       fail('VALIDATION', 'Olayı biraz daha anlatır mısınız? Birkaç cümle yeterli.')
+    const find = (id: string) => answers.find((x) => x.questionId === id)
     for (const q of QUESTIONS) {
-      if (q.id === 'olay' || !q.textRequired) continue
-      const a = answers.find((x) => x.questionId === q.id)
-      if (!(a && a.text.length >= q.minLength)) fail('VALIDATION', `"${q.title}" sorusunu biraz açar mısınız?`)
+      if (q.id === 'olay') continue
+      const a = find(q.id)
+      if (q.textRequired && !(a && a.text.length >= q.minLength))
+        fail('VALIDATION', `"${q.title}" sorusunu biraz açar mısınız?`)
+      if (q.chipsRequired && !a?.tags.length) fail('VALIDATION', 'O an ne yaptığınızı seçer misiniz?')
     }
+    const feelings = find(FEELINGS)
+    if (!feelings || feelingCount(feelings) < FEELING_MIN)
+      fail('VALIDATION', 'Hissettiklerinizden en az birini seçer misiniz?')
+    if (find(STRONGEST_FEELING)?.tags.length !== 1) fail('VALIDATION', 'Sizi en çok etkileyen hissi seçer misiniz?')
   }
 
   await store.upsertEntry({

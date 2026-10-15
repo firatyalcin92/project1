@@ -22,6 +22,10 @@ export function PerspectiveCard({
         </Eyebrow>
         <h2 className="text-[24px] leading-snug font-semibold">{perspective.headline}</h2>
       </div>
+      {/* Okumaya başlamadan önce: merakla okuma notu en üstte. */}
+      <p className="rounded-2xl border-l-4 border-clay bg-clay-soft/50 py-2.5 pr-3 pl-3.5 font-display text-[16px] leading-relaxed text-ink italic">
+        {perspective.readingNote}
+      </p>
       <Paragraphs text={perspective.story} className="text-[17px] text-ink" />
       <div className={`rounded-2xl px-4 py-3 ${tone === 'b' ? 'bg-partner-b-soft' : 'bg-partner-a-soft'}`}>
         <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Altında belki de</p>
@@ -34,9 +38,6 @@ export function PerspectiveCard({
           {perspective.need}
         </p>
       </div>
-      <p className="border-l-2 border-line-strong pl-3 font-display text-[15px] italic leading-relaxed text-ink-soft">
-        {perspective.readingNote}
-      </p>
     </Card>
   )
 }

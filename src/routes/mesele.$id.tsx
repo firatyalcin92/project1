@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { QueryError } from '~/components/boundaries'
 import { AnswerWizard, answerBody } from '~/components/dispute/answer-wizard'
 import { MyPerspectiveDisclosure, PerspectiveCard } from '~/components/dispute/perspective'
@@ -32,7 +32,8 @@ function DisputePage() {
   const query = useDispute(id)
   const view = query.data
   // 2. adım (okuma) ve 3. adım (yeniden değerlendirme) aynı sunucu durumunu paylaşır.
-  const [reflecting, setReflecting] = useState(false)
+  // false: Gözünden metni · 'normal' | 'objection': yeniden değerlendirme formu
+  const [reflecting, setReflecting] = useState<Reflecting>(false)
   const displayStep = view && view.step === 3 && !view.progress.meReconsidered && !reflecting ? 2 : view?.step
 
   return (
@@ -59,11 +60,13 @@ function DisputePage() {
   )
 }
 
+type Reflecting = false | 'normal' | 'objection'
+
 type PhaseProps = {
   view: DisputeView
   onView: (v: DisputeView) => void
-  reflecting: boolean
-  setReflecting: (v: boolean) => void
+  reflecting: Reflecting
+  setReflecting: (v: Reflecting) => void
 }
 
 function Phase({ view, onView, reflecting, setReflecting }: PhaseProps) {
@@ -113,7 +116,17 @@ function ReconsiderPhase({ view, onView, reflecting, setReflecting }: PhaseProps
   }
 
   if (reflecting) {
-    return <ReconsiderForm view={view} onView={onView} onBack={() => setReflecting(false)} />
+    return (
+      <ReconsiderForm
+        view={view}
+        onView={onView}
+        startWithObjection={reflecting === 'objection'}
+        onBack={() => {
+          setReflecting(false)
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
+      />
+    )
   }
 
   return (
@@ -134,16 +147,28 @@ function ReconsiderPhase({ view, onView, reflecting, setReflecting }: PhaseProps
       )}
       <MyPerspectiveDisclosure view={view} />
       <BottomBar>
-        <Button
-          full
-          size="lg"
-          onClick={() => {
-            setReflecting(true)
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
-        >
-          Okudum, yeniden düşünmeye hazırım <IconArrowRight size={18} />
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            className="shrink-0 whitespace-nowrap"
+            onClick={() => {
+              setReflecting('objection')
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+          >
+            İtirazım var
+          </Button>
+          <Button
+            full
+            size="lg"
+            onClick={() => {
+              setReflecting('normal')
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+          >
+            Okudum, devam <IconArrowRight size={18} />
+          </Button>
+        </div>
       </BottomBar>
     </div>
   )
@@ -161,15 +186,25 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
   const partner = view.partnerName ?? 'Partneriniz'
   const unlocked = Boolean(report?.shared?.unlocked && report.shared.report)
   const [tab, setTab] = useState<'mine' | 'shared'>(unlocked ? 'shared' : 'mine')
+  const topRef = useRef<HTMLDivElement>(null)
+  const first = useRef(true)
   // İki onay tamamlandığı an (yoklamayla) ortak rapora geç.
   useEffect(() => {
     if (unlocked) setTab('shared')
   }, [unlocked])
+  // Sekme değişince (ör. ortak rapor açılınca) raporun en başına git.
+  useEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [tab])
   if (!report) return <Notice tone="info">Rapor yükleniyor…</Notice>
   const showMine = !unlocked || tab === 'mine'
 
   return (
-    <div className="space-y-5">
+    <div ref={topRef} className="scroll-mt-20 space-y-5">
       <div className="animate-rise space-y-1">
         <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-clay-strong">
           {solo ? 'Danışman Raporu' : '4. Adım · Çözüm Raporu'}
@@ -205,7 +240,17 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
       {showMine && report.mine ? (
         <>
           <SafetyNote safety={report.mine.safety} />
+          {solo ? null : (
+            <Notice tone="info" title="Bu sizin özel raporunuz">
+              Yalnızca siz görüyorsunuz. Okuduktan sonra sayfanın en altından ortak raporunuzu görüntüleyebilirsiniz.
+            </Notice>
+          )}
           <MyReportView report={report.mine} partnerName={view.partnerName ?? ''} solo={solo} />
+          {unlocked ? (
+            <Button full size="lg" onClick={() => setTab('shared')}>
+              Ortak raporu görüntüle <IconArrowRight size={18} />
+            </Button>
+          ) : null}
         </>
       ) : null}
 

@@ -6,18 +6,22 @@ import {
   QUESTIONS,
   QUESTION_COUNT,
   allowedChipsFor,
+  feelingLabel,
   strongestOptions,
 } from '~/lib/questions'
 import { describeFeelings } from '~/server/prompts.server'
 
 describe('his listesi', () => {
-  it('7 grup, tüm seçenekler ve benzersiz kimlikler', () => {
+  it('7 grup, sadeleştirilmiş 30 his ve benzersiz kimlikler', () => {
     expect(FEELING_GROUPS).toHaveLength(7)
-    expect(FEELING_GROUPS.map((g) => g.chips.length)).toEqual([8, 8, 8, 8, 8, 8, 7])
+    expect(FEELING_CHIPS).toHaveLength(30)
     const ids = FEELING_CHIPS.map((c) => c.id)
     expect(new Set(ids).size).toBe(ids.length)
     for (const id of ids) expect(id).toMatch(/^[a-z_]{2,32}$/)
-    expect(FEELING_CHIPS.map((c) => c.label)).toContain('Kendimi çaresizce açıklamaya çalıştım')
+    // Çıkarılan hisler eski kayıtlarda adıyla görünmeye devam eder
+    expect(FEELING_CHIPS.map((c) => c.id)).not.toContain('sinirlendim')
+    expect(feelingLabel('sinirlendim')).toBe('Sinirlendim')
+    expect(feelingLabel('gorulmemis')).toBe('Görülmemiş') // v2
   })
 
   it('soru akışı: 7 soru, 7 sayfa; sırasında ve sonrasında tek listede', () => {
@@ -85,6 +89,11 @@ describe('eski kayıtlarla uyum', () => {
     expect(lines[0]).toBe('Tartışma SIRASINDA hissettikleri: Öfkelendim [öfke ve haksızlık]')
     expect(lines[2]).toContain('sonradan ortaya çıkan: Yalnız hissettim')
     expect(lines[3]).toBe('Onu en çok etkileyen his: Yalnız hissettim (tartışma sonrasında)')
+  })
+
+  it('his seçilmemişse danışmana tahmin yürütmemesi söylenir', () => {
+    const lines = describeFeelings({ answers: [{ question_id: 'hisler', text_answer: '', selected_tags: [] }] })
+    expect(lines).toEqual(['Tartışma sırasında ve sonrasında hissettikleri: işaretlemedi (bilgi yok; tahmin yürütme)'])
   })
 
   it('his cevabı hiç yoksa satır eklenmez', () => {

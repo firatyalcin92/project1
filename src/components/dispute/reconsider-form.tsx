@@ -15,22 +15,28 @@ export function ReconsiderForm({
   view,
   onView,
   onBack,
+  startWithObjection = false,
 }: {
   view: DisputeView
   onView: (v: DisputeView) => void
   onBack: () => void
+  /** "İtirazım var" ile gelindiyse itiraz alanı açık ve en üstte başlar */
+  startWithObjection?: boolean
 }) {
   const partner = view.partner?.name ?? 'Partnerin'
   const [items, setItems] = useState<Items>(view.myReconsideration.items)
   const [closeness, setCloseness] = useState<number | null>(view.myReconsideration.closeness)
   const [confirming, setConfirming] = useState(false)
+  const [objectionOpen, setObjectionOpen] = useState(
+    () => startWithObjection || Boolean(view.myReconsideration.items.itiraz?.text.trim()),
+  )
   const chain = useRef<Promise<unknown>>(Promise.resolve())
 
   const save = useMutation({
     mutationFn: (submit: boolean) => {
       const payload = {
         disputeId: view.id,
-        items: RECONSIDER_QUESTIONS.map((q) => ({ id: q.id, ...items[q.id] })),
+        items: RECONSIDER_QUESTIONS.map((q) => ({ id: q.id, text: items[q.id]?.text ?? '' })),
         closeness,
         submit,
       }
@@ -46,7 +52,7 @@ export function ReconsiderForm({
   const set = (id: ReflectionId, patch: Partial<Items[ReflectionId]>) =>
     setItems((s) => ({ ...s, [id]: { ...s[id], ...patch } }))
 
-  const complete = RECONSIDER_QUESTIONS.every((q) => !q.required || items[q.id].text.trim().length >= 3)
+  const complete = RECONSIDER_QUESTIONS.every((q) => !q.required || (items[q.id]?.text.trim().length ?? 0) >= 3)
 
   return (
     <div className="space-y-6">
@@ -61,23 +67,55 @@ export function ReconsiderForm({
         </p>
       </div>
 
-      {RECONSIDER_QUESTIONS.map((q) => (
-        <section key={q.id} className="space-y-2.5">
-          <label className="block text-[16px] leading-snug font-semibold text-ink" htmlFor={`r-${q.id}`}>
-            {q.prompt(partner)}
-            {!q.required ? <span className="ml-1 text-sm font-normal text-ink-faint">(isteğe bağlı)</span> : null}
-          </label>
-          <TextArea
-            id={`r-${q.id}`}
-            value={items[q.id].text}
-            onChange={(v) => set(q.id, { text: v })}
-            onBlur={() => save.mutate(false)}
-            maxLength={LIMITS.reflection}
-            minRows={3}
-            placeholder={q.placeholder}
-          />
-        </section>
-      ))}
+      {RECONSIDER_QUESTIONS.map((q) =>
+        q.objection ? (
+          <section key={q.id} className="space-y-2.5 rounded-2xl border border-honey/40 bg-honey-soft/50 p-4">
+            {objectionOpen ? (
+              <>
+                <label className="block text-[16px] leading-snug font-semibold text-ink" htmlFor={`r-${q.id}`}>
+                  İtirazım var
+                </label>
+                <p className="text-[15px] leading-relaxed text-ink">{q.prompt(partner)}</p>
+                {q.helper ? <p className="text-[13px] leading-relaxed text-ink-soft">{q.helper}</p> : null}
+                <TextArea
+                  id={`r-${q.id}`}
+                  value={items[q.id]?.text ?? ''}
+                  onChange={(v) => set(q.id, { text: v })}
+                  onBlur={() => save.mutate(false)}
+                  maxLength={LIMITS.reflection}
+                  minRows={3}
+                  placeholder={q.placeholder}
+                />
+              </>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[14px] leading-snug text-ink-soft">
+                  Metinde katılmadığınız ya da yanlış anlaşılan bir şey mi var?
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => setObjectionOpen(true)}>
+                  İtirazım var
+                </Button>
+              </div>
+            )}
+          </section>
+        ) : (
+          <section key={q.id} className="space-y-2.5">
+            <label className="block text-[16px] leading-snug font-semibold text-ink" htmlFor={`r-${q.id}`}>
+              {q.prompt(partner)}
+              {!q.required ? <span className="ml-1 text-sm font-normal text-ink-faint">(isteğe bağlı)</span> : null}
+            </label>
+            <TextArea
+              id={`r-${q.id}`}
+              value={items[q.id]?.text ?? ''}
+              onChange={(v) => set(q.id, { text: v })}
+              onBlur={() => save.mutate(false)}
+              maxLength={LIMITS.reflection}
+              minRows={3}
+              placeholder={q.placeholder}
+            />
+          </section>
+        ),
+      )}
 
       <section className="space-y-3">
         <p className="text-[16px] font-semibold">Şu an kendinizi {dative(partner)} ne kadar yakın hissediyorsunuz?</p>

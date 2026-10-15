@@ -6,7 +6,8 @@ import {
   ANSWER_QUESTION_IDS,
   FEELINGS,
   FEELING_GROUPS,
-  FEELING_SOFT_MAX,
+  FEELING_MAX,
+  FEELING_MIN,
   LIMITS,
   OTHER_CHIP,
   OTHER_FEELING_LABEL,
@@ -15,6 +16,7 @@ import {
   STRONGEST_FEELING,
   WHEN_LABEL,
   chipLabel,
+  feelingCount,
   introMessage,
   privacyNotice,
   strongestOptions,
@@ -32,15 +34,48 @@ type Draft = { whatHappened: string; answers: Record<AnswerQuestionId, AnswerDra
 type Page = 'giris' | Question['id'] | 'ozet'
 const PAGES: Page[] = ['giris', ...QUESTIONS.map((q) => q.id), 'ozet']
 
-function pageComplete(page: Page, d: Draft): boolean {
-  if (page === 'giris' || page === 'ozet') return true
+/** Sayfa neden henüz geçilemiyor? (geçilebiliyorsa null) */
+function blockReason(page: Page, d: Draft): string | null {
+  if (page === 'giris' || page === 'ozet') return null
   const q = QUESTIONS.find((x) => x.id === page)!
-  if (page === 'olay') return d.whatHappened.trim().length >= q.minLength
-  // His soruları isteğe bağlıdır: hiçbir seçim zorunlu değildir.
-  if (q.kind !== 'text') return true
+  if (page === 'olay') return d.whatHappened.trim().length >= q.minLength ? null : ''
   const a = d.answers[page as AnswerQuestionId]
-  if (q.textRequired && a.text.trim().length < q.minLength) return false
-  return true
+  if (q.kind === 'feelings')
+    return feelingCount(a) >= FEELING_MIN ? null : 'Devam etmek için sizi anlatan en az bir his seçin.'
+  if (q.kind === 'strongest')
+    return optionsFor(d).some((o) => a.tags.includes(o.id)) ? null : 'Devam etmek için birini seçin.'
+  if (q.textRequired && a.text.trim().length < q.minLength) return ''
+  if (q.chipsRequired && a.tags.length === 0) return 'Devam etmek için o an ne yaptığınızı seçin.'
+  return null
+}
+
+const pageComplete = (page: Page, d: Draft) => blockReason(page, d) === null
+
+/** Sayfaya dönüldüğünde (önceden cevaplanmışsa) her şey hemen görünür. */
+function hasContent(page: Page, d: Draft) {
+  if (page === 'giris' || page === 'ozet') return false
+  if (page === 'olay') return d.whatHappened.trim().length > 0
+  const a = d.answers[page as AnswerQuestionId]
+  return a.text.trim().length > 0 || a.tags.length > 0
+}
+
+// Danışman konuşur gibi: önce soru, sonra açıklama, en son cevap alanı.
+const REVEAL_DELAYS = [700, 1500, 1000, 900]
+
+function useReveal(stages: number, { instant, ready = true }: { instant: boolean; ready?: boolean }) {
+  const [shown, setShown] = useState(instant ? stages : 0)
+  useEffect(() => {
+    if (instant || !ready) return
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const timers: number[] = []
+    let t = 0
+    for (let i = 1; i <= stages; i++) {
+      t += (REVEAL_DELAYS[i - 1] ?? 900) * (reduce ? 0.35 : 1)
+      timers.push(window.setTimeout(() => setShown((s) => Math.max(s, i)), t))
+    }
+    return () => timers.forEach(clearTimeout)
+  }, [instant, ready, stages])
+  return instant ? stages : shown
 }
 
 /** Mevcut taslağa göre "en çok etkileyen his" seçenekleri. */
@@ -97,7 +132,9 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
   })
   const [confirming, setConfirming] = useState(false)
   const [reflection, setReflection] = useState(view.mine.reflection)
-  const reflectedFor = useRef(view.mine.reflection ? '__saved__' : '')
+  // Yansıtmanın hangi "olay + düşünce" için üretildiği; durum olduğu için değişince ekran yenilenir.
+  const [reflectedFor, setReflectedFor] = useState(view.mine.reflection ? '__saved__' : '')
+  const [revealedPage, setRevealedPage] = useState<Page | null>(null)
   const dirty = useRef(false)
   const topRef = useRef<HTMLDivElement>(null)
   // Kayıtlar sırayla gider: bir taslak kaydı asla "gönder"i geçemez.
@@ -126,18 +163,20 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
   })
 
   // His sorusuna gelince, ilk iki cevap değiştiyse danışman yeniden yansıtır.
+  const reflectKey = `${draft.whatHappened}\u0000${draft.answers.dusunce.text}`
   useEffect(() => {
     if (page !== FEELINGS) return
-    const key = `${draft.whatHappened}\u0000${draft.answers.dusunce.text}`
-    if (reflectedFor.current === '__saved__') {
-      reflectedFor.current = key
+    if (reflectedFor === '__saved__') {
+      setReflectedFor(reflectKey)
       return
     }
-    if (reflectedFor.current === key || reflect.isPending) return
-    reflectedFor.current = key
+    if (reflectedFor === reflectKey || reflect.isPending) return
+    setReflectedFor(reflectKey)
     reflect.mutate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page])
+  // Yansıtma gelene (ya da hata verene) kadar his sorusu açılmaz.
+  const reflectionReady = !reflect.isPending && reflectedFor === reflectKey
 
   // Yazarken birkaç saniyede bir taslağı sessizce kaydet.
   useEffect(() => {
@@ -163,7 +202,9 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
     requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
-  const complete = pageComplete(page, draft)
+  const reason = blockReason(page, draft)
+  const revealed = page === 'ozet' || revealedPage === page
+  const complete = reason === null && revealed
   const allComplete = useMemo(() => PAGES.every((p) => pageComplete(p, draft)), [draft])
   const questionIndex = QUESTIONS.findIndex((q) => q.id === page)
   const question = questionIndex >= 0 ? QUESTIONS[questionIndex]! : null
@@ -186,7 +227,7 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
 
       <div key={page} className="animate-rise space-y-5">
         {page === 'giris' ? (
-          <Intro partnerName={partnerName} solo={solo} />
+          <Intro partnerName={partnerName} solo={solo} onRevealed={() => setRevealedPage('giris')} />
         ) : page === 'ozet' ? (
           <Summary draft={draft} partnerName={partnerName} solo={solo} />
         ) : (
@@ -197,7 +238,8 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
             update={update}
             setAnswer={setAnswer}
             reflection={page === FEELINGS ? reflection : null}
-            reflecting={page === FEELINGS && reflect.isPending}
+            ready={page === FEELINGS ? reflectionReady : true}
+            onRevealed={() => setRevealedPage(page)}
           />
         )}
       </div>
@@ -234,7 +276,7 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
               </Button>
             ) : null}
             {page === 'giris' ? (
-              <Button full size="lg" onClick={() => go(1)}>
+              <Button full size="lg" disabled={!revealed} onClick={() => go(1)}>
                 Hazırım, başlayalım <IconArrowRight size={18} />
               </Button>
             ) : page === 'ozet' ? (
@@ -248,25 +290,41 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
             )}
           </div>
         )}
-        <p className={cx('mt-2 text-center text-[12px] text-ink-faint', save.isPending ? 'opacity-100' : 'opacity-0')}>
-          Taslak kaydediliyor…
-        </p>
+        {revealed && reason ? (
+          <p className="mt-2 text-center text-[13px] text-ink-soft">{reason}</p>
+        ) : (
+          <p
+            className={cx('mt-2 text-center text-[12px] text-ink-faint', save.isPending ? 'opacity-100' : 'opacity-0')}
+          >
+            Taslak kaydediliyor…
+          </p>
+        )}
       </BottomBar>
     </div>
   )
 }
 
-function Intro({ partnerName, solo }: { partnerName: string; solo: boolean }) {
-  const [hello, why, six] = introMessage(partnerName)
+function Intro({ partnerName, solo, onRevealed }: { partnerName: string; solo: boolean; onRevealed: () => void }) {
+  const messages = introMessage(partnerName)
+  const shown = useReveal(messages.length + 1, { instant: false })
+  useEffect(() => {
+    if (shown > messages.length) onRevealed()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown])
   return (
-    <section className="space-y-3" aria-label="Danışmanın karşılaması">
-      <Bubble>{hello}</Bubble>
-      <Bubble>{why}</Bubble>
-      <Bubble>{six}</Bubble>
-      <div className="flex gap-2.5 rounded-2xl border border-line bg-sunken px-4 py-3 text-[14px] leading-relaxed text-ink-soft">
-        <IconUsers size={18} className="mt-0.5 shrink-0" />
-        <p>{privacyNotice(partnerName, solo)}</p>
-      </div>
+    <section className="space-y-3" aria-label="Danışmanın karşılaması" aria-live="polite">
+      {messages.slice(0, shown).map((m) => (
+        <div key={m} className="animate-rise">
+          <Bubble>{m}</Bubble>
+        </div>
+      ))}
+      {shown < messages.length ? <Bubble typing /> : null}
+      {shown > messages.length ? (
+        <div className="flex animate-rise gap-2.5 rounded-2xl border border-line bg-sunken px-4 py-3 text-[14px] leading-relaxed text-ink-soft">
+          <IconUsers size={18} className="mt-0.5 shrink-0" />
+          <p>{privacyNotice(partnerName, solo)}</p>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -278,7 +336,8 @@ function QuestionStep({
   update,
   setAnswer,
   reflection,
-  reflecting,
+  ready,
+  onRevealed,
 }: {
   question: Question
   draft: Draft
@@ -286,36 +345,57 @@ function QuestionStep({
   update: (fn: (d: Draft) => Draft) => void
   setAnswer: (id: AnswerQuestionId, patch: Partial<AnswerDraft>) => void
   reflection: string | null
-  reflecting: boolean
+  ready: boolean
+  onRevealed: () => void
 }) {
-  return (
-    <section className="space-y-4" aria-labelledby={`q-${q.id}`}>
-      {reflecting ? <Bubble typing /> : reflection ? <Bubble>{reflection}</Bubble> : null}
-      <Bubble>
-        <span id={`q-${q.id}`} className="font-medium">
-          {q.number}. {q.prompt(partnerName)}
-        </span>
-      </Bubble>
-      {q.section ? (
-        <p className="px-1">
-          <span className="inline-flex rounded-full bg-clay-soft px-3 py-1 text-[13px] font-semibold text-clay-strong">
-            {q.section}
-          </span>
-        </p>
-      ) : null}
-      {q.helper ? <p className="px-1 text-[14px] leading-relaxed text-ink-soft">{q.helper}</p> : null}
+  // Aşamalar: 1 soru · 2 açıklama · 3 cevap alanı
+  const [instant] = useState(() => hasContent(q.id, draft))
+  const shown = useReveal(3, { instant, ready })
+  useEffect(() => {
+    if (shown >= 3) onRevealed()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown])
 
-      {q.kind === 'feelings' ? (
-        <FeelingsPicker
-          question={q}
-          answer={draft.answers[q.id as AnswerQuestionId]}
-          onChange={(patch) => setAnswer(q.id as AnswerQuestionId, patch)}
-        />
-      ) : q.kind === 'strongest' ? (
-        <StrongestPicker draft={draft} question={q} onChange={(patch) => setAnswer(STRONGEST_FEELING, patch)} />
-      ) : (
-        <TextStep question={q} draft={draft} partnerName={partnerName} update={update} setAnswer={setAnswer} />
-      )}
+  return (
+    <section className="space-y-4" aria-labelledby={`q-${q.id}`} aria-live="polite">
+      {!ready ? <Bubble typing /> : reflection ? <Bubble>{reflection}</Bubble> : null}
+      {ready && shown === 0 ? <Bubble typing /> : null}
+      {shown >= 1 ? (
+        <div className="animate-rise">
+          <Bubble>
+            <span id={`q-${q.id}`} className="font-medium">
+              {q.number}. {q.prompt(partnerName)}
+            </span>
+          </Bubble>
+        </div>
+      ) : null}
+      {shown >= 2 ? (
+        <div className="animate-rise space-y-3">
+          {q.section ? (
+            <p className="px-1">
+              <span className="inline-flex rounded-full bg-clay-soft px-3 py-1 text-[13px] font-semibold text-clay-strong">
+                {q.section}
+              </span>
+            </p>
+          ) : null}
+          {q.helper ? <p className="px-1 text-[14px] leading-relaxed text-ink-soft">{q.helper}</p> : null}
+        </div>
+      ) : null}
+      {shown >= 3 ? (
+        <div className="animate-rise space-y-4">
+          {q.kind === 'feelings' ? (
+            <FeelingsPicker
+              question={q}
+              answer={draft.answers[q.id as AnswerQuestionId]}
+              onChange={(patch) => setAnswer(q.id as AnswerQuestionId, patch)}
+            />
+          ) : q.kind === 'strongest' ? (
+            <StrongestPicker draft={draft} question={q} onChange={(patch) => setAnswer(STRONGEST_FEELING, patch)} />
+          ) : (
+            <TextStep question={q} draft={draft} partnerName={partnerName} update={update} setAnswer={setAnswer} />
+          )}
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -352,6 +432,8 @@ function TextStep({
     setAnswer(q.id as AnswerQuestionId, {
       tags: answer!.tags.includes(id) ? answer!.tags.filter((t) => t !== id) : [...answer!.tags, id],
     })
+  // "O an ne yaptınız?" düşünce yazıldıktan sonra ayrı bir soru olarak gelir.
+  const showChips = Boolean(q.chips) && (text.trim().length >= q.minLength || (answer?.tags.length ?? 0) > 0)
 
   return (
     <>
@@ -389,11 +471,13 @@ function TextStep({
         ) : null}
       </div>
 
-      {q.chips ? (
-        <div className="space-y-2 pt-1">
-          <p className="px-1 text-[15px] font-medium text-ink">{q.chipsPrompt}</p>
+      {showChips ? (
+        <div className="animate-rise space-y-3 pt-2">
+          <Bubble>
+            <span className="font-medium">{q.chipsPrompt}</span>
+          </Bubble>
           <div className="flex flex-wrap gap-2" role="group" aria-label={q.chipsPrompt}>
-            {q.chips.map((chip) => (
+            {q.chips!.map((chip) => (
               <ChipToggle
                 key={chip.id}
                 label={chip.label}
@@ -418,9 +502,12 @@ function FeelingsPicker({
   onChange: (patch: Partial<AnswerDraft>) => void
 }) {
   const otherSelected = answer.tags.includes(OTHER_CHIP)
-  const count = answer.tags.filter((t) => t !== OTHER_CHIP).length + (otherSelected ? 1 : 0)
+  // Sınır için "başka bir şey" seçildiği an bir yer tutar.
+  const used = answer.tags.filter((t) => t !== OTHER_CHIP).length + (otherSelected ? 1 : 0)
+  const full = used >= FEELING_MAX
   const toggle = (id: string) => {
     const on = answer.tags.includes(id)
+    if (!on && full) return
     onChange({
       tags: on ? answer.tags.filter((t) => t !== id) : [...answer.tags, id],
       ...(id === OTHER_CHIP && on ? { text: '' } : {}),
@@ -431,31 +518,38 @@ function FeelingsPicker({
     <div className="space-y-5">
       <p
         className={cx(
-          'rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed',
-          count > FEELING_SOFT_MAX ? 'bg-honey-soft text-ink' : 'bg-sunken text-ink-soft',
+          'sticky top-16 z-10 flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-[13px] leading-snug shadow-soft',
+          full ? 'bg-honey-soft text-ink' : 'bg-sunken text-ink-soft',
         )}
         aria-live="polite"
       >
-        {count > FEELING_SOFT_MAX
-          ? `${count} his seçtiniz. İsterseniz sizde en belirgin olan 5–7 tanesinde kalabilirsiniz; bu bir zorunluluk değil.`
-          : count > 0
-            ? `${count} his seçtiniz. Mümkünse en çok 5–7 seçenek işaretlemeniz, en belirgin olanları görmemizi kolaylaştırır.`
-            : 'Hiçbirini seçmek zorunda değilsiniz. Mümkünse en çok 5–7 seçenek işaretlemeniz, en belirgin olanları görmemizi kolaylaştırır.'}
+        <span>
+          {full
+            ? 'En fazla 7 his seçebilirsiniz. Değiştirmek için birini kaldırın.'
+            : 'Sizi en iyi anlatan hisleri seçin (en fazla 7).'}
+        </span>
+        <span className="shrink-0 font-semibold tabular-nums">
+          {used} / {FEELING_MAX}
+        </span>
       </p>
 
       {FEELING_GROUPS.map((g) => (
         <div key={g.id} className="space-y-2">
           <p className="px-1 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">{g.label}</p>
-          <div className="flex flex-wrap gap-2" role="group" aria-label={`${q.section ?? q.title}: ${g.label}`}>
-            {g.chips.map((chip) => (
-              <ChipToggle
-                key={chip.id}
-                shape="soft"
-                label={chip.label}
-                selected={answer.tags.includes(chip.id)}
-                onToggle={() => toggle(chip.id)}
-              />
-            ))}
+          <div className="flex flex-wrap gap-2" role="group" aria-label={`${q.title}: ${g.label}`}>
+            {g.chips.map((chip) => {
+              const selected = answer.tags.includes(chip.id)
+              return (
+                <ChipToggle
+                  key={chip.id}
+                  shape="soft"
+                  label={chip.label}
+                  selected={selected}
+                  disabled={full && !selected}
+                  onToggle={() => toggle(chip.id)}
+                />
+              )
+            })}
           </div>
         </div>
       ))}
@@ -466,6 +560,7 @@ function FeelingsPicker({
           shape="soft"
           label={`${OTHER_FEELING_LABEL}…`}
           selected={otherSelected}
+          disabled={full && !otherSelected}
           onToggle={() => toggle(OTHER_CHIP)}
         />
         {otherSelected ? (
@@ -497,52 +592,50 @@ function StrongestPicker({
   const options = optionsFor(draft)
   const selected = options.find((o) => answer.tags.includes(o.id))?.id ?? null
 
-  return (
-    <div className="space-y-4">
-      {options.length ? (
-        <div className="flex flex-col gap-2" role="radiogroup" aria-label={q.title}>
-          {options.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              role="radio"
-              aria-checked={selected === o.id}
-              onClick={() => onChange({ tags: selected === o.id ? [] : [o.id] })}
-              className={cx(
-                'flex min-h-12 items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 text-left transition active:scale-[0.99]',
-                selected === o.id
-                  ? 'border-clay bg-clay text-on-clay shadow-soft'
-                  : 'border-line-strong bg-surface text-ink hover:border-clay',
-              )}
-            >
-              <span className="text-[15px] leading-snug font-medium">{o.label}</span>
-              {o.when ? (
-                <span className={cx('shrink-0 text-[12px]', selected === o.id ? 'text-on-clay/80' : 'text-ink-faint')}>
-                  {WHEN_LABEL[o.when]}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <Notice tone="info">
-          Önceki adımlarda bir his işaretlemediniz. Dilerseniz sizi en çok etkileyen hissi aşağıya kendi cümlelerinizle
-          yazabilirsiniz.
-        </Notice>
-      )}
+  if (!options.length) {
+    return <Notice tone="info">Önceki soruda bir his seçmediniz. Geri dönüp sizi anlatan hisleri seçer misiniz?</Notice>
+  }
 
-      <div className="space-y-2">
-        <p className="px-1 text-[15px] font-medium text-ink">Neden? (isteğe bağlı)</p>
-        <TextArea
-          value={answer.text}
-          onChange={(v) => onChange({ text: v })}
-          maxLength={LIMITS.text}
-          minRows={3}
-          placeholder={q.placeholder}
-          aria-label="Bu his sizi neden en çok etkiledi?"
-        />
-        <MicHint />
-      </div>
+  return (
+    <div className="flex flex-col gap-2" role="radiogroup" aria-label={q.title}>
+      {options.map((o) => (
+        <div key={o.id} className="space-y-2">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={selected === o.id}
+            onClick={() => onChange({ tags: [o.id] })}
+            className={cx(
+              'flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 text-left transition active:scale-[0.99]',
+              selected === o.id
+                ? 'border-clay bg-clay text-on-clay shadow-soft'
+                : 'border-line-strong bg-surface text-ink hover:border-clay',
+            )}
+          >
+            <span className="text-[15px] leading-snug font-medium">{o.label}</span>
+            {o.when ? (
+              <span className={cx('shrink-0 text-[12px]', selected === o.id ? 'text-on-clay/80' : 'text-ink-faint')}>
+                {WHEN_LABEL[o.when]}
+              </span>
+            ) : null}
+          </button>
+          {/* Neden? — seçilen hissin hemen altında açılır. */}
+          {selected === o.id ? (
+            <div className="animate-rise space-y-2 rounded-2xl border border-clay/30 bg-clay-soft/40 p-3">
+              <p className="px-1 text-[15px] font-medium text-ink">Neden bu his? (isteğe bağlı)</p>
+              <TextArea
+                value={answer.text}
+                onChange={(v) => onChange({ text: v })}
+                maxLength={LIMITS.text}
+                minRows={3}
+                placeholder={q.placeholder}
+                aria-label="Bu his sizi neden en çok etkiledi?"
+              />
+              <MicHint />
+            </div>
+          ) : null}
+        </div>
+      ))}
     </div>
   )
 }

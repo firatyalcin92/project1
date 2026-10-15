@@ -31,6 +31,10 @@ Gottman yaklaşımlarından ilham alınarak tasarlandı.
 
 ## En kolay yol: tek linkle yayınla (Render)
 
+**Her push'ta otomatik yayın:** `.github/workflows/render-deploy.yml` testleri ve derlemeyi çalıştırır, geçerse Render'ın
+_Deploy Hook_ adresini çağırır. Bir kez: Render → servis → Settings → **Deploy Hook** adresini kopyalayın; GitHub →
+repo → Settings → Secrets and variables → Actions → **New repository secret**, ad `RENDER_DEPLOY_HOOK`.
+
 1. [Bu bağlantıya](https://render.com/deploy?repo=https://github.com/firatyalcin92/project1) tıkla, GitHub ile giriş yap.
 2. `OPENAI_API_KEY` sorulunca anahtarı yapıştır → **Apply / Deploy**.
 3. 3–5 dakika sonra `https://mesele-xxxx.onrender.com` gibi bir link verir. iPhone Safari'de aç → Paylaş →
@@ -195,8 +199,13 @@ eşinize olduğu gibi gösterilmez; danışman analizde kullanır ve ihtiyaç di
 Partner hiçbir zaman diğerinin ham cevabını görmez; yalnızca danışmanın yazdığı metinleri görür.
 
 **His soruları (v3):** 3. soru, "Tartışma sırasında ve sonrasında neler hissettiniz?" diye tek bir çoklu seçim
-listesi gösterir (7 grupta 55 seçenek + "Başka bir şey hissettim" metni). Seçim zorunlu değildir; 7'den fazla seçilince
-nazik bir hatırlatma çıkar. 4. soru, işaretlenen hisler arasından en çok etkileyeni ve (isteğe bağlı) nedenini sorar.
+listesi gösterir (7 grupta 30 his + "Başka bir şey hissettim" metni); en az 1, en fazla 7 his seçilir. 4. soru,
+işaretlenen hisler arasından en çok etkileyeni zorunlu olarak sorar; "Neden?" kutusu seçilen hissin hemen altında açılır. 2. soruda "O an ne yaptınız?" seçimi de zorunludur. Her soruda danışmanın sorusu, açıklaması ve cevap alanı sırayla
+belirir; his sorusu, danışmanın yansıtma metni gelmeden açılmaz.
+
+**İtiraz:** "Gözünden" adımında "İtirazım var" ile, partnerin gözünden metne ya da kendi anlatımının yansıtılışına
+itiraz yazılabilir (`reconsiderations.reflections.items.itiraz`). Partnere gösterilmez; danışman raporda iki bakışı
+ayrı ayrı ele alır ve yanlış anlaşılanı düzeltir.
 Hepsi `answers` tablosunda ayrı satırlarda saklanır, şema değişikliği gerekmez:
 
 | `question_id`                     | `selected_tags`                     | `text_answer`         |

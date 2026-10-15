@@ -390,11 +390,41 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     v = await set({ hisler: { text: 'boşluk', tags: ['diger'] }, en_etkili: { text: '', tags: ['diger'] } })
     expect(v.mine.answers.en_etkili.tags).toEqual(['diger'])
 
-    // His soruları isteğe bağlıdır.
-    v = await saveAnswers(ma, {
-      ...feelingAnswers(id, { hisler: { text: '', tags: [] }, en_etkili: { text: '', tags: [] } }),
-      submit: true,
+    // His, en etkili his ve "o an ne yaptınız" artık zorunlu; en fazla 7 his tutulur.
+    const submit = (o: Record<string, { text: string; tags: string[] }>) =>
+      saveAnswers(ma, { ...feelingAnswers(id, o), submit: true })
+    await expect(submit({ hisler: { text: '', tags: [] }, en_etkili: { text: '', tags: [] } })).rejects.toThrow(
+      /en az birini/,
+    )
+    await expect(
+      submit({ hisler: { text: '', tags: ['kirildim'] }, en_etkili: { text: '', tags: [] } }),
+    ).rejects.toThrow(/en çok etkileyen/)
+    await expect(
+      submit({ dusunce: { text: 'Yine dinlemiyor dedim', tags: [] }, en_etkili: { text: '', tags: ['yalniz'] } }),
+    ).rejects.toThrow(/ne yaptığınızı/)
+    v = await set({
+      hisler: {
+        text: 'sekizinci',
+        tags: [
+          'kirildim',
+          'uzuldum',
+          'yalniz',
+          'guvensiz',
+          'ofkelendim',
+          'kaygilandim',
+          'utanmis',
+          'yetersiz',
+          'diger',
+        ],
+      },
+      en_etkili: { text: '', tags: ['yetersiz'] },
     })
+    expect(v.mine.answers.hisler).toEqual({
+      text: '',
+      tags: ['kirildim', 'uzuldum', 'yalniz', 'guvensiz', 'ofkelendim', 'kaygilandim', 'utanmis'],
+    })
+    expect(v.mine.answers.en_etkili.tags).toEqual([]) // kesilen his seçilemez
+    v = await submit({ hisler: { text: '', tags: ['kirildim'] }, en_etkili: { text: '', tags: ['kirildim'] } })
     expect(v.mine.submittedAt).toBeTruthy()
   })
 
@@ -410,7 +440,11 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     )
     await saveAnswers(
       mb,
-      feelingAnswers(id, { hisler: { text: '', tags: [] }, en_etkili: { text: '', tags: [] } }, RAW_B),
+      feelingAnswers(
+        id,
+        { hisler: { text: '', tags: ['kaygilandim'] }, en_etkili: { text: '', tags: ['kaygilandim'] } },
+        RAW_B,
+      ),
     )
     await ensurePerspectives(ma, id)
     const fromA = calls.find((c) => c.task === 'perspective' && c.user.includes('FIRAT-HAM-CEVAP'))!
@@ -430,14 +464,23 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     expect(fromA.system).toMatch(/Yürüyüşe çıkmak/)
 
     const fromB = calls.find((c) => c.task === 'perspective' && c.user.includes('AYSE-HAM-CEVAP'))!
-    expect(fromB.user).toContain('işaretlemedi (bilgi yok; tahmin yürütme)')
+    expect(fromB.user).toContain('Onu en çok etkileyen his: Kaygılandım')
 
+    const objection = 'ITIRAZ-HAM ben telefonu fırlatmadım, masaya bıraktım'
+    const withObjection = reflections(id)
+    await saveReconsideration(mb, {
+      ...withObjection,
+      items: [...withObjection.items, { id: 'itiraz', text: objection }],
+    })
     await saveReconsideration(ma, reflections(id))
-    await saveReconsideration(mb, reflections(id))
+    expect(JSON.stringify(await getDisputeView(ma, id))).not.toContain('ITIRAZ-HAM')
     calls = []
     await ensureReports(ma, id)
     const mine = calls.filter((c) => c.task === 'my_report')
     expect(mine).toHaveLength(2)
+    expect(calls.find((c) => c.task === 'shared_report')!.user).toContain(`İTİRAZI (Fırat’ın gözünden metne`)
+    expect(calls.find((c) => c.task === 'shared_report')!.user).toContain(objection)
+    expect(calls[0]!.system).toMatch(/kimin doğru hatırladığına karar verme/)
     for (const m of mine) {
       expect(m.user).toMatch(/- feelings: .*LİSTE HÂLİNDE TEKRAR ETMEDEN/)
       expect(m.user).toContain('Döngüyü adlandırma cümlesi') // ortak rapordakini tekrar etmez

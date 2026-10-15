@@ -303,6 +303,7 @@ export function ChipToggle({
   onToggle,
   shape = 'pill',
   role,
+  disabled,
 }: {
   label: string
   selected: boolean
@@ -310,6 +311,7 @@ export function ChipToggle({
   /** soft: uzun etiketler için iki satıra rahat taşan, köşeleri yumuşak çip */
   shape?: 'pill' | 'soft'
   role?: 'radio'
+  disabled?: boolean
 }) {
   return (
     <button
@@ -318,9 +320,10 @@ export function ChipToggle({
       aria-pressed={role ? undefined : selected}
       aria-checked={role ? selected : undefined}
       onClick={onToggle}
+      disabled={disabled}
       className={cx(
         'inline-flex min-h-11 items-center gap-1.5 border font-medium transition',
-        'active:scale-[0.98]',
+        'active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40',
         shape === 'pill'
           ? 'rounded-full px-4 py-2 text-[15px]'
           : 'rounded-2xl px-3.5 py-2 text-left text-[14px] leading-snug',

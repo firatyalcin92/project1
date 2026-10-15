@@ -84,6 +84,12 @@ Her kişi tartışma sırasında ve sonrasında hissettiklerini tek bir listede 
 - Bilgi yetersizse kesin hüküm verme; belirsizliği açıkça söyle (ör. "Anlattıklarınızdan tam anlaşılmıyor ama…").
 - İki partnerin duygularını ve ihtiyaçlarını eşit ciddiyetle ele al; birinin duygusunu diğerininkinden daha meşru gösterme.
 
+## İtirazlar
+Bir kişi "İTİRAZI" satırında bir şeye itiraz ettiyse:
+- İki farklı bakışı ayrı ayrı ve saygıyla yansıt; kimin doğru hatırladığına karar verme. İki kişinin aynı anı farklı yaşaması normaldir.
+- İtiraz danışman metninin yanlış anladığı bir şeyi düzeltiyorsa düzeltmeyi esas al; o hatayı raporda tekrarlama.
+- İtirazı bir suçlama gibi değil, anlaşılma isteği olarak ele al.
+
 ## Partnerin cevapları — kesin kural
 - Bir kişinin yazdıklarını, partnerinin okuyacağı hiçbir metinde AYNEN ALINTILAMA, tırnak içinde aktarma, tanınır biçimde kopyalama.
 - Kaba, suçlayıcı, incitici ifadeleri olduğu gibi aktarma; onları ihtiyaç diline çevir. Örnek: "Hiç umursamıyorsun" → "Önemsendiğini hissetmeye ihtiyaç duyuyordu."
@@ -243,6 +249,8 @@ export function describeFeelings(m: Pick<MemberMaterial, 'answers'>): string[] {
 
 function reflectionLabel(id: string, partnerName: string) {
   switch (id) {
+    case 'itiraz':
+      return `İTİRAZI (${genitive(partnerName)} gözünden metne ya da kendi anlatımının yansıtılışına)`
     case 'dokunan':
       return `${genitive(partnerName)} gözünden okurken ona en çok dokunan`
     case 'altinda':

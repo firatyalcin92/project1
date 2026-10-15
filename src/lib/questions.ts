@@ -31,30 +31,22 @@ export type FeelingGroup = { id: string; label: string; chips: readonly Chip[] }
 export const FEELING_GROUPS: readonly FeelingGroup[] = [
   {
     id: 'anlasilma',
-    label: 'Anlaşılmak ve önemsenmekle ilgili',
+    label: 'Anlaşılmak ve önemsenmek',
     chips: [
       { id: 'anlasilmadim', label: 'Anlaşılmadığımı hissettim' },
-      { id: 'gorulmedim', label: 'Görülmediğimi veya fark edilmediğimi hissettim' },
-      { id: 'onemsenmedim', label: 'Önemsenmediğimi hissettim' },
-      { id: 'degerim_bilinmedi', label: 'Değerimin bilinmediğini hissettim' },
       { id: 'dinlenmedim', label: 'Dinlenmediğimi hissettim' },
+      { id: 'onemsenmedim', label: 'Önemsenmediğimi hissettim' },
       { id: 'duygularim_kucumsendi', label: 'Duygularımın küçümsendiğini hissettim' },
-      { id: 'yok_sayildim', label: 'Yok sayıldığımı hissettim' },
-      { id: 'ciddiye_alinmadim', label: 'Anlattıklarımın ciddiye alınmadığını hissettim' },
     ],
   },
   {
     id: 'yakinlik',
-    label: 'Yakınlık ve güvenle ilgili',
+    label: 'Yakınlık ve güven',
     chips: [
       { id: 'yalniz', label: 'Yalnız hissettim' },
-      { id: 'uzaklastim', label: 'Partnerimden uzaklaştığımı hissettim' },
       { id: 'reddedildim', label: 'Reddedilmiş hissettim' },
-      { id: 'istenmedim', label: 'İstenmediğimi hissettim' },
       { id: 'guvensiz', label: 'Güvensiz hissettim' },
-      { id: 'terk_korkusu', label: 'Terk edilme korkusu yaşadım' },
-      { id: 'sevilmedim', label: 'Sevilmediğimi düşündüm' },
-      { id: 'bag_zayifladi', label: 'Aramızdaki bağın zayıfladığını hissettim' },
+      { id: 'terk_korkusu', label: 'Terk edilmekten korktum' },
     ],
   },
   {
@@ -64,11 +56,7 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
       { id: 'kirildim', label: 'Kırıldım' },
       { id: 'uzuldum', label: 'Üzüldüm' },
       { id: 'hayal_kirikligi', label: 'Hayal kırıklığı yaşadım' },
-      { id: 'incindim', label: 'İncindim' },
       { id: 'degersiz', label: 'Kendimi değersiz hissettim' },
-      { id: 'umudum_kirildi', label: 'Umudum kırıldı' },
-      { id: 'kalbim_kirildi', label: 'Kalbimin kırıldığını hissettim' },
-      { id: 'pismanlik', label: 'Pişmanlık duydum' },
     ],
   },
   {
@@ -76,27 +64,20 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
     label: 'Öfke ve haksızlık',
     chips: [
       { id: 'ofkelendim', label: 'Öfkelendim' },
-      { id: 'sinirlendim', label: 'Sinirlendim' },
       { id: 'haksizlik', label: 'Haksızlığa uğradığımı düşündüm' },
       { id: 'suclandim', label: 'Suçlandığımı hissettim' },
       { id: 'saygisizlik', label: 'Saygısızlığa uğradığımı hissettim' },
-      { id: 'adaletsizlik', label: 'Adaletsizlik yaşadığımı düşündüm' },
       { id: 'kiskanclik', label: 'Kıskançlık hissettim' },
-      { id: 'birikenler', label: 'İçimde birikenleri söyleme ihtiyacı duydum' },
     ],
   },
   {
     id: 'kaygi',
-    label: 'Baskı, kaygı ve çaresizlik',
+    label: 'Kaygı ve çaresizlik',
     chips: [
       { id: 'kaygilandim', label: 'Kaygılandım' },
-      { id: 'endiselendim', label: 'Endişelendim' },
       { id: 'caresiz', label: 'Çaresiz hissettim' },
-      { id: 'bunalmis', label: 'Bunalmış hissettim' },
-      { id: 'baski', label: 'Baskı altında hissettim' },
-      { id: 'kosede', label: 'Kendimi köşeye sıkışmış hissettim' },
+      { id: 'kosede', label: 'Köşeye sıkışmış hissettim' },
       { id: 'kontrol_korkusu', label: 'Kontrolümü kaybetmekten korktum' },
-      { id: 'ne_yapacagimi_bilemedim', label: 'Ne yapacağımı bilemedim' },
     ],
   },
   {
@@ -104,28 +85,54 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
     label: 'Kendimi koruma ve geri çekilme',
     chips: [
       { id: 'savunma_zorunlu', label: 'Kendimi savunmak zorunda hissettim' },
-      { id: 'ifade_edemedim', label: 'Kendimi ifade edemediğimi hissettim' },
-      { id: 'yanlis_anlasilma_korkusu', label: 'Yanlış anlaşılmaktan korktum' },
-      { id: 'konusmayi_birakmak', label: 'Konuşmayı bırakmak istedim' },
-      { id: 'uzaklasmak_istedim', label: 'Uzaklaşmak istedim' },
-      { id: 'ice_kapandim', label: 'İçe kapandım' },
-      { id: 'sessiz_kaldim', label: 'Sessiz kalmayı tercih ettim' },
-      { id: 'bitsin_istedim', label: 'Tartışmanın bitmesini istedim' },
+      { id: 'ifade_edemedim', label: 'Kendimi ifade edemedim' },
+      { id: 'uzaklasmak_istedim', label: 'Uzaklaşmak, konuşmayı bırakmak istedim' },
+      { id: 'ice_kapandim', label: 'İçime kapandım, sustum' },
     ],
   },
   {
     id: 'kendim',
-    label: 'Suçluluk ve kendimle ilgili hisler',
+    label: 'Suçluluk ve kendimle ilgili',
     chips: [
       { id: 'sucluluk', label: 'Suçluluk hissettim' },
       { id: 'yetersiz', label: 'Kendimi yetersiz hissettim' },
-      { id: 'kendimden_suphe', label: 'Kendimden şüphe ettim' },
-      { id: 'utanmis', label: 'Utanmış hissettim' },
+      { id: 'utanmis', label: 'Utandım' },
       { id: 'kendime_kizdim', label: 'Kendime kızdım' },
-      { id: 'basarisiz', label: 'Kendimi başarısız hissettim' },
-      { id: 'caresizce_acikladim', label: 'Kendimi çaresizce açıklamaya çalıştım' },
+      { id: 'pismanlik', label: 'Pişmanlık duydum' },
     ],
   },
+]
+
+/**
+ * İlk uzun listeden çıkarılan (benzerleriyle birleştirilen) hisler. Yalnızca eski
+ * kayıtların etiketini göstermek için tutulur; yeni seçimde yoktur.
+ */
+const RETIRED_FEELING_CHIPS: readonly Chip[] = [
+  { id: 'gorulmedim', label: 'Görülmediğimi veya fark edilmediğimi hissettim' },
+  { id: 'degerim_bilinmedi', label: 'Değerimin bilinmediğini hissettim' },
+  { id: 'yok_sayildim', label: 'Yok sayıldığımı hissettim' },
+  { id: 'ciddiye_alinmadim', label: 'Anlattıklarımın ciddiye alınmadığını hissettim' },
+  { id: 'uzaklastim', label: 'Partnerimden uzaklaştığımı hissettim' },
+  { id: 'istenmedim', label: 'İstenmediğimi hissettim' },
+  { id: 'sevilmedim', label: 'Sevilmediğimi düşündüm' },
+  { id: 'bag_zayifladi', label: 'Aramızdaki bağın zayıfladığını hissettim' },
+  { id: 'incindim', label: 'İncindim' },
+  { id: 'umudum_kirildi', label: 'Umudum kırıldı' },
+  { id: 'kalbim_kirildi', label: 'Kalbimin kırıldığını hissettim' },
+  { id: 'sinirlendim', label: 'Sinirlendim' },
+  { id: 'adaletsizlik', label: 'Adaletsizlik yaşadığımı düşündüm' },
+  { id: 'birikenler', label: 'İçimde birikenleri söyleme ihtiyacı duydum' },
+  { id: 'endiselendim', label: 'Endişelendim' },
+  { id: 'bunalmis', label: 'Bunalmış hissettim' },
+  { id: 'baski', label: 'Baskı altında hissettim' },
+  { id: 'ne_yapacagimi_bilemedim', label: 'Ne yapacağımı bilemedim' },
+  { id: 'yanlis_anlasilma_korkusu', label: 'Yanlış anlaşılmaktan korktum' },
+  { id: 'konusmayi_birakmak', label: 'Konuşmayı bırakmak istedim' },
+  { id: 'sessiz_kaldim', label: 'Sessiz kalmayı tercih ettim' },
+  { id: 'bitsin_istedim', label: 'Tartışmanın bitmesini istedim' },
+  { id: 'kendimden_suphe', label: 'Kendimden şüphe ettim' },
+  { id: 'basarisiz', label: 'Kendimi başarısız hissettim' },
+  { id: 'caresizce_acikladim', label: 'Kendimi çaresizce açıklamaya çalıştım' },
 ]
 
 export const FEELING_CHIPS: readonly (Chip & { group: string })[] = FEELING_GROUPS.flatMap((g) =>
@@ -134,8 +141,14 @@ export const FEELING_CHIPS: readonly (Chip & { group: string })[] = FEELING_GROU
 
 export const OTHER_FEELING_LABEL = 'Başka bir şey hissettim'
 
-/** Seçim sınırı yoktur; bu sayıdan sonra nazik bir hatırlatma görünür. */
-export const FEELING_SOFT_MAX = 7
+/** En az 1, en fazla 7 his seçilebilir ("başka bir şey" de bir sayılır). */
+export const FEELING_MIN = 1
+export const FEELING_MAX = 7
+
+/** Seçili his sayısı ("başka bir şey" yalnızca metni varsa sayılır). */
+export function feelingCount(a: { tags: readonly string[]; text: string }) {
+  return a.tags.filter((t) => t !== OTHER_CHIP).length + (a.tags.includes(OTHER_CHIP) && a.text.trim() ? 1 : 0)
+}
 
 /** v2'nin tek "Nasıl hissettiniz?" sorusundaki çipler — eski kayıtları okumak için korunur. */
 export const LEGACY_EMOTION_CHIPS = [
@@ -198,6 +211,7 @@ export const STRONGEST_OTHER = { during: 'diger_sirasinda', after: 'diger_sonras
 export function feelingLabel(id: string): string {
   return (
     FEELING_CHIPS.find((c) => c.id === id)?.label ??
+    RETIRED_FEELING_CHIPS.find((c) => c.id === id)?.label ??
     LEGACY_EMOTION_CHIPS.find((c) => c.id === id)?.label ??
     (id === OTHER_CHIP ? OTHER_FEELING_LABEL : id)
   )
@@ -235,6 +249,8 @@ export type Question = {
   examples: (partnerName: string) => string[]
   chips?: readonly Chip[]
   chipsPrompt?: string
+  /** En az bir çip seçilmeden geçilemez */
+  chipsRequired?: boolean
   textRequired: boolean
   minLength: number
 }
@@ -243,7 +259,7 @@ const p = (name: string) => name || 'partneriniz'
 
 const FEELINGS_PROMPT = 'Tartışma sırasında ve sonrasında neler hissettiniz?'
 const FEELINGS_HELPER =
-  'O anlarda neler hissettiğinizi anlamaya çalışıyoruz. Size uyan birden fazla seçenek belirleyebilirsiniz.'
+  'O anlarda neler hissettiğinizi anlamaya çalışıyoruz. Sizi en iyi anlatan en fazla 7 his seçebilirsiniz.'
 
 export const QUESTIONS: readonly Question[] = [
   {
@@ -276,7 +292,8 @@ export const QUESTIONS: readonly Question[] = [
       '“Bu hep böyle olacak” diye korktum.',
     ],
     chips: REACTION_CHIPS,
-    chipsPrompt: 'O an ne yaptınız? (isteğe bağlı)',
+    chipsPrompt: 'Peki o an ne yaptınız? Birden fazla seçebilirsiniz.',
+    chipsRequired: true,
     textRequired: true,
     minLength: 5,
   },
@@ -436,14 +453,27 @@ export function privacyNotice(partnerName: string, solo: boolean) {
 // 3. Adım: Yeniden Değerlendir (yalnızca çift modunda)
 // ---------------------------------------------------------------------------
 
-export type ReflectionId = 'dokunan' | 'altinda' | 'yeni_pay' | 'tek_cumle'
+export type ReflectionId = 'itiraz' | 'dokunan' | 'altinda' | 'yeni_pay' | 'tek_cumle'
 
 export const RECONSIDER_QUESTIONS: readonly {
   id: ReflectionId
   prompt: (partnerName: string) => string
   placeholder: string
   required: boolean
+  /** "İtirazım var": ayrı bir düğmeyle açılır */
+  objection?: boolean
+  helper?: string
 }[] = [
+  {
+    id: 'itiraz',
+    objection: true,
+    prompt: (n) =>
+      `${genitive(n)} gözünden metninde ya da sizin anlatımınızın ona yansıtılışında katılmadığınız, farklı yaşadığınız ya da yanlış anlaşılmış bir şey var mı?`,
+    helper:
+      'İki kişi aynı anı farklı yaşayabilir; danışman da bir şeyi yanlış anlamış olabilir. Yazdıklarınız olduğu gibi gösterilmez; danışman raporda iki bakışı ayrı ayrı ele alır ve hatayı düzeltir.',
+    placeholder: 'Ben aslında öyle demedim; olay şöyle gelişti…',
+    required: false,
+  },
   {
     id: 'dokunan',
     prompt: (n) => `${genitive(n)} gözünden okuduğunuzda sizi en çok ne şaşırttı ya da ne dokundu?`,
