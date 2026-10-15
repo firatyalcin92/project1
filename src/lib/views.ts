@@ -1,5 +1,6 @@
 import type { AnswerQuestionId, ReflectionId } from './questions'
 import type { MyReport, Perspective, RelationshipReport, SharedReport } from './report-schemas'
+import type { PaymentMode, PlanPeriod } from './plans'
 import type { DisputeStatus, Step } from './status'
 
 /** Sunucu fonksiyonlarının istemciye döndürdüğü görünüm modelleri. Ham satırlar asla dönmez. */
@@ -34,6 +35,25 @@ export type ActiveDisputeSummary = DisputeSummary & {
 
 export type OverviewStatus = 'locked' | 'available' | 'generating' | 'ready'
 
+export type MembershipView = {
+  active: boolean
+  period: PlanPeriod | null
+  expiresAt: string | null
+  purchasedByMe: boolean
+  freeLimit: number
+  disputesUsed: number
+  canCreateDispute: boolean
+  payments: PaymentMode
+  prices: Record<PlanPeriod, string | null>
+}
+
+/** Bekleyen "tüm verileri sil" talebi (yoksa null) */
+export type DeletionView = {
+  requestedByMe: boolean
+  requesterName: string | null
+  requestedAt: string
+} | null
+
 export type PanelView = {
   couple: { name: string; code: string; mode: Mode }
   me: MemberInfo
@@ -44,6 +64,10 @@ export type PanelView = {
   recent: DisputeSummary[]
   completedCount: number
   overview: { threshold: number; completed: number; status: OverviewStatus }
+  membership: MembershipView
+  deletion: DeletionView
+  /** Partneriniz sizin için bir kurtarma kodu ürettiyse (siz istemediyseniz iptal edebilirsiniz) */
+  recoveryPending: { createdByName: string | null; usableAfter: string } | null
 }
 
 export type AnswerDraft = { text: string; tags: string[] }
@@ -78,6 +102,8 @@ export type DisputeView = {
   progress: {
     meSubmitted: boolean
     partnerSubmitted: boolean
+    /** Partner anlatmaya başladı mı (içerik değil, yalnızca durum) */
+    partnerStarted: boolean
     meReconsidered: boolean
     partnerReconsidered: boolean
   }
@@ -104,6 +130,7 @@ export type DisputeView = {
 
 export type OverviewStats = {
   emotions: Record<Role, Record<string, number>>
+  thoughts: Record<Role, Record<string, number>>
   reactions: Record<Role, Record<string, number>>
 }
 

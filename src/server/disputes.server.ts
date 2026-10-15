@@ -41,6 +41,7 @@ import type {
   MemberInfo,
   ReconsiderationView,
 } from '~/lib/views'
+import { assertCanCreateDispute } from './account.server'
 import { requireDispute, type AuthedMember } from './auth.server'
 import { fail } from './errors.server'
 import { generateJson } from './mesele.server'
@@ -50,6 +51,7 @@ import {
   buildReflectionPrompt,
   buildSharedReportPrompt,
   buildSoloReportPrompt,
+  type HistoryItem,
   type MemberMaterial,
 } from './prompts.server'
 import {
@@ -219,6 +221,12 @@ function buildView(member: AuthedMember, d: DisputeRow, b: Bundle, reports: Repo
     progress: {
       meSubmitted: Boolean(myEntry?.submitted_at),
       partnerSubmitted: Boolean(partnerEntry?.submitted_at),
+      // Yalnızca "başladı mı" bilgisi; içerik asla.
+      partnerStarted: Boolean(
+        partner &&
+        (partnerEntry?.what_happened.trim() ||
+          b.answers.some((a) => a.member_id === partner.id && a.question_id !== REFLECTION_ANSWER_ID)),
+      ),
       meReconsidered: Boolean(myRec?.submitted_at),
       partnerReconsidered: Boolean(partnerRec?.submitted_at),
     },
@@ -284,6 +292,7 @@ export async function createDispute(member: AuthedMember, title: string): Promis
   const existing = await store.listDisputes(member.coupleId)
   const open = existing.find((d) => d.status !== 'completed')
   if (open) fail('CONFLICT', `Önce açık olan "${open.title}" meselesini tamamlayalım.`)
+  await assertCanCreateDispute(member)
   const d = await store.createDispute({
     couple_id: member.coupleId,
     created_by: member.id,
@@ -557,13 +566,24 @@ export async function ensureReports(member: AuthedMember, disputeId: string): Pr
       const owner = bundle.members[0]
       if (!owner) fail('CONFLICT', 'Hesap bulunamadı.')
       const partnerName = bundle.couple.partner_name ?? 'Eşiniz'
-      const p = buildSoloReportPrompt({ title: d.title, owner: materialFor(owner!, bundle), partnerName })
+      const history = await historyFor(d.couple_id, d.id, [owner!.id])
+      const p = buildSoloReportPrompt({
+        title: d.title,
+        owner: materialFor(owner!, bundle),
+        partnerName,
+        history: history.mine[owner!.id],
+      })
       const mine = await generateJson({
         task: 'my_report',
         schema: MyReportSchema,
         system: p.system,
         user: p.user,
-        mockContext: { owner: owner!.display_name, partner: partnerName, solo: true },
+        mockContext: {
+          owner: owner!.display_name,
+          partner: partnerName,
+          solo: true,
+          history: history.shared[0]?.title ?? '',
+        },
       })
       const ok = await store.finishReports(d.id, lock, null, { [owner!.id]: mine })
       if (!ok) console.warn(`[mesele] ${d.id}: rapor kilidi el değiştirmiş, sonuç yazılmadı.`)
@@ -577,13 +597,14 @@ export async function ensureReports(member: AuthedMember, disputeId: string): Pr
     const matB = materialFor(b!, bundle)
 
     // Önce ortak rapor: kişisel raporlar onu tekrar etmesin diye ona bakar.
-    const sharedPrompt = buildSharedReportPrompt({ title: d.title, a: matA, b: matB })
+    const history = await historyFor(d.couple_id, d.id, [a!.id, b!.id])
+    const sharedPrompt = buildSharedReportPrompt({ title: d.title, a: matA, b: matB, history: history.shared })
     const shared = await generateJson({
       task: 'shared_report',
       schema: SharedReportSchema,
       system: sharedPrompt.system,
       user: sharedPrompt.user,
-      mockContext: { a: a!.display_name, b: b!.display_name },
+      mockContext: { a: a!.display_name, b: b!.display_name, history: history.shared[0]?.title ?? '' },
     })
 
     const [mineA, mineB] = await Promise.all(
@@ -591,13 +612,19 @@ export async function ensureReports(member: AuthedMember, disputeId: string): Pr
         [matA, matB],
         [matB, matA],
       ].map(([owner, partner]) => {
-        const p = buildMyReportPrompt({ title: d.title, owner: owner!, partner: partner!, shared })
+        const p = buildMyReportPrompt({
+          title: d.title,
+          owner: owner!,
+          partner: partner!,
+          shared,
+          history: history.mine[owner!.memberId],
+        })
         return generateJson({
           task: 'my_report',
           schema: MyReportSchema,
           system: p.system,
           user: p.user,
-          mockContext: { owner: owner!.name, partner: partner!.name },
+          mockContext: { owner: owner!.name, partner: partner!.name, history: history.shared[0]?.title ?? '' },
         })
       }),
     )
@@ -609,6 +636,31 @@ export async function ensureReports(member: AuthedMember, disputeId: string): Pr
     throw err
   }
   return getDisputeView(member, d.id)
+}
+
+/** Bağlam için en fazla bu kadar önceki mesele istemlere girer (en yeniler). */
+const HISTORY_LIMIT = 5
+
+/**
+ * Önceki tamamlanmış meseleler: ortak rapor özeti (ikisi de okur) ve yalnızca
+ * istenen üyenin kendi kişisel raporu. Partnerin kişisel raporu asla girmez.
+ */
+async function historyFor(coupleId: string, currentId: string, memberIds: string[]) {
+  const store = await getStore()
+  const done = (await store.listDisputes(coupleId))
+    .filter((d) => d.id !== currentId && d.status === 'completed')
+    .slice(0, HISTORY_LIMIT)
+  const reports = await Promise.all(done.map((d) => store.getReports(d.id)))
+  const forMember = (memberId: string | null): HistoryItem[] =>
+    done.map((d, i) => ({
+      title: d.title,
+      completedAt: d.completed_at,
+      shared: (d.shared_report as SharedReport | null) ?? null,
+      mine: memberId
+        ? ((reports[i]!.find((r) => r.member_id === memberId)?.my_report as MyReport | undefined) ?? null)
+        : null,
+    }))
+  return { shared: forMember(null), mine: Object.fromEntries(memberIds.map((id) => [id, forMember(id)])) }
 }
 
 /** Ortak rapor, iki partner de "hazırım" diyene kadar kilitli kalır. */

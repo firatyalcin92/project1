@@ -19,9 +19,12 @@ export function mockGenerate(task: AiTask, ctx: Record<string, unknown>): unknow
     case 'perspective':
       return mockPerspective(s(ctx.narrator, 'Partnerin'), s(ctx.reader, 'Sen'))
     case 'shared_report':
-      return mockShared(s(ctx.a, 'A'), s(ctx.b, 'B'))
+      return { ...mockShared(s(ctx.a, 'A'), s(ctx.b, 'B')), history: mockHistory(ctx.history) }
     case 'my_report':
-      return mockMine(s(ctx.owner, 'Siz'), s(ctx.partner, 'Eşiniz'), ctx.solo === true)
+      return {
+        ...mockMine(s(ctx.owner, 'Siz'), s(ctx.partner, 'Eşiniz'), ctx.solo === true),
+        history: mockHistory(ctx.history),
+      }
     case 'relationship_report':
       return mockRelationship(s(ctx.a, 'A'), s(ctx.b, 'B'))
   }
@@ -37,8 +40,15 @@ function mockPerspective(narrator: string, reader: string): Perspective {
   }
 }
 
+function mockHistory(previous: unknown) {
+  return typeof previous === 'string' && previous
+    ? `“${previous}” meselesinde de benzer bir an vardı: biri susunca diğeri üstüne gelmişti. Bu kez ikiniz de durmaya biraz daha erken karar verdiniz; bu küçük ama gerçek bir ilerleme.`
+    : ''
+}
+
 function mockShared(a: string, b: string): SharedReport {
   return {
+    history: '',
     opening: `${a} ve ${b}, ikiniz de bu meseleye oturup kendi tarafınızı anlatma cesaretini gösterdiniz. Bu, döngüyü kırmanın ilk adımı.`,
     cycle: {
       name: 'Kapanan Kapı ve Çalan Zil',
@@ -127,6 +137,7 @@ function mockShared(a: string, b: string): SharedReport {
 
 function mockMine(owner: string, partner: string, solo: boolean): MyReport {
   return {
+    history: '',
     greeting: `${owner}, bu meseleye dürüstçe baktığınız için teşekkürler. Şimdi yalnızca sizin göreceğiniz bir aynaya ve bu akşam için bir yol haritasına bakalım.`,
     feelings: `Tartışmanın içinde daha çok öfke ve haksızlık duygusu öne çıkmış; tartışma bittikten sonra ise yerini yalnızlığa ve kırgınlığa bırakmış görünüyor. Bu sık görülen bir geçiş: öfke çoğu zaman daha kırılgan bir duygunun önünde durur ve ses kesilince o duygu görünür olur. Sizi en çok etkileyen his, ${dative(partner)} ulaşamadığınız o anla bağlantılı görünüyor; altında görülmek ve önemsenmek ihtiyacı var gibi.`,
     partnerInner: `${solo ? 'Anlattıklarınızdan yola çıkarsak, muhtemelen ' : ''}${partner} o an önemsenmediğini hissediyordu; asıl ihtiyacı, sizin için öncelikli olduğunu bilmekti.`,

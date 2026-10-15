@@ -36,6 +36,8 @@ const ADVICE = {
     'Tablolar var ama kurulumun bir kısmı eksik. supabase/kurulum.sql dosyasının tamamını SQL Editor’de bir kez daha çalıştırın (mevcut veriler silinmez).',
   data_api_kapali:
     'Supabase Data API bu proje için kapalı ya da public şeması dışa açık değil. Project Settings → Data API bölümünden Data API’yi açın ve "Exposed schemas" listesinde public olduğundan emin olun.',
+  guncelleme_gerekli:
+    'Uygulama güncellendi ve veritabanına yeni tablolar gerekiyor (üyelik, kurtarma kodu, silme talebi). Supabase → SQL Editor → New query içine supabase/guncelleme-uyelik.sql dosyasının tamamını yapıştırıp Run deyin (mevcut veriler silinmez).',
   bilinmeyen: 'Supabase beklenmeyen bir hata döndürdü. Ayrıntıyı (kod ve mesaj) geliştiriciyle paylaşın.',
 }
 
@@ -97,6 +99,17 @@ export async function diagnose(env = process.env, fetchImpl = fetch) {
         kod: tables.body?.code ?? String(tables.res.status),
         mesaj: String(tables.body?.message ?? '').slice(0, 200),
       })
+    }
+    // v3: üyelik / kurtarma / silme tabloları (guncelleme-uyelik.sql)
+    for (const table of ['subscriptions', 'member_recovery', 'deletion_requests']) {
+      const t = await call(`${table}?select=id&limit=1`)
+      if (!t.res.ok) {
+        const kind = classify(t.res.status, t.body)
+        return done(kind === 'tablolar_yok' ? 'guncelleme_gerekli' : kind, {
+          kod: t.body?.code ?? String(t.res.status),
+          mesaj: String(t.body?.message ?? '').slice(0, 200),
+        })
+      }
     }
     const rpc = await call('rpc/mesele_sync_progress', {
       method: 'POST',

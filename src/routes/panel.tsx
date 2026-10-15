@@ -4,21 +4,24 @@ import { useEffect, useState } from 'react'
 import { QueryError } from '~/components/boundaries'
 import { ProgressRing } from '~/components/charts'
 import { CodeTiles } from '~/components/code-tiles'
-import { IconArchive, IconArrowRight, IconKey, IconLogout, IconPlus, IconShare, IconSparkle } from '~/components/icons'
+import { DeletionDone, PaywallCard } from '~/components/account'
+import { IconArchive, IconArrowRight, IconKey, IconPlus, IconShare, IconSparkle } from '~/components/icons'
+import { ReadinessCard, readinessFromSummary } from '~/components/readiness'
 import { AppShell } from '~/components/layout'
 import { Disclaimer } from '~/components/safety'
 import { StepTrack } from '~/components/steps'
-import { Button, Card, CopyButton, Disclosure, Eyebrow, LinkButton, Notice, TextField } from '~/components/ui'
+import { Button, Card, Eyebrow, LinkButton, Notice, TextField } from '~/components/ui'
+import { approveDeletionFn, cancelRecoveryFn, dismissDeletionFn } from '~/functions/account'
 import { getPanelFn } from '~/functions/couple'
 import { createDisputeFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import { requireMember } from '~/lib/guard'
-import { useMember } from '~/lib/hooks'
-import { clearMember, readMember, updateMemberCache } from '~/lib/member-token'
+import { useBackedUp } from '~/lib/backup'
+import { clearMember, updateMemberCache } from '~/lib/member-token'
 import { activeLine } from '~/lib/progress-copy'
 import { LIMITS } from '~/lib/questions'
 import { inviteMessage, shareOrCopy } from '~/lib/share'
-import { formatDate, withName } from '~/lib/turkish'
+import { formatDate, formatDateTime, withName } from '~/lib/turkish'
 import type { PanelView } from '~/lib/views'
 
 export const Route = createFileRoute('/panel')({
@@ -29,9 +32,12 @@ export const Route = createFileRoute('/panel')({
 })
 
 function Panel() {
+  // Veriler silindiyse: oturum kapandı, sorgu durur; aktarım kodu ekranda kalır.
+  const [deleted, setDeleted] = useState<{ transferCode: string | null } | null>(null)
   const query = useQuery({
     queryKey: ['panel'],
     queryFn: () => getPanelFn(),
+    enabled: !deleted,
     // Partner katılmamışsa ya da partner bekleniyorsa daha sık bak.
     refetchInterval: (q) => {
       const d = q.state.data
@@ -52,12 +58,14 @@ function Panel() {
 
   return (
     <AppShell>
-      {query.isPending ? (
+      {deleted ? (
+        <DeletionDone transferCode={deleted.transferCode} />
+      ) : query.isPending ? (
         <PanelSkeleton />
       ) : query.isError ? (
         <QueryError error={query.error} onRetry={() => query.refetch()} />
       ) : (
-        <PanelBody data={query.data} />
+        <PanelBody data={query.data} onDeleted={setDeleted} />
       )}
     </AppShell>
   )
@@ -73,9 +81,10 @@ function PanelSkeleton() {
   )
 }
 
-function PanelBody({ data }: { data: PanelView }) {
+function PanelBody({ data, onDeleted }: { data: PanelView; onDeleted: (v: { transferCode: string | null }) => void }) {
   const partnerName = data.partnerName
   const solo = data.couple.mode === 'solo'
+  const backedUp = useBackedUp()
   return (
     <div className="space-y-5 pb-6">
       <div className="animate-rise">
@@ -94,15 +103,42 @@ function PanelBody({ data }: { data: PanelView }) {
         </p>
       </div>
 
+      {data.recoveryPending ? <RecoveryWarning data={data} /> : null}
+
+      {data.deletion ? <DeletionBanner data={data} onDeleted={onDeleted} /> : null}
+
+      {backedUp ? null : (
+        <Notice tone="warn" title="Cihaz anahtarınızı yedekleyin">
+          Telefon değişirse ya da uygulama silinirse kayıtlarınıza yalnızca bu anahtarla dönebilirsiniz.{' '}
+          <Link to="/hesap" className="font-semibold underline">
+            Şimdi yedekle
+          </Link>
+        </Notice>
+      )}
+
       {!solo && !data.partner ? <InviteCard code={data.couple.code} myName={data.me.name} /> : null}
 
-      {data.active ? <ActiveCard data={data} /> : <NewDisputeCard hasPartner={solo || Boolean(data.partner)} />}
+      {data.active ? (
+        <ActiveCard data={data} />
+      ) : data.membership.canCreateDispute ? (
+        <NewDisputeCard
+          hasPartner={solo || Boolean(data.partner)}
+          freeNote={!data.membership.active && data.membership.disputesUsed < data.membership.freeLimit}
+        />
+      ) : (
+        <PaywallCard membership={data.membership} solo={solo} />
+      )}
 
       {solo ? null : <OverviewCard data={data} />}
 
       <RecentCard data={data} />
 
-      <DeviceCard />
+      <Link to="/hesap" className="card flex items-center justify-between gap-3 p-4 transition hover:shadow-lift">
+        <span className="flex items-center gap-2 font-semibold">
+          <IconKey size={18} className="text-ink-faint" /> Hesap, güvenlik ve üyelik
+        </span>
+        <IconArrowRight size={18} className="text-ink-faint" />
+      </Link>
 
       <Disclaimer className="pt-2" />
     </div>
@@ -148,7 +184,11 @@ function ActiveCard({ data }: { data: PanelView }) {
         <span className="shrink-0 text-xs text-ink-faint">{formatDate(a.createdAt)}</span>
       </div>
       <StepTrack step={a.step} partnerName={data.partner?.name} solo={solo} />
-      <p className="leading-relaxed text-ink-soft">{line.text}</p>
+      {solo ? (
+        <p className="leading-relaxed text-ink-soft">{line.text}</p>
+      ) : (
+        <ReadinessCard readiness={readinessFromSummary(a, data.partner, data.partnerName)} compact />
+      )}
       {line.waiting ? (
         <p className="flex items-center gap-2 text-[13px] text-ink-faint">
           <span className="inline-block size-2 animate-breathe rounded-full bg-sage" aria-hidden /> Hazır olduğunda
@@ -162,7 +202,7 @@ function ActiveCard({ data }: { data: PanelView }) {
   )
 }
 
-function NewDisputeCard({ hasPartner }: { hasPartner: boolean }) {
+function NewDisputeCard({ hasPartner, freeNote }: { hasPartner: boolean; freeNote: boolean }) {
   const [title, setTitle] = useState('')
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
@@ -190,6 +230,11 @@ function NewDisputeCard({ hasPartner }: { hasPartner: boolean }) {
             Şimdi başlayabilirsiniz; partneriniz katıldığında o da anlatacak.
           </p>
         ) : null}
+        {freeNote ? (
+          <p className="text-[13px] text-ink-faint">
+            İlk meseleniz ücretsiz. Sonrası için haftalık, aylık ya da yıllık üyelik.
+          </p>
+        ) : null}
       </Card>
     )
   }
@@ -212,7 +257,16 @@ function NewDisputeCard({ hasPartner }: { hasPartner: boolean }) {
           placeholder="Cumartesi akşamı planı"
           autoFocus
         />
-        {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
+        {mutation.isError ? (
+          <Notice tone="error">
+            {parseError(mutation.error).message}{' '}
+            {parseError(mutation.error).code === 'PAYMENT_REQUIRED' ? (
+              <Link to="/uyelik" className="font-semibold underline">
+                Üyelik
+              </Link>
+            ) : null}
+          </Notice>
+        ) : null}
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setOpen(false)}>
             Vazgeç
@@ -283,69 +337,82 @@ function RecentCard({ data }: { data: PanelView }) {
   )
 }
 
-function DeviceCard() {
-  const member = useMember()
-  const navigate = useNavigate()
-  const [reveal, setReveal] = useState(false)
-  const [confirm, setConfirm] = useState(false)
-  const token = member?.token ?? readMember()?.token ?? ''
+function DeletionBanner({
+  data,
+  onDeleted,
+}: {
+  data: PanelView
+  onDeleted: (v: { transferCode: string | null }) => void
+}) {
+  const qc = useQueryClient()
+  const d = data.deletion!
+  const approve = useMutation({
+    mutationFn: () => approveDeletionFn(),
+    onSuccess: (r) => {
+      clearMember()
+      onDeleted({ transferCode: r.transferCode })
+    },
+  })
+  const dismiss = useMutation({
+    mutationFn: () => dismissDeletionFn(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['panel'] }),
+  })
+  const partner = data.partner?.name ?? 'Partneriniz'
 
+  if (d.requestedByMe) {
+    return (
+      <Notice tone="warn" title="Silme talebiniz onay bekliyor">
+        {partner} onayladığında tüm meseleler ve raporlar kalıcı olarak silinecek.{' '}
+        <button type="button" className="font-semibold underline" onClick={() => dismiss.mutate()}>
+          Vazgeç
+        </button>
+      </Notice>
+    )
+  }
   return (
-    <Disclosure
-      summary={
-        <span className="flex items-center gap-2">
-          <IconKey size={18} className="text-ink-faint" /> Cihaz anahtarı ve güvenlik
-        </span>
-      }
-    >
-      <div className="space-y-4 text-sm leading-relaxed text-ink-soft">
-        <p>
-          MESELE’de şifre yok: bu telefona özel, gizli bir anahtar kayıtlı. Telefonunuzu değiştirirseniz ya da
-          uygulamayı silerseniz geri dönebilmek için anahtarınızı güvenli bir yere (ör. parola yöneticinize) kaydedin.
-        </p>
-        {reveal ? (
-          <div className="space-y-2">
-            <code className="block break-all rounded-xl bg-sunken px-3 py-2 font-mono text-[13px] text-ink">
-              {token}
-            </code>
-            <CopyButton text={token} label="Anahtarı kopyala" />
-          </div>
-        ) : (
-          <Button variant="secondary" size="sm" onClick={() => setReveal(true)}>
-            Anahtarımı göster
-          </Button>
-        )}
-        <Notice tone="warn">
-          Bu anahtarı partneriniz dâhil kimseyle paylaşmayın; sizin yerinize yanıt verebilirler.
-        </Notice>
-        <div className="border-t border-line pt-4">
-          {confirm ? (
-            <div className="space-y-2">
-              <p className="text-ink">
-                Emin misiniz? Anahtarınızı yedeklemediyseniz bu hesaba bu cihazdan bir daha giremezsiniz.
-              </p>
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setConfirm(false)}>
-                  Vazgeç
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    clearMember()
-                    void navigate({ to: '/' })
-                  }}
-                >
-                  Evet, çıkış yap
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button variant="quiet" size="sm" onClick={() => setConfirm(true)}>
-              <IconLogout size={16} /> Bu cihazdan çık
-            </Button>
-          )}
-        </div>
+    <Card className="animate-rise space-y-3 border-danger/30">
+      <p className="font-semibold">{d.requesterName ?? partner} tüm verilerin silinmesini istedi</p>
+      <p className="text-sm leading-relaxed text-ink-soft">
+        Onaylarsanız meseleler, cevaplar ve raporlar ikiniz için de kalıcı olarak silinir. Bu işlem geri alınamaz.
+        Üyelik bununla iptal olmaz; yeni bir çift oluşturabilir ya da uygulamayı tek başınıza kullanabilirsiniz.
+      </p>
+      {approve.isError ? <Notice tone="error">{parseError(approve.error).message}</Notice> : null}
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          className="shrink-0 whitespace-nowrap"
+          loading={dismiss.isPending}
+          onClick={() => dismiss.mutate()}
+        >
+          Hayır, silinmesin
+        </Button>
+        <Button full loading={approve.isPending} onClick={() => approve.mutate()}>
+          Onaylıyorum
+        </Button>
       </div>
-    </Disclosure>
+    </Card>
+  )
+}
+
+/** Partner bu kişi için kurtarma kodu ürettiyse: kendisi istemediyse iptal edebilir. */
+function RecoveryWarning({ data }: { data: PanelView }) {
+  const qc = useQueryClient()
+  const r = data.recoveryPending!
+  const cancel = useMutation({
+    mutationFn: () => cancelRecoveryFn(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['panel'] }),
+  })
+  return (
+    <Card className="animate-rise space-y-3 border-honey/50 bg-honey-soft/50">
+      <p className="font-semibold">{r.createdByName ?? 'Partneriniz'} sizin için bir yeniden bağlanma kodu üretti</p>
+      <p className="text-sm leading-relaxed text-ink-soft">
+        Bu kod, cihazını kaybeden birinin hesabına yeniden girmesi içindir ve {formatDateTime(r.usableAfter)} itibarıyla
+        çalışır. Kullanılırsa bu cihazdaki giriş kapanır. Siz istemediyseniz iptal edin.
+      </p>
+      {cancel.isError ? <Notice tone="error">{parseError(cancel.error).message}</Notice> : null}
+      <Button variant="secondary" full loading={cancel.isPending} onClick={() => cancel.mutate()}>
+        Ben istemedim, kodu iptal et
+      </Button>
+    </Card>
   )
 }

@@ -2,20 +2,24 @@ import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { IconArrowRight, IconKey } from '~/components/icons'
+import { KeyBackup } from '~/components/key-backup'
 import { AppShell, BottomBar, PageTitle } from '~/components/layout'
 import { Button, Notice, TextField, cx } from '~/components/ui'
+import { redeemRecoveryFn } from '~/functions/account'
 import { joinCoupleFn, restoreSessionFn } from '~/functions/couple'
+import { markBackedUp } from '~/lib/backup'
 import { parseError } from '~/lib/errors'
 import { saveMember } from '~/lib/member-token'
 import { LIMITS } from '~/lib/questions'
 import type { SessionResult } from '~/lib/views'
 
-type JoinSearch = { kod?: string; mod?: 'kod' | 'anahtar' }
+type JoinMode = 'kod' | 'anahtar' | 'kurtar'
+type JoinSearch = { kod?: string; mod?: JoinMode }
 
 function parseSearch(search: Record<string, unknown>): JoinSearch {
   const out: JoinSearch = {}
   if (typeof search.kod === 'string') out.kod = search.kod.slice(0, 16)
-  if (search.mod === 'kod' || search.mod === 'anahtar') out.mod = search.mod
+  if (search.mod === 'kod' || search.mod === 'anahtar' || search.mod === 'kurtar') out.mod = search.mod
   return out
 }
 
@@ -41,14 +45,30 @@ function Join() {
   const search = Route.useSearch()
   const navigate = useNavigate()
   const mode = search.mod ?? 'kod'
+  // Katıldıktan / kurtarma koduyla döndükten sonra: anahtarı yedekle adımı
+  const [backup, setBackup] = useState(false)
+
+  if (backup) {
+    return (
+      <AppShell>
+        <PageTitle
+          eyebrow="Son adım"
+          title="Cihaz anahtarınızı yedekleyin"
+          lead="Telefonunuzu değiştirirseniz ya da uygulamayı silerseniz kayıtlarınıza bu anahtarla dönersiniz."
+        />
+        <KeyBackup solo={false} onDone={() => navigate({ to: '/panel' })} />
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell back="/">
-      <div className="mb-6 inline-flex rounded-full border border-line bg-sunken p-1 text-sm" role="tablist">
+      <div className="mb-6 flex flex-wrap gap-1 rounded-3xl border border-line bg-sunken p-1 text-sm" role="tablist">
         {(
           [
-            ['kod', 'Çift koduyla katıl'],
-            ['anahtar', 'Cihaz anahtarımla dön'],
+            ['kod', 'Koduyla katıl'],
+            ['anahtar', 'Anahtarımla dön'],
+            ['kurtar', 'Kurtarma koduyla dön'],
           ] as const
         ).map(([m, label]) => (
           <button
@@ -66,13 +86,18 @@ function Join() {
           </button>
         ))}
       </div>
-      {mode === 'kod' ? <JoinWithCode initialCode={search.kod ?? ''} /> : <RestoreWithKey />}
+      {mode === 'kod' ? (
+        <JoinWithCode initialCode={search.kod ?? ''} onJoined={() => setBackup(true)} />
+      ) : mode === 'anahtar' ? (
+        <RestoreWithKey />
+      ) : (
+        <RecoverWithCode initialCode={search.kod ?? ''} onRecovered={() => setBackup(true)} />
+      )}
     </AppShell>
   )
 }
 
-function JoinWithCode({ initialCode }: { initialCode: string }) {
-  const navigate = useNavigate()
+function JoinWithCode({ initialCode, onJoined }: { initialCode: string; onJoined: () => void }) {
   const [code, setCode] = useState(initialCode.toUpperCase())
   const [displayName, setDisplayName] = useState('')
 
@@ -80,7 +105,7 @@ function JoinWithCode({ initialCode }: { initialCode: string }) {
     mutationFn: () => joinCoupleFn({ data: { code, displayName } }),
     onSuccess: (res) => {
       persist(res)
-      void navigate({ to: '/panel' })
+      onJoined()
     },
   })
 
@@ -144,6 +169,7 @@ function RestoreWithKey() {
     mutationFn: () => restoreSessionFn({ data: { token: token.trim() } }),
     onSuccess: (res) => {
       persist(res)
+      markBackedUp() // anahtar zaten elinde
       void navigate({ to: '/panel' })
     },
   })
@@ -178,6 +204,61 @@ function RestoreWithKey() {
         </Notice>
         <BottomBar>
           <Button type="submit" size="lg" full disabled={token.trim().length < 40} loading={mutation.isPending}>
+            Geri dön <IconArrowRight size={18} />
+          </Button>
+        </BottomBar>
+      </form>
+    </>
+  )
+}
+
+function RecoverWithCode({ initialCode, onRecovered }: { initialCode: string; onRecovered: () => void }) {
+  const [coupleCode, setCoupleCode] = useState(initialCode.toUpperCase())
+  const [recoveryCode, setRecoveryCode] = useState('')
+  const mutation = useMutation({
+    mutationFn: () => redeemRecoveryFn({ data: { coupleCode, recoveryCode } }),
+    onSuccess: (res) => {
+      persist(res)
+      onRecovered()
+    },
+  })
+  const ready = coupleCode.replace(/[\s-]/g, '').length === 6 && recoveryCode.replace(/[\s-]/g, '').length === 8
+
+  return (
+    <>
+      <PageTitle
+        eyebrow="Cihazımı kaybettim"
+        title="Partnerinizin verdiği kodla dönün"
+        lead="Anahtarınızı yedeklemediyseniz partneriniz kendi Hesap sayfasından size bir yeniden bağlanma kodu üretebilir. Güvenliğiniz için kod 12 saat sonra çalışmaya başlar. Kullanıldığında eski cihazdaki giriş kapanır."
+      />
+      <form
+        className="space-y-5"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (ready) mutation.mutate()
+        }}
+      >
+        <TextField
+          label="Çift kodu"
+          value={coupleCode}
+          onChange={(v) => setCoupleCode(v.toUpperCase().replace(/[^A-Z0-9\s-]/gi, ''))}
+          maxLength={9}
+          placeholder="WWPX6G"
+          autoCapitalize="characters"
+          inputClassName="text-center font-display text-2xl tracking-[0.4em] uppercase"
+        />
+        <TextField
+          label="Yeniden bağlanma kodu"
+          value={recoveryCode}
+          onChange={(v) => setRecoveryCode(v.toUpperCase().replace(/[^A-Z0-9\s-]/gi, ''))}
+          maxLength={12}
+          placeholder="ABCD-EFGH"
+          autoCapitalize="characters"
+          inputClassName="text-center font-mono text-xl tracking-[0.2em] uppercase"
+        />
+        {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
+        <BottomBar>
+          <Button type="submit" size="lg" full disabled={!ready} loading={mutation.isPending}>
             Geri dön <IconArrowRight size={18} />
           </Button>
         </BottomBar>

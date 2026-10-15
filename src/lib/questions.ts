@@ -30,84 +30,73 @@ export type FeelingGroup = { id: string; label: string; chips: readonly Chip[] }
 
 export const FEELING_GROUPS: readonly FeelingGroup[] = [
   {
-    id: 'anlasilma',
-    label: 'Anlaşılmak ve önemsenmek',
-    chips: [
-      { id: 'anlasilmadim', label: 'Anlaşılmadığımı hissettim' },
-      { id: 'dinlenmedim', label: 'Dinlenmediğimi hissettim' },
-      { id: 'onemsenmedim', label: 'Önemsenmediğimi hissettim' },
-      { id: 'duygularim_kucumsendi', label: 'Duygularımın küçümsendiğini hissettim' },
-    ],
-  },
-  {
-    id: 'yakinlik',
-    label: 'Yakınlık ve güven',
-    chips: [
-      { id: 'yalniz', label: 'Yalnız hissettim' },
-      { id: 'reddedildim', label: 'Reddedilmiş hissettim' },
-      { id: 'guvensiz', label: 'Güvensiz hissettim' },
-      { id: 'terk_korkusu', label: 'Terk edilmekten korktum' },
-    ],
-  },
-  {
     id: 'kirginlik',
     label: 'Kırgınlık ve üzüntü',
     chips: [
       { id: 'kirildim', label: 'Kırıldım' },
       { id: 'uzuldum', label: 'Üzüldüm' },
-      { id: 'hayal_kirikligi', label: 'Hayal kırıklığı yaşadım' },
-      { id: 'degersiz', label: 'Kendimi değersiz hissettim' },
+      { id: 'hayal_kirikligi', label: 'Hayal kırıklığına uğradım' },
+      { id: 'yalniz', label: 'Yalnız hissettim' },
     ],
   },
   {
     id: 'ofke',
-    label: 'Öfke ve haksızlık',
+    label: 'Öfke',
     chips: [
       { id: 'ofkelendim', label: 'Öfkelendim' },
-      { id: 'haksizlik', label: 'Haksızlığa uğradığımı düşündüm' },
-      { id: 'suclandim', label: 'Suçlandığımı hissettim' },
-      { id: 'saygisizlik', label: 'Saygısızlığa uğradığımı hissettim' },
-      { id: 'kiskanclik', label: 'Kıskançlık hissettim' },
+      { id: 'kiskanclik', label: 'Kıskandım' },
     ],
   },
   {
     id: 'kaygi',
-    label: 'Kaygı ve çaresizlik',
+    label: 'Korku ve kaygı',
     chips: [
       { id: 'kaygilandim', label: 'Kaygılandım' },
+      { id: 'terk_korkusu', label: 'Kaybetmekten korktum' },
+      { id: 'guvensiz', label: 'Güvensiz hissettim' },
       { id: 'caresiz', label: 'Çaresiz hissettim' },
-      { id: 'kosede', label: 'Köşeye sıkışmış hissettim' },
-      { id: 'kontrol_korkusu', label: 'Kontrolümü kaybetmekten korktum' },
+      { id: 'bunalmis', label: 'Bunaldım' },
     ],
   },
   {
-    id: 'korunma',
-    label: 'Kendimi koruma ve geri çekilme',
+    id: 'utanc',
+    label: 'Utanç ve suçluluk',
     chips: [
-      { id: 'savunma_zorunlu', label: 'Kendimi savunmak zorunda hissettim' },
-      { id: 'ifade_edemedim', label: 'Kendimi ifade edemedim' },
-      { id: 'uzaklasmak_istedim', label: 'Uzaklaşmak, konuşmayı bırakmak istedim' },
-      { id: 'ice_kapandim', label: 'İçime kapandım, sustum' },
-    ],
-  },
-  {
-    id: 'kendim',
-    label: 'Suçluluk ve kendimle ilgili',
-    chips: [
-      { id: 'sucluluk', label: 'Suçluluk hissettim' },
-      { id: 'yetersiz', label: 'Kendimi yetersiz hissettim' },
       { id: 'utanmis', label: 'Utandım' },
-      { id: 'kendime_kizdim', label: 'Kendime kızdım' },
-      { id: 'pismanlik', label: 'Pişmanlık duydum' },
+      { id: 'sucluluk', label: 'Suçluluk duydum' },
+      { id: 'yetersiz', label: 'Yetersiz hissettim' },
+      { id: 'degersiz', label: 'Değersiz hissettim' },
+      { id: 'pismanlik', label: 'Pişman oldum' },
     ],
+  },
+  {
+    id: 'yorgunluk',
+    label: 'Yorgunluk',
+    chips: [{ id: 'tukenmis', label: 'Yoruldum, tükendim' }],
   },
 ]
 
 /**
- * İlk uzun listeden çıkarılan (benzerleriyle birleştirilen) hisler. Yalnızca eski
- * kayıtların etiketini göstermek için tutulur; yeni seçimde yoktur.
+ * Önceki listelerden çıkarılan hisler: benzerleriyle birleştirilenler ve aslında
+ * düşünce ya da davranış olanlar (bunlar artık 2. sorudaki düşünce ve davranış
+ * listelerinde). Yalnızca eski kayıtların etiketini göstermek için tutulur.
  */
 const RETIRED_FEELING_CHIPS: readonly Chip[] = [
+  { id: 'anlasilmadim', label: 'Anlaşılmadığımı hissettim' },
+  { id: 'dinlenmedim', label: 'Dinlenmediğimi hissettim' },
+  { id: 'onemsenmedim', label: 'Önemsenmediğimi hissettim' },
+  { id: 'duygularim_kucumsendi', label: 'Duygularımın küçümsendiğini hissettim' },
+  { id: 'reddedildim', label: 'Reddedilmiş hissettim' },
+  { id: 'haksizlik', label: 'Haksızlığa uğradığımı düşündüm' },
+  { id: 'suclandim', label: 'Suçlandığımı hissettim' },
+  { id: 'saygisizlik', label: 'Saygısızlığa uğradığımı hissettim' },
+  { id: 'kosede', label: 'Köşeye sıkışmış hissettim' },
+  { id: 'kontrol_korkusu', label: 'Kontrolümü kaybetmekten korktum' },
+  { id: 'savunma_zorunlu', label: 'Kendimi savunmak zorunda hissettim' },
+  { id: 'ifade_edemedim', label: 'Kendimi ifade edemedim' },
+  { id: 'uzaklasmak_istedim', label: 'Uzaklaşmak, konuşmayı bırakmak istedim' },
+  { id: 'ice_kapandim', label: 'İçime kapandım, sustum' },
+  { id: 'kendime_kizdim', label: 'Kendime kızdım' },
   { id: 'gorulmedim', label: 'Görülmediğimi veya fark edilmediğimi hissettim' },
   { id: 'degerim_bilinmedi', label: 'Değerimin bilinmediğini hissettim' },
   { id: 'yok_sayildim', label: 'Yok sayıldığımı hissettim' },
@@ -173,26 +162,65 @@ export const LEGACY_EMOTION_CHIPS = [
 ] as const satisfies readonly Chip[]
 
 /**
- * pattern: EFT dansındaki ve Gottman çerçevesindeki yeri. AI'ya ipucu olarak gider.
+ * O an YAPILANLAR (davranış / otomatik tepki). pattern: EFT dansındaki ve Gottman
+ * çerçevesindeki yeri; AI'ya ipucu olarak gider. Kimlikler eski kayıtlarla uyumludur.
  */
 export const REACTION_CHIPS = [
-  { id: 'sessizlesme', label: 'Sessizleştim / İçime Kapandım', pattern: 'geri_cekilme' },
-  { id: 'savunma', label: 'Savunmaya Geçtim', pattern: 'savunma' },
-  { id: 'israr', label: 'Üstüne Gittim / Israr Ettim', pattern: 'takip' },
-  { id: 'terk', label: 'Ortamı Terk Ettim', pattern: 'geri_cekilme' },
-  { id: 'ofke', label: 'Öfkeyle Tepki Verdim', pattern: 'takip' },
-  { id: 'suclama', label: 'Suçladım / Eleştirdim', pattern: 'elestiri' },
-  { id: 'ironi', label: 'İronik / Alaycı Konuştum', pattern: 'asagilama' },
-  { id: 'gecistirme', label: 'Geçiştirdim / Konuyu Değiştirdim', pattern: 'geri_cekilme' },
+  { id: 'sessizlesme', label: 'Sustum, içime kapandım', pattern: 'geri_cekilme' },
+  { id: 'terk', label: 'Ortamı terk ettim', pattern: 'geri_cekilme' },
+  { id: 'gecistirme', label: 'Konuyu geçiştirdim', pattern: 'geri_cekilme' },
+  { id: 'savunma', label: 'Kendimi savundum', pattern: 'savunma' },
+  { id: 'aciklama', label: 'Kendimi anlatmaya çalıştım', pattern: 'aciklama' },
+  { id: 'israr', label: 'Üstüne gittim, ısrar ettim', pattern: 'takip' },
+  { id: 'ofke', label: 'Sesimi yükselttim', pattern: 'takip' },
+  { id: 'suclama', label: 'Suçladım, eleştirdim', pattern: 'elestiri' },
+  { id: 'ironi', label: 'Alay ettim, iğneledim', pattern: 'asagilama' },
+  { id: 'agladim', label: 'Ağladım', pattern: 'duygusal_tasma' },
+  { id: 'firlattim', label: 'Bir şey fırlattım ya da kırdım', pattern: 'fiziksel_tasma' },
 ] as const satisfies readonly (Chip & { pattern: string })[]
 
 export const PATTERN_LABEL: Record<string, string> = {
   geri_cekilme: 'geri çekilme',
   takip: 'üstüne gitme / takip',
   savunma: 'savunma',
+  aciklama: 'anlaşılma çabası',
   elestiri: 'eleştiri',
   asagilama: 'alay / küçümseme',
+  duygusal_tasma: 'duygusal taşma',
+  fiziksel_tasma: 'fiziksel taşma — güvenlik işareti',
 }
+
+/**
+ * O an AKLINDAN GEÇENLER (düşünce / yorum). Duygu değil, partnerin niyetine ya da
+ * duruma dair yorumlardır; pattern bilişsel çarpıtmanın türünü AI'ya söyler.
+ */
+export const THOUGHT_CHIPS = [
+  { id: 'anlamiyor', label: 'Beni anlamıyor, dinlemiyor', pattern: 'yorum' },
+  { id: 'onemsemiyor', label: 'Beni önemsemiyor', pattern: 'yorum' },
+  { id: 'istemiyor', label: 'Beni istemiyor', pattern: 'yorum' },
+  { id: 'sucluyor', label: 'Beni suçluyor', pattern: 'yorum' },
+  { id: 'haksizlik_ediyor', label: 'Bana haksızlık ediyor', pattern: 'yorum' },
+  { id: 'saygi_duymuyor', label: 'Bana saygı duymuyor', pattern: 'yorum' },
+  { id: 'bilerek', label: 'Bunu bilerek yapıyor', pattern: 'zihin_okuma' },
+  { id: 'hep_boyle', label: 'Hep böyle oluyor, hiç değişmeyecek', pattern: 'genelleme' },
+  { id: 'bitecek', label: 'Bu ilişki bitecek', pattern: 'felaketlestirme' },
+  { id: 'bilmeliydi', label: 'Bunu kendisi bilmeliydi', pattern: 'meli_mali' },
+  { id: 'yetmiyor', label: 'Ne yapsam yetmiyor', pattern: 'kisisellestirme' },
+  { id: 'gorsun', label: 'O da aynısını yaşasın, görsün', pattern: 'cezalandirma' },
+] as const satisfies readonly (Chip & { pattern: string })[]
+
+export const THOUGHT_PATTERN_LABEL: Record<string, string> = {
+  yorum: 'partnerin niyetine dair yorum',
+  zihin_okuma: 'zihin okuma',
+  genelleme: 'genelleme (hep / hiç)',
+  felaketlestirme: 'felaketleştirme',
+  meli_mali: 'meli-malı düşüncesi',
+  kisisellestirme: 'kendini suçlama',
+  cezalandirma: 'cezalandırma isteği',
+}
+
+/** Düşünce çipleri ayrı bir answers satırında tutulur (question_id = dusunce_kalip). */
+export const THOUGHTS = 'dusunce_kalip'
 
 export const FEELINGS = 'hisler'
 export const STRONGEST_FEELING = 'en_etkili'
@@ -223,6 +251,7 @@ export function chipLabel(questionId: string, chipId: string): string {
     return LEGACY_EMOTION_CHIPS.find((c) => c.id === chipId)?.label ?? chipId
   }
   if ([FEELINGS, FEELING_DURING, FEELING_AFTER, STRONGEST_FEELING].includes(questionId)) return feelingLabel(chipId)
+  if (questionId === THOUGHTS) return THOUGHT_CHIPS.find((c) => c.id === chipId)?.label ?? chipId
   return REACTION_CHIPS.find((c) => c.id === chipId)?.label ?? chipId
 }
 
@@ -251,6 +280,8 @@ export type Question = {
   chipsPrompt?: string
   /** En az bir çip seçilmeden geçilemez */
   chipsRequired?: boolean
+  /** Aynı sayfada, ayrı bir satıra kaydedilen isteğe bağlı düşünce çipleri */
+  thoughts?: { answerId: typeof THOUGHTS; chips: readonly Chip[]; prompt: string }
   textRequired: boolean
   minLength: number
 }
@@ -259,7 +290,7 @@ const p = (name: string) => name || 'partneriniz'
 
 const FEELINGS_PROMPT = 'Tartışma sırasında ve sonrasında neler hissettiniz?'
 const FEELINGS_HELPER =
-  'O anlarda neler hissettiğinizi anlamaya çalışıyoruz. Sizi en iyi anlatan en fazla 7 his seçebilirsiniz.'
+  'Burada yalnızca duygular var; düşüncelerinizi ve ne yaptığınızı bir önceki soruda seçtiniz. Sizi en iyi anlatan en fazla 7 duygu seçebilirsiniz.'
 
 export const QUESTIONS: readonly Question[] = [
   {
@@ -291,6 +322,11 @@ export const QUESTIONS: readonly Question[] = [
       '“Ne yapsam yetmiyor” dedim içimden.',
       '“Bu hep böyle olacak” diye korktum.',
     ],
+    thoughts: {
+      answerId: THOUGHTS,
+      chips: THOUGHT_CHIPS,
+      prompt: 'Bu düşüncelerden size tanıdık gelen var mı? (isteğe bağlı)',
+    },
     chips: REACTION_CHIPS,
     chipsPrompt: 'Peki o an ne yaptınız? Birden fazla seçebilirsiniz.',
     chipsRequired: true,
@@ -378,6 +414,7 @@ export const QUESTION_COUNT = Math.max(...QUESTIONS.map((q) => q.number))
 /** Olay anlatımı dispute_entries tablosunda, diğerleri answers tablosunda tutulur. */
 export const ANSWER_QUESTION_IDS = [
   'dusunce',
+  THOUGHTS,
   FEELINGS,
   STRONGEST_FEELING,
   'ihtiyac',
@@ -395,6 +432,7 @@ export function allowedChipsFor(questionId: string): readonly string[] {
   if (questionId === STRONGEST_FEELING)
     return [...FEELING_CHIPS.map((c) => c.id), OTHER_CHIP, STRONGEST_OTHER.during, STRONGEST_OTHER.after]
   if (questionId === 'dusunce') return REACTION_CHIPS.map((c) => c.id)
+  if (questionId === THOUGHTS) return THOUGHT_CHIPS.map((c) => c.id)
   return []
 }
 
@@ -407,20 +445,23 @@ export type StrongestOption = { id: string; label: string; when: 'during' | 'aft
  * answers içinde "hisler" varsa tek liste kullanılır; yoksa eski iki liste birleştirilir.
  */
 export function strongestOptions(answers: Partial<Record<string, FeelingDraft>>): StrongestOption[] {
+  // Seçim sırası korunur; eski kayıtlardaki (artık listede olmayan) hisler de adlarıyla gelir.
+  const known = (id: string) => id !== OTHER_CHIP && feelingLabel(id) !== id
   const out: StrongestOption[] = []
   const merged = answers[FEELINGS]
   if (merged) {
-    for (const c of FEELING_CHIPS) if (merged.tags.includes(c.id)) out.push({ id: c.id, label: c.label, when: null })
+    for (const id of new Set(merged.tags)) if (known(id)) out.push({ id, label: feelingLabel(id), when: null })
     if (merged.tags.includes(OTHER_CHIP) && merged.text.trim())
       out.push({ id: OTHER_CHIP, label: merged.text.trim(), when: null })
     return out
   }
   const during = answers[FEELING_DURING] ?? { tags: [], text: '' }
   const after = answers[FEELING_AFTER] ?? { tags: [], text: '' }
-  for (const c of FEELING_CHIPS) {
-    const d = during.tags.includes(c.id)
-    const a = after.tags.includes(c.id)
-    if (d || a) out.push({ id: c.id, label: c.label, when: d && a ? 'both' : d ? 'during' : 'after' })
+  for (const id of new Set([...during.tags, ...after.tags])) {
+    if (!known(id)) continue
+    const d = during.tags.includes(id)
+    const a = after.tags.includes(id)
+    out.push({ id, label: feelingLabel(id), when: d && a ? 'both' : d ? 'during' : 'after' })
   }
   if (during.tags.includes(OTHER_CHIP) && during.text.trim())
     out.push({ id: STRONGEST_OTHER.during, label: during.text.trim(), when: 'during' })
@@ -445,8 +486,8 @@ export function introMessage(partnerName: string) {
 }
 
 export function privacyNotice(partnerName: string, solo: boolean) {
-  if (solo) return 'Cevaplarınız yalnızca size özel danışman raporunu hazırlamak için kullanılır.'
-  return `Cevaplarınız ${partnerName ? dative(partnerName) : 'eşinize'} olduğu gibi gösterilmez. Ancak danışman analizde bunları kullanır ve raporda ihtiyaç diliyle, uygun bir dille yansıtabilir. Bunu bilerek, içinizden geldiği gibi yazın.`
+  if (solo) return 'Cevaplarınız yalnızca size özel danışman raporunu hazırlamak için kullanılır; kimseyle paylaşılmaz.'
+  return `Cevaplarınız ${partnerName ? dative(partnerName) : 'eşinize'} olduğu gibi gösterilmez ve üçüncü kişilerle paylaşılmaz. Danışman analizde bunları kullanır ve raporda ihtiyaç diliyle, uygun bir dille yansıtabilir. Bunu bilerek, içinizden geldiği gibi yazın.`
 }
 
 // ---------------------------------------------------------------------------

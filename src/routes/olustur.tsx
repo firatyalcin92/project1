@@ -2,7 +2,8 @@ import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { CodeTiles } from '~/components/code-tiles'
-import { IconArrowRight, IconCopy, IconShare } from '~/components/icons'
+import { IconArrowRight, IconCopy, IconShield, IconShare } from '~/components/icons'
+import { KeyBackup } from '~/components/key-backup'
 import { AppShell, BottomBar, PageTitle } from '~/components/layout'
 import { Button, Card, Notice, TextField } from '~/components/ui'
 import { createCoupleFn } from '~/functions/couple'
@@ -28,6 +29,7 @@ function CreateCouple() {
   const [displayName, setDisplayName] = useState('')
   const [partnerName, setPartnerName] = useState('')
   const [created, setCreated] = useState<SessionResult | null>(null)
+  const [backupStep, setBackupStep] = useState(false)
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -44,12 +46,25 @@ function CreateCouple() {
         coupleName: res.couple.name,
         coupleCode: res.couple.code,
       })
-      if (res.couple.mode === 'solo') void navigate({ to: '/panel' })
+      if (res.couple.mode === 'solo') setBackupStep(true)
       else setCreated(res)
     },
   })
 
-  if (created) return <Created session={created} />
+  if (backupStep) {
+    return (
+      <AppShell>
+        <PageTitle
+          eyebrow={solo ? 'Son adım' : '3 / 3 · Son adım'}
+          title="Cihaz anahtarınızı yedekleyin"
+          lead="Telefonunuzu değiştirirseniz ya da uygulamayı silerseniz kayıtlarınıza bu anahtarla dönersiniz."
+        />
+        <KeyBackup solo={solo} onDone={() => navigate({ to: '/panel' })} />
+      </AppShell>
+    )
+  }
+
+  if (created) return <Created session={created} onNext={() => setBackupStep(true)} />
 
   const ready = displayName.trim().length > 0 && partnerName.trim().length > 0
 
@@ -63,7 +78,7 @@ function CreateCouple() {
         />
       ) : (
         <PageTitle
-          eyebrow="1 / 2 · Yeni çift"
+          eyebrow="1 / 3 · Yeni çift"
           title="Önce kendinizi tanıtın"
           lead="Partnerinizle eşleşmek için size 6 haneli bir çift kodu vereceğiz. Kod yalnızca sizi buluşturur."
         />
@@ -111,6 +126,19 @@ function CreateCouple() {
           autoCapitalize="words"
         />
         {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
+        <div className="flex gap-2.5 rounded-2xl border border-line bg-sunken px-4 py-3 text-[13px] leading-relaxed text-ink-soft">
+          <IconShield size={18} className="mt-0.5 shrink-0" />
+          <p>
+            E-posta, telefon ya da şifre istemiyoruz; takma ad da kullanabilirsiniz. Cevaplarınız size
+            {solo ? '' : ' ve partnerinize'} özeldir, üçüncü kişilerle paylaşılmaz.{' '}
+            <Link to="/gizlilik" className="font-semibold text-clay-strong underline-offset-4 hover:underline">
+              Gizlilik
+            </Link>
+            <br />
+            İlk mesele ücretsiz; sonrası için haftalık, aylık ya da yıllık üyelik.
+            {solo ? '' : ' Birinizin alması ikiniz için de yeterli.'}
+          </p>
+        </div>
         <BottomBar>
           <Button type="submit" size="lg" full disabled={!ready} loading={mutation.isPending}>
             {solo ? 'Başlayalım' : 'Çift kodumu oluştur'} <IconArrowRight size={18} />
@@ -121,8 +149,7 @@ function CreateCouple() {
   )
 }
 
-function Created({ session }: { session: SessionResult }) {
-  const navigate = useNavigate()
+function Created({ session, onNext }: { session: SessionResult; onNext: () => void }) {
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'shared'>('idle')
   const code = session.couple.code
 
@@ -135,7 +162,7 @@ function Created({ session }: { session: SessionResult }) {
   return (
     <AppShell>
       <PageTitle
-        eyebrow="2 / 2 · Kodunuz hazır"
+        eyebrow="2 / 3 · Kodunuz hazır"
         title={`Hoş geldiniz, ${session.member.name}.`}
         lead="Bu kodu partnerinizle paylaşın. O, kendi telefonundan “Partnerimin koduyla katıl” diyerek size katılacak."
       />
@@ -169,8 +196,8 @@ function Created({ session }: { session: SessionResult }) {
       </div>
 
       <BottomBar>
-        <Button size="lg" full variant="secondary" onClick={() => navigate({ to: '/panel' })}>
-          Panele geç <IconArrowRight size={18} />
+        <Button size="lg" full onClick={onNext}>
+          Devam: anahtarımı yedekle <IconArrowRight size={18} />
         </Button>
       </BottomBar>
     </AppShell>

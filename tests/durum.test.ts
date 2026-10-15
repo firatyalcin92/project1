@@ -34,6 +34,19 @@ describe('/durum teşhisi', () => {
       (await diagnose(secret, reply(400, { code: '42703', message: 'column couples.mode does not exist' }))).sorun,
     ).toBe('eksik_kurulum')
     expect((await diagnose(secret, reply(401, { message: 'Invalid API key' }))).sorun).toBe('anahtar_gecersiz')
+    let n = 0
+    const firstOkThenMissing = async () => {
+      n++
+      return n === 1
+        ? new Response('[]', { status: 200 })
+        : new Response(
+            JSON.stringify({ code: 'PGRST205', message: "Could not find the table 'public.subscriptions'" }),
+            {
+              status: 404,
+            },
+          )
+    }
+    expect((await diagnose(secret, firstOkThenMissing)).sorun).toBe('guncelleme_gerekli')
     const down = async () => {
       throw new Error('ENOTFOUND')
     }

@@ -198,8 +198,10 @@ completed ◄─ generating_reports ◄─ reconsideration_completed ◄─ reco
 eşinize olduğu gibi gösterilmez; danışman analizde kullanır ve ihtiyaç diliyle yansıtabilir" hatırlatması gösterilir.
 Partner hiçbir zaman diğerinin ham cevabını görmez; yalnızca danışmanın yazdığı metinleri görür.
 
-**His soruları (v3):** 3. soru, "Tartışma sırasında ve sonrasında neler hissettiniz?" diye tek bir çoklu seçim
-listesi gösterir (7 grupta 30 his + "Başka bir şey hissettim" metni); en az 1, en fazla 7 his seçilir. 4. soru,
+**Duygu / düşünce / davranış (v3):** 2. soruda serbest düşünce metni, isteğe bağlı _düşünce kalıpları_ ("Beni
+önemsemiyor", "Hep böyle oluyor"… her birinin bilişsel çarpıtma etiketiyle; `dusunce_kalip` satırı) ve zorunlu
+_davranışlar_ ("Sustum", "Üstüne gittim"…). 3. soru yalnızca **duygular**: "Tartışma sırasında ve sonrasında neler
+hissettiniz?" (5 grupta 17 duygu + "Başka bir şey hissettim" metni); en az 1, en fazla 7 duygu seçilir. 4. soru,
 işaretlenen hisler arasından en çok etkileyeni zorunlu olarak sorar; "Neden?" kutusu seçilen hissin hemen altında açılır. 2. soruda "O an ne yaptınız?" seçimi de zorunludur. Her soruda danışmanın sorusu, açıklaması ve cevap alanı sırayla
 belirir; his sorusu, danışmanın yansıtma metni gelmeden açılmaz.
 
@@ -226,6 +228,35 @@ konuşma rehberi). Ortak rapor ve Genel Görüş yalnızca çift modundadır.
 **Genel Görüş** 10 tamamlanmış meseleden sonra açılır: 9 bölümlük kalıcı ilişki dinamiği raporu (hikâye, tekrarlayan
 dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı aynası, güçlü yanlar, büyüme alanları,
 önümüzdeki yol) ve iki partnerin paylaşılan çip seçimlerinin dağılımı. 5 yeni mesele sonra güncellenebilir.
+
+## Üyelik, cihaz kurtarma ve silme
+
+- **Bir mesele ücretsiz**, sonrası haftalık / aylık / yıllık üyelik. Üyelik **çift düzeyindedir**: birinin alması
+  ikisine yeter (`subscriptions` tablosu). Bu bilgi ana sayfada, çift oluştururken ve panelde baştan söylenir.
+- **Satın almadan önce** cihaz anahtarı yedeklenmiş olmalı; partner katılmadıysa çift kodunun paylaşıldığı ya da
+  saklandığı onaylanmalı. Böylece satın alan kimse kayıtlarını kaybetmez.
+- **Ödeme altyapısı henüz bağlı değil.** `MESELE_PAYMENTS=test` iken üyelik ödeme alınmadan başlar (yalnızca deneme);
+  `none` (varsayılan) iken satın alma kapalıdır. Gerçek ödeme için: iOS uygulamasında Apple'ın uygulama içi satın
+  alması (App Store kuralı), web'de iyzico/Stripe gibi bir sağlayıcı bağlanmalı (`purchase()` →
+  `src/server/account.server.ts`).
+- **Cihaz anahtarı yedeği:** çift kurma / katılma / kurtarma sonrasında "Cihaz anahtarınızı yedekleyin" adımı ve
+  anahtar kaybolursa ne olacağının açık anlatımı; yedeklenmediyse panelde hatırlatma.
+- **Partnerle kurtarma:** cihazını kaybeden partnere diğer partner Hesap sayfasından tek kullanımlık bir _yeniden
+  bağlanma kodu_ üretir (`member_recovery`, yalnızca hash saklanır). Kötüye kullanıma karşı kod **12 saat sonra**
+  çalışmaya başlar (`MESELE_RECOVERY_DELAY_MINUTES`, varsayılan 720) ve 2 gün geçerlidir; bu sürede hesap sahibinin
+  eski cihazında uyarı çıkar ve "Ben istemedim" diyerek iptal edebilir. Kod çift koduyla birlikte `/katil?mod=kurtar`
+  ekranında kullanılır; eski cihazdaki anahtar geçersiz olur.
+- **Tüm verileri sil:** bireysel modda ya da partner katılmadıysa hemen; çift modunda partnerin onayıyla
+  (`deletion_requests`). Silme üyeliği iptal etmez: satın alan kişiye bir **aktarım kodu** verilir ve kalan süre
+  Üyelik sayfasından yeni bir çifte ya da bireysel hesaba taşınır.
+- **Hazır olma durumu:** panel ve mesele ekranında "Siz hazırsınız, Ayşe bekleniyor" gibi; yalnızca aşama
+  gösterilir, kimsenin cevabı ya da taslağı gösterilmez.
+- **Meseleler arası bağlam:** raporlar önceki (en fazla 5) meseleyi hatırlar: ortak rapor özetleri + yalnızca
+  okuyanın kendi kişisel raporu. Rapordaki "Sizi tanıdıkça" bölümü bu bağı kurar.
+
+**Mevcut Supabase kurulumu için güncelleme:** SQL Editor'de `supabase/guncelleme-uyelik.sql` dosyasını bir kez
+çalıştırın (tekrar çalıştırmak zararsızdır, veriye dokunmaz). Yeni kurulumlar için `supabase/kurulum.sql` hepsini
+içerir. `/durum` sayfası güncellemenin eksik olduğunu söyler.
 
 ## Kırılmaz güvenlik kuralları — nerede uygulanıyor?
 

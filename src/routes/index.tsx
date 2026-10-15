@@ -150,13 +150,27 @@ function Landing() {
           </ul>
         </section>
 
-        <section className="mb-12 rounded-3xl bg-sunken p-6" aria-labelledby="privacy-title">
+        <section className="mb-6 rounded-3xl bg-sunken p-6" aria-labelledby="privacy-title">
           <h2 id="privacy-title" className="text-xl font-semibold">
-            Hesap yok. E-posta yok. Şifre yok.
+            Anlattıklarınız size özel.
+          </h2>
+          <ul className="mt-3 space-y-2 leading-relaxed text-ink-soft">
+            <li>• E-posta, telefon ya da şifre istemiyoruz; takma ad da olur.</li>
+            <li>• Partneriniz cevaplarınızı olduğu gibi görmez; danışman onları ihtiyaç diliyle yansıtır.</li>
+            <li>• Üçüncü kişilerle paylaşılmaz, reklam için kullanılmaz.</li>
+            <li>• Tüm verilerinizi istediğiniz an silebilirsiniz (çift olarak kullanıyorsanız ikinizin onayıyla).</li>
+          </ul>
+          <Link to="/gizlilik" className="mt-3 inline-flex text-sm font-semibold text-clay-strong">
+            Gizlilik nasıl korunuyor? <IconArrowRight size={16} className="ml-1" />
+          </Link>
+        </section>
+
+        <section className="mb-12 rounded-3xl border border-line p-6" aria-labelledby="price-title">
+          <h2 id="price-title" className="text-xl font-semibold">
+            İlk mesele ücretsiz.
           </h2>
           <p className="mt-2 leading-relaxed text-ink-soft">
-            Telefonunuza, yalnızca ona özel gizli bir anahtar kaydedilir. Partnerinle eşleşmek için 6 haneli bir çift
-            kodu paylaşırsınız; kod yalnızca sizi buluşturur, kimseye kapı açmaz.
+            Sonrası için haftalık, aylık ya da yıllık üyelik. Çiftlerden birinin alması ikiniz için de yeterli.
           </p>
         </section>
 

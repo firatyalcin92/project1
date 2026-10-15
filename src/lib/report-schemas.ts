@@ -72,6 +72,11 @@ export type Perspective = z.infer<typeof PerspectiveSchema>
 
 export const SharedReportSchema = z.object({
   opening: z.string().min(1).describe('İkisine birlikte seslenen, 2-3 cümlelik sıcak açılış.'),
+  history: z
+    .string()
+    .describe(
+      'Sizi tanıdıkça: önceki meselelerle gerçekten tekrar eden örüntü ya da görülen ilerleme, meselenin adını anarak 2-4 cümle. Gerçek bir bağ yoksa ya da önceki mesele yoksa boş metin.',
+    ),
   cycle: z.object({
     name: z.string().min(1).describe("Döngüye verilen sıcak, akılda kalıcı bir ad. Örn: 'Kapanan Kapı ve Çalan Zil'"),
     summary: z
@@ -177,6 +182,11 @@ export type SharedReport = z.infer<typeof SharedReportSchema>
 
 export const MyReportSchema = z.object({
   greeting: z.string().min(1).describe('Okuyana adıyla, "siz" diye seslenen 2 cümlelik sıcak açılış.'),
+  history: z
+    .string()
+    .describe(
+      'Okuyanın önceki meselelerinden bu meseleye taşınan kendi kalıbı ya da ilerlemesi (ör. geçen sefer kurduğu cümleyi denedi mi), 2-3 cümle. Gerçek bir bağ yoksa ya da önceki mesele yoksa boş metin.',
+    ),
   feelings: z
     .string()
     .min(1)

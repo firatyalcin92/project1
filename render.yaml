@@ -24,3 +24,12 @@ services:
       # Kurulumda Render bu değeri sorar; anahtar GitHub'a girmez.
       - key: OPENAI_API_KEY
         sync: false
+      # Ödeme altyapısı bağlanana kadar: "test" → üyelik ödeme alınmadan denenebilir
+      - key: MESELE_PAYMENTS
+        value: test
+      - key: MESELE_PRICE_WEEKLY
+        sync: false
+      - key: MESELE_PRICE_MONTHLY
+        sync: false
+      - key: MESELE_PRICE_YEARLY
+        sync: false

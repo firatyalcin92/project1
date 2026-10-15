@@ -3,13 +3,16 @@ import { GENERATION_LOCK_MS } from '~/lib/status'
 import type {
   AnswerRow,
   CoupleRow,
+  DeletionRequestRow,
   DisputeRow,
   EntryRow,
   MemberRow,
   ReconsiderationRow,
+  RecoveryRow,
   RelationshipReportRow,
   ReportRow,
   Store,
+  SubscriptionRow,
 } from './store.server'
 
 /**
@@ -27,6 +30,9 @@ type Tables = {
   reconsiderations: Map<string, ReconsiderationRow>
   reports: Map<string, ReportRow>
   relationship: Map<string, RelationshipReportRow>
+  subscriptions: Map<string, SubscriptionRow>
+  recovery: Map<string, RecoveryRow>
+  deletions: Map<string, DeletionRequestRow>
 }
 
 const now = () => new Date().toISOString()
@@ -54,6 +60,9 @@ export function createMemoryStore(): Store {
     reconsiderations: new Map(),
     reports: new Map(),
     relationship: new Map(),
+    subscriptions: new Map(),
+    recovery: new Map(),
+    deletions: new Map(),
   }
 
   const byDispute = <T extends { dispute_id: string }>(m: Map<string, T>, ids: string[]) =>
@@ -279,6 +288,128 @@ export function createMemoryStore(): Store {
       d.status_locked_at = null
       d.updated_at = now()
       return true
+    },
+
+    async deleteCouple(coupleId) {
+      const memberIds = [...t.members.values()].filter((m) => m.couple_id === coupleId).map((m) => m.id)
+      const disputeIds = [...t.disputes.values()].filter((d) => d.couple_id === coupleId).map((d) => d.id)
+      for (const id of disputeIds) t.disputes.delete(id)
+      for (const m of [t.entries, t.answers, t.reconsiderations, t.reports] as Map<string, { dispute_id: string }>[]) {
+        for (const [k, v] of m) if (disputeIds.includes(v.dispute_id)) m.delete(k)
+      }
+      for (const [k, r] of t.relationship) if (r.couple_id === coupleId) t.relationship.delete(k)
+      for (const [k, r] of t.recovery) if (memberIds.includes(r.member_id)) t.recovery.delete(k)
+      t.deletions.delete(coupleId)
+      for (const id of memberIds) t.members.delete(id)
+      t.couples.delete(coupleId)
+      // Üyelik satırı kalır, sahipsiz olur (on delete set null)
+      for (const sub of t.subscriptions.values()) {
+        if (sub.couple_id === coupleId) sub.couple_id = null
+        if (sub.member_id && memberIds.includes(sub.member_id)) sub.member_id = null
+      }
+    },
+
+    async setMemberTokenHash(memberId, hash) {
+      const m = t.members.get(memberId)
+      if (m) m.auth_token_hash = hash
+    },
+
+    async getActiveSubscription(coupleId, at) {
+      const rows = [...t.subscriptions.values()]
+        .filter((r) => r.couple_id === coupleId && r.expires_at > at)
+        .sort((a, b) => b.expires_at.localeCompare(a.expires_at))
+      return rows[0] ? clone(rows[0]) : null
+    },
+
+    async createSubscription(input) {
+      const row: SubscriptionRow = {
+        id: crypto.randomUUID(),
+        ...input,
+        started_at: now(),
+        transfer_code_hash: null,
+        created_at: now(),
+      }
+      t.subscriptions.set(row.id, row)
+      return clone(row)
+    },
+
+    async extendSubscription(id, expiresAt) {
+      const r = t.subscriptions.get(id)
+      if (r) r.expires_at = expiresAt
+    },
+
+    async setSubscriptionTransfer(id, hash) {
+      const r = t.subscriptions.get(id)
+      if (r) r.transfer_code_hash = hash
+    },
+
+    async claimSubscription(hash, coupleId, memberId, at) {
+      const r = [...t.subscriptions.values()].find(
+        (x) => x.transfer_code_hash === hash && x.couple_id === null && x.expires_at > at,
+      )
+      if (!r) return null
+      r.couple_id = coupleId
+      r.member_id = memberId
+      r.transfer_code_hash = null
+      return clone(r)
+    },
+
+    async createRecovery(input) {
+      for (const [k, r] of t.recovery) if (r.member_id === input.member_id && !r.used_at) t.recovery.delete(k)
+      t.recovery.set(crypto.randomUUID(), { ...input, used_at: null, created_at: now() })
+    },
+
+    async useRecovery(hash, memberIds, at) {
+      const r = [...t.recovery.values()].find(
+        (x) =>
+          x.code_hash === hash &&
+          memberIds.includes(x.member_id) &&
+          !x.used_at &&
+          x.usable_after <= at &&
+          x.expires_at > at,
+      )
+      if (!r) return null
+      r.used_at = at
+      return { member_id: r.member_id }
+    },
+
+    async findRecovery(hash, memberIds, at) {
+      const r = [...t.recovery.values()].find(
+        (x) => x.code_hash === hash && memberIds.includes(x.member_id) && !x.used_at && x.expires_at > at,
+      )
+      return r ? clone(r) : null
+    },
+
+    async getPendingRecovery(memberId, at) {
+      const rows = [...t.recovery.values()]
+        .filter((x) => x.member_id === memberId && !x.used_at && x.expires_at > at)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      return rows[0] ? clone(rows[0]) : null
+    },
+
+    async cancelRecoveries(memberId) {
+      for (const [k, r] of t.recovery) if (r.member_id === memberId && !r.used_at) t.recovery.delete(k)
+    },
+
+    async getDeletionRequest(coupleId) {
+      const r = t.deletions.get(coupleId)
+      return r ? clone(r) : null
+    },
+
+    async createDeletionRequest(coupleId, memberId) {
+      if (t.deletions.has(coupleId)) return 'exists'
+      const row: DeletionRequestRow = {
+        id: crypto.randomUUID(),
+        couple_id: coupleId,
+        requested_by: memberId,
+        created_at: now(),
+      }
+      t.deletions.set(coupleId, row)
+      return clone(row)
+    },
+
+    async deleteDeletionRequest(coupleId) {
+      t.deletions.delete(coupleId)
     },
 
     async countCompletedDisputes(coupleId) {

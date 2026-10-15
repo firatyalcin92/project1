@@ -59,8 +59,10 @@ function hasContent(page: Page, d: Draft) {
   return a.text.trim().length > 0 || a.tags.length > 0
 }
 
-// Danışman konuşur gibi: önce soru, sonra açıklama, en son cevap alanı.
-const REVEAL_DELAYS = [700, 1500, 1000, 900]
+// Danışman konuşur gibi, acele etmeden: önce soru, sonra açıklama, en son cevap alanı.
+const REVEAL_DELAYS = [1100, 2300, 1900, 1500]
+/** Seçenek grupları da birer birer belirir (ms) */
+const STAGGER_MS = 320
 
 function useReveal(stages: number, { instant, ready = true }: { instant: boolean; ready?: boolean }) {
   const [shown, setShown] = useState(instant ? stages : 0)
@@ -432,8 +434,16 @@ function TextStep({
     setAnswer(q.id as AnswerQuestionId, {
       tags: answer!.tags.includes(id) ? answer!.tags.filter((t) => t !== id) : [...answer!.tags, id],
     })
-  // "O an ne yaptınız?" düşünce yazıldıktan sonra ayrı bir soru olarak gelir.
-  const showChips = Boolean(q.chips) && (text.trim().length >= q.minLength || (answer?.tags.length ?? 0) > 0)
+  const thoughts = q.thoughts ? draft.answers[q.thoughts.answerId] : null
+  const toggleThought = (id: string) =>
+    thoughts &&
+    setAnswer(q.thoughts!.answerId, {
+      tags: thoughts.tags.includes(id) ? thoughts.tags.filter((t) => t !== id) : [...thoughts.tags, id],
+    })
+  // Düşünce kalıpları ve "O an ne yaptınız?" düşünce yazıldıktan sonra, sırayla gelir.
+  const [chipsInstant] = useState(() => (answer?.tags.length ?? 0) > 0 || (thoughts?.tags.length ?? 0) > 0)
+  const textReady = text.trim().length >= q.minLength
+  const chipStage = useReveal(2, { instant: chipsInstant, ready: Boolean(q.chips) && textReady })
 
   return (
     <>
@@ -471,19 +481,41 @@ function TextStep({
         ) : null}
       </div>
 
-      {showChips ? (
+      {q.thoughts && thoughts && chipStage >= 1 ? (
+        <div className="animate-rise space-y-3 pt-2">
+          <Bubble>
+            <span className="font-medium">{q.thoughts.prompt}</span>
+          </Bubble>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={q.thoughts.prompt}>
+            {q.thoughts.chips.map((chip, i) => (
+              <span key={chip.id} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
+                <ChipToggle
+                  shape="soft"
+                  label={chip.label}
+                  selected={thoughts.tags.includes(chip.id)}
+                  onToggle={() => toggleThought(chip.id)}
+                />
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {q.chips && chipStage >= 2 ? (
         <div className="animate-rise space-y-3 pt-2">
           <Bubble>
             <span className="font-medium">{q.chipsPrompt}</span>
           </Bubble>
           <div className="flex flex-wrap gap-2" role="group" aria-label={q.chipsPrompt}>
-            {q.chips!.map((chip) => (
-              <ChipToggle
-                key={chip.id}
-                label={chip.label}
-                selected={answer!.tags.includes(chip.id)}
-                onToggle={() => toggle(chip.id)}
-              />
+            {q.chips.map((chip, i) => (
+              <span key={chip.id} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
+                <ChipToggle
+                  shape="soft"
+                  label={chip.label}
+                  selected={answer!.tags.includes(chip.id)}
+                  onToggle={() => toggle(chip.id)}
+                />
+              </span>
             ))}
           </div>
         </div>
@@ -518,7 +550,7 @@ function FeelingsPicker({
     <div className="space-y-5">
       <p
         className={cx(
-          'sticky top-16 z-10 flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-[13px] leading-snug shadow-soft',
+          'sticky top-16 z-10 flex animate-rise items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-[13px] leading-snug shadow-soft',
           full ? 'bg-honey-soft text-ink' : 'bg-sunken text-ink-soft',
         )}
         aria-live="polite"
@@ -533,8 +565,8 @@ function FeelingsPicker({
         </span>
       </p>
 
-      {FEELING_GROUPS.map((g) => (
-        <div key={g.id} className="space-y-2">
+      {FEELING_GROUPS.map((g, gi) => (
+        <div key={g.id} className="animate-rise space-y-2" style={{ animationDelay: `${(gi + 1) * STAGGER_MS}ms` }}>
           <p className="px-1 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">{g.label}</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label={`${q.title}: ${g.label}`}>
             {g.chips.map((chip) => {
@@ -554,7 +586,10 @@ function FeelingsPicker({
         </div>
       ))}
 
-      <div className="space-y-2">
+      <div
+        className="animate-rise space-y-2"
+        style={{ animationDelay: `${(FEELING_GROUPS.length + 1) * STAGGER_MS}ms` }}
+      >
         <p className="px-1 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">Başka</p>
         <ChipToggle
           shape="soft"
@@ -598,8 +633,8 @@ function StrongestPicker({
 
   return (
     <div className="flex flex-col gap-2" role="radiogroup" aria-label={q.title}>
-      {options.map((o) => (
-        <div key={o.id} className="space-y-2">
+      {options.map((o, i) => (
+        <div key={o.id} className="animate-rise space-y-2" style={{ animationDelay: `${i * STAGGER_MS}ms` }}>
           <button
             type="button"
             role="radio"
@@ -653,8 +688,11 @@ export function answerBody(q: Question, draft: Pick<Draft, 'whatHappened' | 'ans
     const option = optionsFor(draft).find((o) => a.tags.includes(o.id))
     return [option?.label, a.text].filter(Boolean).join(' — ')
   }
+  const thoughts = q.thoughts
+    ? draft.answers[q.thoughts.answerId].tags.map((t) => chipLabel(q.thoughts!.answerId, t))
+    : []
   const chips = a.tags.map((t) => chipLabel(q.id, t))
-  return [a.text, chips.join(', ')].filter(Boolean).join(' — ')
+  return [a.text, thoughts.join(', '), chips.join(', ')].filter(Boolean).join(' — ')
 }
 
 function Summary({ draft, partnerName, solo }: { draft: Draft; partnerName: string; solo: boolean }) {

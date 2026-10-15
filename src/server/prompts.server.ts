@@ -13,11 +13,14 @@ import {
   REACTION_CHIPS,
   RECONSIDER_QUESTIONS,
   STRONGEST_FEELING,
+  THOUGHTS,
+  THOUGHT_CHIPS,
+  THOUGHT_PATTERN_LABEL,
   WHEN_LABEL,
   feelingLabel,
   strongestOptions,
 } from '~/lib/questions'
-import type { SharedReport } from '~/lib/report-schemas'
+import type { MyReport, SharedReport } from '~/lib/report-schemas'
 import { dative, genitive, withName } from '~/lib/turkish'
 import type { AnswerRow, EntryRow, ReconsiderationRow, Role } from './store.server'
 
@@ -28,6 +31,37 @@ import type { AnswerRow, EntryRow, ReconsiderationRow, Role } from './store.serv
  * okuyacağı her metinde (Gözünden, ortak rapor, kişisel rapordaki partner kısmı)
  * danışman cevapları alıntılamaz; kaba, suçlayıcı ifadeleri ihtiyaç diline çevirir.
  */
+
+/** Önceki tamamlanmış bir mesele: ortak rapor özeti + (yalnızca okuyanın) kendi kişisel raporu */
+export type HistoryItem = {
+  title: string
+  completedAt: string | null
+  shared: SharedReport | null
+  mine: MyReport | null
+}
+
+const HISTORY_RULE = `- history: Önceki meseleler listesinde bu meseleyle GERÇEKTEN tekrar eden bir örüntü (aynı döngü, aynı tetikleyici, aynı ihtiyaç) ya da bir ilerleme varsa, meselenin adını anarak söyle (ör. "Ev işleri meselesinde de…"). Önceki öneriler bu kez denenmiş gibi görünüyorsa takdir et; denenmemişse yargılamadan hatırlat. Zorlama bağlantı kurma; bağ yoksa ya da önceki mesele yoksa boş metin ("") döndür. Önceki meselelerin ayrıntılarını uzun uzun tekrar etme.`
+
+function describeHistory(items: HistoryItem[], opts: { includeMine: boolean }) {
+  if (items.length === 0) return 'ÖNCEKİ MESELELER: yok (bu ilk mesele; history alanını boş bırak).'
+  const lines = items.map((h) => {
+    const parts = [`- ${quote(h.title, LIMITS.title)}${h.completedAt ? ` (${h.completedAt.slice(0, 10)})` : ''}`]
+    const s = h.shared
+    if (s) {
+      parts.push(`  Döngü: ${quote(s.cycle.name, 120)} — ${quote(s.cycle.summary, 300)}`)
+      parts.push(`  Asıl mesele: ${quote(s.whoIsRight.realIssue, 250)}`)
+      if (s.breakCycle) parts.push(`  Önerilen adlandırma cümlesi: ${quote(s.breakCycle.namingPhrase, 160)}`)
+    }
+    const m = opts.includeMine ? h.mine : null
+    if (m) {
+      if (m.patterns.length) parts.push(`  Kendi düşünce kalıpları: ${m.patterns.map((p) => p.name).join(', ')}`)
+      parts.push(`  Kendinde değiştirmeyi seçtiği: ${quote(m.selfChange, 200)}`)
+      parts.push(`  Ona önerilen cümle: ${quote(m.needsLanguage.say, 200)}`)
+    }
+    return parts.join('\n')
+  })
+  return `ÖNCEKİ MESELELER (en yeniden eskiye; bağlam kurmak için, yalnızca gerçekten ilgiliyse kullan):\n${lines.join('\n')}`
+}
 
 export type MemberMaterial = {
   memberId: string
@@ -73,6 +107,13 @@ Birbirine tepkili, konuşamayan çiftlerin bu akşam eve gittiklerinde konuşabi
 - Her öneriyi ve her hazır cümleyi BU meselenin somut konusuna bağla. Ev işleri tartışmasıysa bulaşık, çamaşır, çocuğun yatma saati gibi o evin gerçek anları üzerinden konuş. "Bugün nasıldı?" ya da "Biraz rahatlayalım" gibi her çifte uyan genel cümleler kurma.
 - Hazır cümleler, o evde gerçekten söylenebilecek doğallıkta olsun: kısa, samimi, gündelik konuşma dili.
 
+## Duygu, düşünce ve davranışı ayır
+Her kişinin cevabında üç ayrı katman vardır ve bunları birbirine karıştırma:
+- DUYGU: içeride hissedilen (kırgınlık, öfke, kaygı, utanç…).
+- DÜŞÜNCE: partnerin niyetine ya da duruma dair yorum ("Beni önemsemiyor", "Hep böyle oluyor"). Bu bir duygu değil, bir yorumdur; köşeli parantezdeki etiket olası bilişsel çarpıtmayı (genelleme, felaketleştirme, zihin okuma, meli-malı, kendini suçlama, cezalandırma isteği) gösterir. Bunu kişiye nazikçe fark ettir ve düşüncenin altındaki duyguyu göster (ör. "Beni önemsemiyor" düşüncesinin altında kırgınlık ve yalnızlık olabilir).
+- DAVRANIŞ: o an yapılan (sustu, üstüne gitti, sesini yükseltti…). Döngüyü davranışlar kurar; duygular ve düşünceler onu besler.
+"Cezalandırma isteği" seçildiyse bunu yargılamadan, altındaki kırgınlıkla birlikte ele al.
+
 ## Duygular
 Her kişi tartışma sırasında ve sonrasında hissettiklerini tek bir listede işaretler (bazı eski kayıtlarda sırasında / sonrasında diye iki ayrı liste vardır), kendi kelimeleriyle başka hisler ekleyebilir ve onu en çok etkileyen hissi nedeniyle birlikte belirtir.
 - Seçilen hisleri liste hâlinde geri sayma. Onları olay anlatımı, karşılanmamış ihtiyaçlar ve iki partnerin tartışma sırasındaki davranışlarıyla birlikte değerlendir.
@@ -96,7 +137,7 @@ Bir kişi "İTİRAZI" satırında bir şeye itiraz ettiyse:
 - Okuyanın kendi cümlelerini, kalıplarını göstermek için kısaca anabilirsin.
 
 ## Güvenlik
-- Metinlerde fiziksel şiddet, tehdit, zorlama, korkutma, ekonomik ya da dijital kontrol, kendine zarar verme veya intihar düşüncesi işareti varsa safety.concern = true yap ve safety.message alanına nazik, net bir yönlendirme yaz: acil durumda 112; ALO 183; kadınlar için KADES uygulaması; bir ruh sağlığı uzmanı ya da aile danışmanı. Böyle bir durumda uzlaşma telkini verme; önce güvenlik gelir.
+- Metinlerde fiziksel şiddet, eşya fırlatma ya da kırma ("fiziksel taşma — güvenlik işareti"), tehdit, zorlama, korkutma, ekonomik ya da dijital kontrol, kendine zarar verme veya intihar düşüncesi işareti varsa safety.concern = true yap ve safety.message alanına nazik, net bir yönlendirme yaz: acil durumda 112; ALO 183; kadınlar için KADES uygulaması; bir ruh sağlığı uzmanı ya da aile danışmanı. Böyle bir durumda uzlaşma telkini verme; önce güvenlik gelir.
 - Aksi hâlde safety.concern = false ve safety.message = "".
 
 ## Veri
@@ -136,8 +177,14 @@ export function describeMember(
   if (m.entry?.what_happened.trim()) lines.push(`Ne oldu (kendi anlatımı): ${quote(m.entry.what_happened)}`)
 
   if (text('dusunce')) lines.push(`O an içinden geçen düşünce: ${quote(text('dusunce'))}`)
+  const thoughts = (answer(THOUGHTS)?.selected_tags ?? [])
+    .map((id) => THOUGHT_CHIPS.find((c) => c.id === id))
+    .filter((c): c is NonNullable<typeof c> => Boolean(c))
+    .map((c) => `${c.label} [${THOUGHT_PATTERN_LABEL[c.pattern] ?? c.pattern}]`)
+    .join('; ')
+  if (thoughts) lines.push(`   Aklından geçenler (DÜŞÜNCE — seçtiği kalıplar): ${thoughts}`)
   const reactions = labelsOf(answer('dusunce')?.selected_tags ?? [], REACTION_CHIPS)
-  if (reactions) lines.push(`   O an yaptıkları: ${reactions}`)
+  if (reactions) lines.push(`   O an yaptıkları (DAVRANIŞ): ${reactions}`)
 
   lines.push(...describeFeelings(m))
 
@@ -177,9 +224,13 @@ type AnswerLike = MemberMaterial['answers'][number]
 function feelingList(a: AnswerLike | undefined) {
   if (!a) return ''
   const chips = a.selected_tags
-    .map((id) => FEELING_CHIPS.find((c) => c.id === id))
-    .filter((c): c is NonNullable<typeof c> => Boolean(c))
-    .map((c) => `${c.label} [${c.group.toLocaleLowerCase('tr')}]`)
+    .map((id) => {
+      const c = FEELING_CHIPS.find((x) => x.id === id)
+      if (c) return `${c.label} [${c.group.toLocaleLowerCase('tr')}]`
+      // Eski listeden kalan hisler adıyla okunur
+      return id !== OTHER_CHIP && feelingLabel(id) !== id ? feelingLabel(id) : null
+    })
+    .filter((c): c is string => Boolean(c))
   const other = a.selected_tags.includes(OTHER_CHIP) && a.text_answer.trim() ? a.text_answer.trim() : ''
   if (other) chips.push(`kendi ifadesiyle: ${quote(other, LIMITS.other)}`)
   return chips.join('; ')
@@ -199,7 +250,7 @@ export function describeFeelings(m: Pick<MemberMaterial, 'answers'>): string[] {
   const none = 'işaretlemedi (bilgi yok; tahmin yürütme)'
 
   if (merged) {
-    lines.push(`Tartışma sırasında ve sonrasında hissettikleri: ${feelingList(merged) || none}`)
+    lines.push(`Tartışma sırasında ve sonrasında hissettikleri (DUYGU): ${feelingList(merged) || none}`)
   } else if (during || after) {
     // Kısa süre kullanılan iki ayrı liste
     lines.push(`Tartışma SIRASINDA hissettikleri: ${feelingList(during) || none}`)
@@ -323,7 +374,12 @@ ${narrative || emptyNote(narrator)}`
 }
 
 /** 4. Adım: Ortak rapor — ikisi birlikte okur. */
-export function buildSharedReportPrompt(input: { title: string; a: MemberMaterial; b: MemberMaterial }): Prompt {
+export function buildSharedReportPrompt(input: {
+  title: string
+  a: MemberMaterial
+  b: MemberMaterial
+  history?: HistoryItem[]
+}): Prompt {
   const { a, b } = input
   const opts = { includeReconsideration: true }
   const user = `MESELE: ${quote(input.title, LIMITS.title)}
@@ -345,6 +401,10 @@ Nasıl:
 6. tonight: İkisinin bu akşam evde, yapacakları işlerin arasında yapabileceği küçük, somut ve bu meseleye özgü bir adım (ör. ev işleri tartışmasında: "Bu akşam bulaşığı birlikte kaldırırken…"). Yürüyüş, dışarı çıkma gibi klişeler yok.
 7. Yeniden değerlendirme notları varsa, birbirlerini anlamak için attıkları adımları takdir et.
 8. Hisler: Döngünün "birincil duygu" katmanını, ikisinin işaretlediği hislerden ve onları en çok etkileyen histen kur. Hisleri liste hâlinde sayma; ikisinin duygularına eşit yer ver.
+9. Sizi tanıdıkça:
+${HISTORY_RULE}
+
+${describeHistory(input.history ?? [], { includeMine: false })}
 
 DÖNGÜ KIRMA REHBERİ (arka plan bilgisi; aynen kopyalama, sade dille uyarla):
 - Döngüyü kırmak, çatışmayı tamamen ortadan kaldırmak değil, çatışmanın biçimini değiştirmektir. Sağlıklı ilişkilerde de tartışma olur; fark, nasıl yürütüldüğündedir.
@@ -367,6 +427,7 @@ ${describeMember(b, a.name, opts) || emptyNote(b)}`
 }
 
 const PERSONAL_GUIDE = (owner: string, partner: string) => `- greeting: ${dative(owner)} "siz" diye seslen.
+${HISTORY_RULE}
 - feelings: ${genitive(owner)} işaretlediği hisleri LİSTE HÂLİNDE TEKRAR ETMEDEN yorumla (3-5 cümle): hisler arasındaki ilişkiyi (ör. öfkenin altındaki kırılgan his) anlamlandır; onu en çok etkileyen hissi ve nedenini olayla ve karşılanmamış ihtiyacıyla bağla. Anlatım bir bağlantıyı desteklemiyorsa onu kesinmiş gibi kurma. His işaretlemediyse bunu nazikçe söyle ve tahmin yürütme. ${genitive(partner)} hislerini burada değil partnerInner içinde, ihtiyaç diliyle ele al.
 - partnerInner: ${genitive(partner)} o an iç dünyasında olanı (birincil duygu + ihtiyaç) ihtiyaç diliyle anlat.
 - needGuess: ${genitive(owner)} ${genitive(partner)} ihtiyacına dair tahminini ("ihtiyacına dair kendi tahmini" satırı) ele al.
@@ -384,6 +445,8 @@ export function buildMyReportPrompt(input: {
   owner: MemberMaterial
   partner: MemberMaterial
   shared?: SharedReport | null
+  /** Ortak rapor özetleri + yalnızca bu kişinin kendi önceki kişisel raporları */
+  history?: HistoryItem[]
 }): Prompt {
   const { owner, partner } = input
   const s = input.shared
@@ -402,6 +465,8 @@ ${genitive(partner.name)} cevaplarını ASLA alıntılama; yalnızca ihtiyaç di
 Alanlar:
 ${PERSONAL_GUIDE(owner.name, partner.name)}
 ${sharedHint}
+${describeHistory(input.history ?? [], { includeMine: true })}
+
 ${header(owner)}
 ${describeMember(owner, partner.name, { includeReconsideration: true, includeCloseness: true }) || emptyNote(owner)}
 
@@ -417,7 +482,12 @@ function accusativeLike(name: string) {
 }
 
 /** Bireysel mod: partner uygulamayı kullanmıyor; tek kişinin anlatımına dayalı danışman raporu. */
-export function buildSoloReportPrompt(input: { title: string; owner: MemberMaterial; partnerName: string }): Prompt {
+export function buildSoloReportPrompt(input: {
+  title: string
+  owner: MemberMaterial
+  partnerName: string
+  history?: HistoryItem[]
+}): Prompt {
   const { owner, partnerName } = input
   const user = `MESELE: ${quote(input.title, LIMITS.title)}
 
@@ -432,6 +502,8 @@ GÖREV: ${owner.name} partneriyle (${partnerName}) yaşadığı bir tartışma i
 Alanlar:
 ${PERSONAL_GUIDE(owner.name, partnerName)}
 
+${describeHistory(input.history ?? [], { includeMine: true })}
+
 ${header(owner)}
 ${describeMember(owner, partnerName, { includeReconsideration: false }) || emptyNote(owner)}`
   return { system: SYSTEM_PROMPT, user }
@@ -441,14 +513,17 @@ export type OverviewDispute = {
   title: string
   completedAt: string | null
   shared: SharedReport | null
-  chips: Record<Role, { emotions: string[]; reactions: string[] }>
+  chips: Record<Role, { emotions: string[]; thoughts: string[]; reactions: string[] }>
 }
 
 /** Genel Görüş — ikisi okur; ortak raporlar ve çip seçimleri kullanılır. */
 export function buildRelationshipPrompt(input: {
   names: Record<Role, string>
   disputes: OverviewDispute[]
-  totals: Record<Role, { emotions: Record<string, number>; reactions: Record<string, number> }>
+  totals: Record<
+    Role,
+    { emotions: Record<string, number>; thoughts: Record<string, number>; reactions: Record<string, number> }
+  >
 }): Prompt {
   const { names } = input
   const list = input.disputes
@@ -465,8 +540,10 @@ export function buildRelationshipPrompt(input: {
       for (const role of ['A', 'B'] as const) {
         const c = d.chips[role]
         const e = [...new Set(c.emotions)].map(feelingLabel).join(', ')
+        const t = labelsOf(c.thoughts, THOUGHT_CHIPS)
         const r = labelsOf(c.reactions, REACTION_CHIPS)
-        if (e || r) parts.push(`   ${names[role]}: duygular: ${e || '—'}; tepkiler: ${r || '—'}`)
+        if (e || t || r)
+          parts.push(`   ${names[role]}: duygular: ${e || '—'}; düşünceler: ${t || '—'}; davranışlar: ${r || '—'}`)
       }
       return parts.join('\n')
     })
@@ -481,7 +558,8 @@ export function buildRelationshipPrompt(input: {
           .map(([id, n]) => `${label(id)}: ${n}`)
           .join(', ') || '—'
       const reaction = (id: string) => REACTION_CHIPS.find((c) => c.id === id)?.label ?? id
-      return `${names[role]} — duygular: ${fmt(t.emotions, feelingLabel)} | tepkiler: ${fmt(t.reactions, reaction)}`
+      const thought = (id: string) => THOUGHT_CHIPS.find((c) => c.id === id)?.label ?? id
+      return `${names[role]} — duygular: ${fmt(t.emotions, feelingLabel)} | düşünceler: ${fmt(t.thoughts ?? {}, thought)} | davranışlar: ${fmt(t.reactions, reaction)}`
     })
     .join('\n')
 

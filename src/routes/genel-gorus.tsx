@@ -10,7 +10,7 @@ import { Button, Card, Notice, Paragraphs, cx } from '~/components/ui'
 import { generateOverviewFn, getOverviewFn } from '~/functions/overview'
 import { parseError } from '~/lib/errors'
 import { requireMember } from '~/lib/guard'
-import { REACTION_CHIPS, feelingLabel } from '~/lib/questions'
+import { REACTION_CHIPS, THOUGHT_CHIPS, feelingLabel } from '~/lib/questions'
 import { RELATIONSHIP_SECTIONS } from '~/lib/report-meta'
 import type { RelationshipReport } from '~/lib/report-schemas'
 import { formatDate } from '~/lib/turkish'
@@ -252,14 +252,16 @@ function Stats({ data, names }: { data: OverviewView; names: Record<Role, string
       .map((id) => ({ id, label: feelingLabel(id), A: src.A[id] ?? 0, B: src.B[id] ?? 0 }))
       .sort((x, y) => y.A + y.B - (x.A + x.B))
       .slice(0, 10)
+  const thoughtRows = data.stats.thoughts ? rows(THOUGHT_CHIPS, data.stats.thoughts).filter((r) => r.A + r.B > 0) : []
   return (
     <Card className="space-y-6">
       <div>
         <p className="font-semibold">Seçimlerinizin dağılımı</p>
-        <p className="mt-1 text-[13px] text-ink-faint">İkinizin seçtiği duygu ve tepkilerden sayılır.</p>
+        <p className="mt-1 text-[13px] text-ink-faint">İkinizin seçtiği duygu, düşünce ve davranışlardan sayılır.</p>
       </div>
       <PairedBars title="En sık hissedilenler" rows={feelingRows(data.stats.emotions)} names={names} />
-      <PairedBars title="Otomatik tepkiler" rows={rows(REACTION_CHIPS, data.stats.reactions)} names={names} />
+      {thoughtRows.length ? <PairedBars title="Sık düşünceler" rows={thoughtRows} names={names} /> : null}
+      <PairedBars title="Davranışlar (o an yapılan)" rows={rows(REACTION_CHIPS, data.stats.reactions)} names={names} />
     </Card>
   )
 }

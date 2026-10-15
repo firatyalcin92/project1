@@ -11,10 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GenelGorusRouteImport } from './routes/genel-gorus'
+import { Route as GizlilikRouteImport } from './routes/gizlilik'
+import { Route as HesapRouteImport } from './routes/hesap'
 import { Route as KatilRouteImport } from './routes/katil'
 import { Route as MeselelerRouteImport } from './routes/meseleler'
 import { Route as OlusturRouteImport } from './routes/olustur'
 import { Route as PanelRouteImport } from './routes/panel'
+import { Route as UyelikRouteImport } from './routes/uyelik'
 import { Route as MeseleIdRouteImport } from './routes/mesele.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -25,6 +28,16 @@ const IndexRoute = IndexRouteImport.update({
 const GenelGorusRoute = GenelGorusRouteImport.update({
   id: '/genel-gorus',
   path: '/genel-gorus',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GizlilikRoute = GizlilikRouteImport.update({
+  id: '/gizlilik',
+  path: '/gizlilik',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HesapRoute = HesapRouteImport.update({
+  id: '/hesap',
+  path: '/hesap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KatilRoute = KatilRouteImport.update({
@@ -47,6 +60,11 @@ const PanelRoute = PanelRouteImport.update({
   path: '/panel',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UyelikRoute = UyelikRouteImport.update({
+  id: '/uyelik',
+  path: '/uyelik',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MeseleIdRoute = MeseleIdRouteImport.update({
   id: '/mesele/$id',
   path: '/mesele/$id',
@@ -56,29 +74,38 @@ const MeseleIdRoute = MeseleIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/genel-gorus': typeof GenelGorusRoute
+  '/gizlilik': typeof GizlilikRoute
+  '/hesap': typeof HesapRoute
   '/katil': typeof KatilRoute
   '/meseleler': typeof MeselelerRoute
   '/olustur': typeof OlusturRoute
   '/panel': typeof PanelRoute
+  '/uyelik': typeof UyelikRoute
   '/mesele/$id': typeof MeseleIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/genel-gorus': typeof GenelGorusRoute
+  '/gizlilik': typeof GizlilikRoute
+  '/hesap': typeof HesapRoute
   '/katil': typeof KatilRoute
   '/meseleler': typeof MeselelerRoute
   '/olustur': typeof OlusturRoute
   '/panel': typeof PanelRoute
+  '/uyelik': typeof UyelikRoute
   '/mesele/$id': typeof MeseleIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/genel-gorus': typeof GenelGorusRoute
+  '/gizlilik': typeof GizlilikRoute
+  '/hesap': typeof HesapRoute
   '/katil': typeof KatilRoute
   '/meseleler': typeof MeselelerRoute
   '/olustur': typeof OlusturRoute
   '/panel': typeof PanelRoute
+  '/uyelik': typeof UyelikRoute
   '/mesele/$id': typeof MeseleIdRoute
 }
 export interface FileRouteTypes {
@@ -86,38 +113,50 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/genel-gorus'
+    | '/gizlilik'
+    | '/hesap'
     | '/katil'
     | '/meseleler'
     | '/olustur'
     | '/panel'
+    | '/uyelik'
     | '/mesele/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/genel-gorus'
+    | '/gizlilik'
+    | '/hesap'
     | '/katil'
     | '/meseleler'
     | '/olustur'
     | '/panel'
+    | '/uyelik'
     | '/mesele/$id'
   id:
     | '__root__'
     | '/'
     | '/genel-gorus'
+    | '/gizlilik'
+    | '/hesap'
     | '/katil'
     | '/meseleler'
     | '/olustur'
     | '/panel'
+    | '/uyelik'
     | '/mesele/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GenelGorusRoute: typeof GenelGorusRoute
+  GizlilikRoute: typeof GizlilikRoute
+  HesapRoute: typeof HesapRoute
   KatilRoute: typeof KatilRoute
   MeselelerRoute: typeof MeselelerRoute
   OlusturRoute: typeof OlusturRoute
   PanelRoute: typeof PanelRoute
+  UyelikRoute: typeof UyelikRoute
   MeseleIdRoute: typeof MeseleIdRoute
 }
 
@@ -135,6 +174,20 @@ declare module '@tanstack/react-router' {
       path: '/genel-gorus'
       fullPath: '/genel-gorus'
       preLoaderRoute: typeof GenelGorusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gizlilik': {
+      id: '/gizlilik'
+      path: '/gizlilik'
+      fullPath: '/gizlilik'
+      preLoaderRoute: typeof GizlilikRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hesap': {
+      id: '/hesap'
+      path: '/hesap'
+      fullPath: '/hesap'
+      preLoaderRoute: typeof HesapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/katil': {
@@ -165,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PanelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/uyelik': {
+      id: '/uyelik'
+      path: '/uyelik'
+      fullPath: '/uyelik'
+      preLoaderRoute: typeof UyelikRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mesele/$id': {
       id: '/mesele/$id'
       path: '/mesele/$id'
@@ -178,10 +238,13 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GenelGorusRoute: GenelGorusRoute,
+  GizlilikRoute: GizlilikRoute,
+  HesapRoute: HesapRoute,
   KatilRoute: KatilRoute,
   MeselelerRoute: MeselelerRoute,
   OlusturRoute: OlusturRoute,
   PanelRoute: PanelRoute,
+  UyelikRoute: UyelikRoute,
   MeseleIdRoute: MeseleIdRoute,
 }
 export const routeTree = rootRouteImport

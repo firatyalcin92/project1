@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { FEELINGS, FEELING_AFTER, FEELING_DURING, LEGACY_FEELINGS, OTHER_CHIP } from '~/lib/questions'
+import { FEELINGS, FEELING_AFTER, FEELING_DURING, LEGACY_FEELINGS, OTHER_CHIP, THOUGHTS } from '~/lib/questions'
 import { RelationshipReportSchema, type RelationshipReport, type SharedReport } from '~/lib/report-schemas'
 import { GENERATION_LOCK_MS, OVERVIEW_REFRESH_EVERY, OVERVIEW_THRESHOLD } from '~/lib/status'
 import type { OverviewStats, OverviewStatus, OverviewView, Role } from '~/lib/views'
@@ -49,11 +49,15 @@ async function collect(coupleId: string) {
 
   const stats: OverviewStats = {
     emotions: { A: {}, B: {} },
+    thoughts: { A: {}, B: {} },
     reactions: { A: {}, B: {} },
   }
   const perDispute = new Map<string, OverviewDispute['chips']>()
   for (const d of completed)
-    perDispute.set(d.id, { A: { emotions: [], reactions: [] }, B: { emotions: [], reactions: [] } })
+    perDispute.set(d.id, {
+      A: { emotions: [], thoughts: [], reactions: [] },
+      B: { emotions: [], thoughts: [], reactions: [] },
+    })
 
   const seen = new Set<string>()
   for (const a of answers) {
@@ -63,9 +67,11 @@ async function collect(coupleId: string) {
     // v2: tepki çipleri "dusunce" sorusunda; v1 kayıtları için "tepkiler" de sayılır.
     const bucket = EMOTION_QUESTIONS.includes(a.question_id)
       ? 'emotions'
-      : a.question_id === 'dusunce' || a.question_id === 'tepkiler'
-        ? 'reactions'
-        : null
+      : a.question_id === THOUGHTS
+        ? 'thoughts'
+        : a.question_id === 'dusunce' || a.question_id === 'tepkiler'
+          ? 'reactions'
+          : null
     if (!bucket) continue
     // Aynı his hem sırasında hem sonrasında seçildiyse o mesele için bir kez sayılır.
     const tags = a.selected_tags.filter((t) => {
@@ -139,8 +145,8 @@ export async function ensureOverview(member: AuthedMember): Promise<OverviewView
         chips: perDispute.get(d.id)!,
       })),
       totals: {
-        A: { emotions: stats.emotions.A, reactions: stats.reactions.A },
-        B: { emotions: stats.emotions.B, reactions: stats.reactions.B },
+        A: { emotions: stats.emotions.A, thoughts: stats.thoughts.A, reactions: stats.reactions.A },
+        B: { emotions: stats.emotions.B, thoughts: stats.thoughts.B, reactions: stats.reactions.B },
       },
     })
     const analysis = await generateJson({

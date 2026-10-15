@@ -58,6 +58,15 @@ export function MyReportView({ report, partnerName, solo }: { report: MyReport; 
         <p className="text-[18px] leading-relaxed text-ink">{report.greeting}</p>
       </div>
 
+      {report.history ? (
+        <section className="space-y-2 rounded-2xl border border-honey/40 bg-honey-soft/50 p-4">
+          <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
+            <IconSparkle size={14} className="text-honey" /> Sizi tanıdıkça
+          </p>
+          <Paragraphs text={report.history} className="text-ink" />
+        </section>
+      ) : null}
+
       {/* Eski raporlarda bu alan yok. */}
       {report.feelings ? (
         <section className="space-y-2">
@@ -401,6 +410,14 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
           <IconUnlock size={14} /> Ortak Rapor · Döngü Analizi ve İhtiyaç Aynası
         </Eyebrow>
         <Paragraphs text={report.opening} className="text-[17px] text-ink" />
+        {report.history ? (
+          <div className="space-y-1.5 rounded-2xl border border-honey/40 bg-honey-soft/50 p-4">
+            <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
+              <IconSparkle size={14} className="text-honey" /> Sizi tanıdıkça
+            </p>
+            <Paragraphs text={report.history} className="text-ink" />
+          </div>
+        ) : null}
       </Card>
 
       <Card className="space-y-4">

@@ -8,6 +8,7 @@ import { ReconsiderForm } from '~/components/dispute/reconsider-form'
 import { MyReportView, SharedGate, SharedReportView } from '~/components/dispute/resolution'
 import { useDispute } from '~/components/dispute/use-dispute'
 import { Generating, WaitingForPartner } from '~/components/dispute/waiting'
+import { ReadinessCard, readinessFromView } from '~/components/readiness'
 import { IconArrowRight } from '~/components/icons'
 import { AppShell, BottomBar } from '~/components/layout'
 import { Disclaimer, SafetyNote } from '~/components/safety'
@@ -53,6 +54,7 @@ function DisputePage() {
             partnerName={view!.partner?.name}
             solo={view!.mode === 'solo'}
           />
+          <ReadinessCard readiness={readinessFromView(view!)} />
           <Phase view={view!} onView={query.setView} reflecting={reflecting} setReflecting={setReflecting} />
         </div>
       )}

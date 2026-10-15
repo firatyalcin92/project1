@@ -4,7 +4,16 @@
  * kodu ve Türkçe mesajı güvenle ayırabilir.
  */
 export type ErrorCode =
-  'UNAUTHORIZED' | 'NOT_FOUND' | 'CONFLICT' | 'VALIDATION' | 'RATE_LIMITED' | 'AI_UNAVAILABLE' | 'CONFIG' | 'INTERNAL'
+  | 'UNAUTHORIZED'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'VALIDATION'
+  | 'RATE_LIMITED'
+  | 'AI_UNAVAILABLE'
+  | 'CONFIG'
+  | 'INTERNAL'
+  /** Ücretsiz mesele kullanıldı; devam etmek için üyelik gerekir */
+  | 'PAYMENT_REQUIRED'
 
 export function formatError(code: ErrorCode, message: string) {
   return `[${code}] ${message}`

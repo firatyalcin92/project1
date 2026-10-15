@@ -15,7 +15,9 @@ import {
 import type { AiTask } from '~/server/mesele.server'
 import { ensureOverview, getOverview } from '~/server/overview.server'
 import { createMemoryStore } from '~/server/store-memory.server'
-import { __setStoreForTests } from '~/server/store.server'
+import { approveDeletion, claimTransfer, dismissDeletion, purchase, requestDeletion } from '~/server/account.server'
+import { cancelMyRecovery, createPartnerRecovery, redeemRecovery } from '~/server/couples.server'
+import { __setStoreForTests, getStore } from '~/server/store.server'
 
 /**
  * Uçtan uca alan testleri: bellek içi depo + sahte OpenAI (fetch).
@@ -46,13 +48,37 @@ beforeEach(() => {
       calls.push({ task, system: body.messages[0]!.content, user: body.messages[1]!.content, body })
       await new Promise((r) => setTimeout(r, 20))
       const solo = body.messages[1]!.content.includes('uygulamayı kullanmıyor')
+      // Önceki mesele varsa örnek "Sizi tanıdıkça" metni üretilsin
+      const history = /ÖNCEKİ MESELELER \(en yeniden[^\n]*\n- «« (.+?) »»/.exec(body.messages[1]!.content)?.[1] ?? ''
       const content = JSON.stringify(
-        mockGenerate(task, { a: 'Fırat', b: 'Ayşe', narrator: 'X', reader: 'Y', owner: 'X', partner: 'Y', solo }),
+        mockGenerate(task, {
+          a: 'Fırat',
+          b: 'Ayşe',
+          narrator: 'X',
+          reader: 'Y',
+          owner: 'X',
+          partner: 'Y',
+          solo,
+          history,
+        }),
       )
       return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
     }),
   )
 })
+
+/** Testlerde ödeme yerine doğrudan üyelik tanımlar. */
+async function grantMembership(coupleId: string, memberId: string) {
+  const store = await getStore()
+  await store.createSubscription({
+    couple_id: coupleId,
+    member_id: memberId,
+    period: 'monthly',
+    provider: 'test',
+    provider_ref: null,
+    expires_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+  })
+}
 
 async function pair() {
   const a = await createCouple({ mode: 'couple', displayName: 'Fırat', partnerName: 'Ayşe' })
@@ -70,10 +96,11 @@ const fullAnswers = (
   whatHappened: raw,
   answers: [
     { questionId: 'dusunce' as const, text: '“Yine beni dinlemiyor” diye düşündüm', tags: ['israr', 'uydurma-cip'] },
+    { questionId: 'dusunce_kalip' as const, text: '', tags: ['onemsemiyor', 'hep_boyle', 'israr'] },
     {
       questionId: 'hisler' as const,
       text: 'sıkışmışlık',
-      tags: ['ofkelendim', 'dinlenmedim', 'yalniz', 'diger', 'uydurma-his'],
+      tags: ['ofkelendim', 'kirildim', 'yalniz', 'diger', 'uydurma-his', 'dinlenmedim'],
     },
     { questionId: 'en_etkili' as const, text: 'Çünkü kapı kapanınca tek başıma kaldım', tags: ['yalniz'] },
     { questionId: 'ihtiyac' as const, text: 'Beni duyduğunu söylemesi', tags: [] },
@@ -150,8 +177,9 @@ describe('çift akışı: ham cevaplar partnere dönmez, analiz hepsini kullanı
     expect(afterA.mine.answers.dusunce.tags).toEqual(['israr']) // geçersiz çip ayıklanır
     expect(afterA.mine.answers.hisler).toEqual({
       text: 'sıkışmışlık',
-      tags: ['ofkelendim', 'dinlenmedim', 'yalniz', 'diger'],
+      tags: ['ofkelendim', 'kirildim', 'yalniz', 'diger'], // eski/çıkarılmış his ('dinlenmedim') kabul edilmez
     })
+    expect(afterA.mine.answers.dusunce_kalip.tags).toEqual(['onemsemiyor', 'hep_boyle']) // davranış çipi düşünceye girmez
     expect(afterA.mine.answers.en_etkili).toEqual({ text: 'Çünkü kapı kapanınca tek başıma kaldım', tags: ['yalniz'] })
     await expect(saveAnswers(ma, fullAnswers(id))).rejects.toThrow(/\[CONFLICT\]/)
 
@@ -280,6 +308,7 @@ describe('taslak kaydı yarışı', () => {
 describe('Genel Görüş', () => {
   it('10 meseleden önce kilitli, sonra 9 bölümlük rapor tek kez üretilir', async () => {
     const { ma, mb } = await pair()
+    await grantMembership(ma.coupleId, ma.id)
     for (let i = 0; i < 10; i++) {
       const { id } = await createDispute(ma, `Mesele ${i + 1}`)
       await saveAnswers(ma, fullAnswers(id))
@@ -304,10 +333,12 @@ describe('Genel Görüş', () => {
     expect(o.status).toBe('ready')
     expect(o.report?.horsemen.items).toHaveLength(4)
     // Hem sırasında hem sonrasında seçilen his, mesele başına bir kez sayılır.
-    expect(o.stats.emotions.A.dinlenmedim).toBe(10)
+    expect(o.stats.emotions.A.kirildim).toBe(10)
+    expect(o.stats.thoughts.A.hep_boyle).toBe(10)
     expect(o.stats.emotions.B.ofkelendim).toBe(10)
     expect(o.stats.emotions.A.diger).toBeUndefined()
-    expect(calls[0]!.user).toContain('Dinlenmediğimi hissettim')
+    expect(calls[0]!.user).toContain('Kırıldım')
+    expect(calls[0]!.user).toContain('Hep böyle oluyor, hiç değişmeyecek: 10')
     expect(o.stats.reactions.B.israr).toBe(10)
     expect(o.canRefresh).toBe(false)
   })
@@ -434,7 +465,7 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     await saveAnswers(
       ma,
       feelingAnswers(id, {
-        hisler: { text: RAW_OTHER, tags: ['ofkelendim', 'dinlenmedim', 'yalniz', 'diger'] },
+        hisler: { text: RAW_OTHER, tags: ['ofkelendim', 'kirildim', 'yalniz', 'diger'] },
         en_etkili: { text: RAW_WHY, tags: ['yalniz'] },
       }),
     )
@@ -449,8 +480,14 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     await ensurePerspectives(ma, id)
     const fromA = calls.find((c) => c.task === 'perspective' && c.user.includes('FIRAT-HAM-CEVAP'))!
     expect(fromA.user).toContain(
-      'Tartışma sırasında ve sonrasında hissettikleri: Öfkelendim [öfke ve haksızlık]; Dinlenmediğimi hissettim',
+      'Tartışma sırasında ve sonrasında hissettikleri (DUYGU): Öfkelendim [öfke]; Kırıldım [kırgınlık ve üzüntü]; Yalnız hissettim [kırgınlık ve üzüntü]',
     )
+    expect(fromA.user).toContain(
+      'Aklından geçenler (DÜŞÜNCE — seçtiği kalıplar): Beni önemsemiyor [partnerin niyetine dair yorum]; Hep böyle oluyor, hiç değişmeyecek [genelleme (hep / hiç)]',
+    )
+    expect(fromA.user).toContain('O an yaptıkları (DAVRANIŞ): Üstüne gittim, ısrar ettim [üstüne gitme / takip]')
+    expect(fromA.system).toMatch(/## Duygu, düşünce ve davranışı ayır/)
+    expect(fromA.system).toMatch(/cezalandırma isteği/)
     expect(fromA.user).toContain(`kendi ifadesiyle: «« ${RAW_OTHER} »»`)
     expect(fromA.user).toContain('Onu en çok etkileyen his: Yalnız hissettim\n')
     expect(fromA.user).toContain(`Nedeni: «« ${RAW_WHY} »»`)
@@ -505,5 +542,188 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     expect(a.couple.name).toBe('Fırat & Ayşe Gül')
     const b = await joinCouple({ code: a.couple.code, displayName: 'ilknur' })
     expect(b.member.name).toBe('İlknur')
+  })
+})
+
+/** Bir meseleyi iki taraf için de sonuna kadar götürür. */
+async function completeDispute(ma: Awaited<ReturnType<typeof pair>>['ma'], mb: typeof ma, title: string) {
+  const { id } = await createDispute(ma, title)
+  await saveAnswers(ma, fullAnswers(id, RAW_A))
+  await saveAnswers(mb, fullAnswers(id, RAW_B))
+  await ensurePerspectives(ma, id)
+  await saveReconsideration(ma, reflections(id))
+  await saveReconsideration(mb, reflections(id))
+  await ensureReports(ma, id)
+  return id
+}
+
+describe('üyelik: bir mesele ücretsiz, sonrası çift düzeyinde üyelik', () => {
+  it('ikinci mesele üyelik ister; birinin alması ikisine yeter', async () => {
+    const { ma, mb } = await pair()
+    await completeDispute(ma, mb, 'İlk')
+    await expect(createDispute(mb, 'İkinci')).rejects.toThrow(/\[PAYMENT_REQUIRED\]/)
+    expect((await buildPanel(ma)).membership).toMatchObject({ active: false, canCreateDispute: false, disputesUsed: 1 })
+
+    // Ödeme altyapısı yokken satın alma kapalı
+    await expect(purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: true })).rejects.toThrow(/\[CONFIG\]/)
+
+    vi.stubEnv('MESELE_PAYMENTS', 'test')
+    await expect(purchase(ma, { period: 'monthly', keyBackedUp: false, codeSaved: true })).rejects.toThrow(
+      /anahtarınızı yedekleyin/,
+    )
+    const m = await purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: false })
+    expect(m).toMatchObject({ active: true, period: 'monthly', purchasedByMe: true, canCreateDispute: true })
+    expect((await buildPanel(mb)).membership).toMatchObject({ active: true, purchasedByMe: false })
+    await expect(createDispute(mb, 'İkinci')).resolves.toBeTruthy()
+  })
+
+  it('partner katılmadıysa çift kodunun saklandığı onaylanmalı', async () => {
+    vi.stubEnv('MESELE_PAYMENTS', 'test')
+    const a = await createCouple({ mode: 'couple', displayName: 'Fırat', partnerName: 'Ayşe' })
+    const ma = await authenticateMember(a.token)
+    await expect(purchase(ma, { period: 'weekly', keyBackedUp: true, codeSaved: false })).rejects.toThrow(
+      /Çift kodunuzu/,
+    )
+    const m = await purchase(ma, { period: 'weekly', keyBackedUp: true, codeSaved: true })
+    expect(m.period).toBe('weekly')
+    // Uzatma: süre üstüne eklenir
+    const longer = await purchase(ma, { period: 'yearly', keyBackedUp: true, codeSaved: true })
+    expect(Date.parse(longer.expiresAt!) - Date.parse(m.expiresAt!)).toBeGreaterThan(364 * 86_400_000)
+  })
+})
+
+describe('cihaz kurtarma: partnerin ürettiği tek kullanımlık kod', () => {
+  it('kod 12 saat bekledikten sonra, çift koduyla birlikte bir kez çalışır; eski anahtar geçersiz olur', async () => {
+    const { a, b, ma, mb } = await pair()
+    const { code, partnerName } = await createPartnerRecovery(ma)
+    expect(partnerName).toBe('Ayşe')
+    expect(code).toMatch(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/)
+
+    // Kötüye kullanıma karşı: hemen çalışmaz; hesap sahibi uyarı görür
+    await expect(redeemRecovery({ coupleCode: a.couple.code, recoveryCode: code })).rejects.toThrow(
+      /çalışmaya başlayacak/,
+    )
+    expect((await buildPanel(mb)).recoveryPending).toMatchObject({ createdByName: 'Fırat' })
+    expect((await buildPanel(ma)).recoveryPending).toBeNull()
+
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(Date.now() + 13 * 60 * 60 * 1000)
+      // Başka bir çiftin koduyla denenirse kod harcanmaz
+      const other = await createCouple({ mode: 'couple', displayName: 'Mert', partnerName: 'Ece' })
+      await expect(redeemRecovery({ coupleCode: other.couple.code, recoveryCode: code })).rejects.toThrow(
+        /\[NOT_FOUND\]/,
+      )
+      const s = await redeemRecovery({
+        coupleCode: a.couple.code.toLowerCase(),
+        recoveryCode: code.replace('-', ' '),
+      })
+      expect(s.member.id).toBe(b.member.id)
+      expect(s.token).not.toBe(b.token)
+      await expect(authenticateMember(b.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
+      expect((await authenticateMember(s.token)).id).toBe(b.member.id)
+      await expect(redeemRecovery({ coupleCode: a.couple.code, recoveryCode: code })).rejects.toThrow(/\[NOT_FOUND\]/)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('hesap sahibi istemediği kodu iptal edebilir', async () => {
+    const { a, ma, mb } = await pair()
+    const { code } = await createPartnerRecovery(ma)
+    await cancelMyRecovery(mb)
+    expect((await buildPanel(mb)).recoveryPending).toBeNull()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(Date.now() + 13 * 60 * 60 * 1000)
+      await expect(redeemRecovery({ coupleCode: a.couple.code, recoveryCode: code })).rejects.toThrow(/\[NOT_FOUND\]/)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('partner yoksa kod üretilemez', async () => {
+    const solo = await createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: 'Ayşe' })
+    await expect(createPartnerRecovery(await authenticateMember(solo.token))).rejects.toThrow(/\[CONFLICT\]/)
+  })
+})
+
+describe('tüm verileri sil: partnerin onayıyla; üyelik aktarılabilir', () => {
+  it('çift modunda partner onaylayınca silinir, satın alana aktarım kodu verilir', async () => {
+    const { a, b, ma, mb } = await pair()
+    await completeDispute(ma, mb, 'Ev işleri')
+    await grantMembership(ma.coupleId, ma.id)
+
+    const r = await requestDeletion(ma)
+    expect(r.deleted).toBe(false)
+    expect(r.transferCode).toMatch(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/)
+    expect((await buildPanel(mb)).deletion).toMatchObject({ requestedByMe: false, requesterName: 'Fırat' })
+    await expect(approveDeletion(ma)).rejects.toThrow(/\[CONFLICT\]/) // kendi talebini onaylayamaz
+    await expect(requestDeletion(mb)).rejects.toThrow(/\[CONFLICT\]/)
+
+    // Reddedilirse hiçbir şey silinmez
+    await dismissDeletion(mb)
+    expect((await buildPanel(ma)).deletion).toBeNull()
+    expect((await buildPanel(ma)).completedCount).toBe(1)
+
+    const again = await requestDeletion(ma)
+    const done = await approveDeletion(mb)
+    expect(done).toEqual({ deleted: true, transferCode: null }) // onaylayan satın alan değil
+    await expect(authenticateMember(a.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
+    await expect(authenticateMember(b.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
+
+    // Kalan süre yeni bir bireysel hesaba taşınır
+    const solo = await createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: 'Ayşe' })
+    const ms = await authenticateMember(solo.token)
+    const moved = await claimTransfer(ms, again.transferCode!)
+    expect(moved).toMatchObject({ active: true, purchasedByMe: true })
+    await expect(claimTransfer(ms, again.transferCode!)).rejects.toThrow(/\[NOT_FOUND\]/)
+  })
+
+  it('bireysel modda ya da partner katılmadıysa hemen silinir', async () => {
+    const solo = await createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: 'Ayşe' })
+    const ms = await authenticateMember(solo.token)
+    expect(await requestDeletion(ms)).toEqual({ deleted: true, transferCode: null })
+    await expect(authenticateMember(solo.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
+  })
+})
+
+describe('meseleler arası bağlam ve hazır olma durumu', () => {
+  it('ikinci meselede danışman öncekini hatırlar; partnerin kişisel raporu karışmaz', async () => {
+    const { ma, mb } = await pair()
+    await grantMembership(ma.coupleId, ma.id)
+    await completeDispute(ma, mb, 'Ev işleri')
+    calls = []
+    await completeDispute(ma, mb, 'Annemlerin ziyareti')
+    const shared = calls.find((c) => c.task === 'shared_report')!
+    expect(shared.user).toContain('ÖNCEKİ MESELELER')
+    expect(shared.user).toContain('«« Ev işleri »»')
+    expect(shared.user).not.toContain('Kendinde değiştirmeyi seçtiği') // ortak rapora kişisel rapor girmez
+    const mine = calls.filter((c) => c.task === 'my_report')
+    expect(mine).toHaveLength(2)
+    for (const m of mine) {
+      expect(m.user).toContain('«« Ev işleri »»')
+      expect(m.user).toContain('Kendinde değiştirmeyi seçtiği')
+      expect(m.user).toMatch(/- history: /)
+    }
+    const v = await getDisputeView(ma, (await buildPanel(ma)).recent[0]!.id)
+    expect(v.report?.mine?.history).toContain('Ev işleri')
+  })
+
+  it('ilk meselede history boştur', async () => {
+    const { ma, mb } = await pair()
+    calls = []
+    await completeDispute(ma, mb, 'İlk')
+    expect(calls.find((c) => c.task === 'shared_report')!.user).toContain('ÖNCEKİ MESELELER: yok')
+  })
+
+  it('partnerin başladığı görünür ama içeriği görünmez', async () => {
+    const { ma, mb } = await pair()
+    const { id } = await createDispute(ma, 'Taslak')
+    expect((await getDisputeView(ma, id)).progress.partnerStarted).toBe(false)
+    await saveAnswers(mb, { ...fullAnswers(id, 'TASLAK-HAM yarım kalan anlatım burada duruyor'), submit: false })
+    const v = await getDisputeView(ma, id)
+    expect(v.progress).toMatchObject({ partnerStarted: true, partnerSubmitted: false })
+    expect(JSON.stringify(v)).not.toContain('TASLAK-HAM')
   })
 })

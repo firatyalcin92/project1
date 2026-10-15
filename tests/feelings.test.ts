@@ -12,9 +12,12 @@ import {
 import { describeFeelings } from '~/server/prompts.server'
 
 describe('his listesi', () => {
-  it('7 grup, sadeleştirilmiş 30 his ve benzersiz kimlikler', () => {
-    expect(FEELING_GROUPS).toHaveLength(7)
-    expect(FEELING_CHIPS).toHaveLength(30)
+  it('yalnızca duygular: 5 grup, 17 duygu ve benzersiz kimlikler', () => {
+    expect(FEELING_GROUPS).toHaveLength(5)
+    expect(FEELING_CHIPS).toHaveLength(17)
+    // Düşünce ve davranış olanlar duygu listesinde yok
+    for (const id of ['haksizlik', 'anlasilmadim', 'ice_kapandim', 'savunma_zorunlu'])
+      expect(FEELING_CHIPS.map((c) => c.id)).not.toContain(id)
     const ids = FEELING_CHIPS.map((c) => c.id)
     expect(new Set(ids).size).toBe(ids.length)
     for (const id of ids) expect(id).toMatch(/^[a-z_]{2,32}$/)
@@ -62,11 +65,15 @@ describe('his listesi', () => {
       his_sonrasinda: { tags: ['yalniz', 'kirildim'], text: '' },
     })
     expect(opts.map((o) => [o.id, o.when])).toEqual([
+      ['ofkelendim', 'during'],
       ['yalniz', 'both'],
       ['kirildim', 'after'],
-      ['ofkelendim', 'during'],
       ['diger_sirasinda', 'during'],
     ])
+    // Listeden çıkarılmış bir his de eski kayıtta adıyla görünür
+    expect(strongestOptions({ his_sirasinda: { tags: ['dinlenmedim'], text: '' } })[0]?.label).toBe(
+      'Dinlenmediğimi hissettim',
+    )
   })
 })
 
@@ -86,14 +93,16 @@ describe('eski kayıtlarla uyum', () => {
         { question_id: 'en_etkili', text_answer: '', selected_tags: ['yalniz'] },
       ],
     })
-    expect(lines[0]).toBe('Tartışma SIRASINDA hissettikleri: Öfkelendim [öfke ve haksızlık]')
+    expect(lines[0]).toBe('Tartışma SIRASINDA hissettikleri: Öfkelendim [öfke]')
     expect(lines[2]).toContain('sonradan ortaya çıkan: Yalnız hissettim')
     expect(lines[3]).toBe('Onu en çok etkileyen his: Yalnız hissettim (tartışma sonrasında)')
   })
 
   it('his seçilmemişse danışmana tahmin yürütmemesi söylenir', () => {
     const lines = describeFeelings({ answers: [{ question_id: 'hisler', text_answer: '', selected_tags: [] }] })
-    expect(lines).toEqual(['Tartışma sırasında ve sonrasında hissettikleri: işaretlemedi (bilgi yok; tahmin yürütme)'])
+    expect(lines).toEqual([
+      'Tartışma sırasında ve sonrasında hissettikleri (DUYGU): işaretlemedi (bilgi yok; tahmin yürütme)',
+    ])
   })
 
   it('his cevabı hiç yoksa satır eklenmez', () => {

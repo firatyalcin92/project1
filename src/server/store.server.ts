@@ -106,6 +106,38 @@ export type RelationshipReportRow = {
 
 export type Lock = { lockedAt: string }
 
+export type PlanPeriod = 'weekly' | 'monthly' | 'yearly'
+
+export type SubscriptionRow = {
+  id: string
+  couple_id: string | null
+  member_id: string | null
+  period: PlanPeriod
+  provider: string
+  provider_ref: string | null
+  started_at: string
+  expires_at: string
+  transfer_code_hash: string | null
+  created_at: string
+}
+
+export type RecoveryInput = {
+  member_id: string
+  created_by: string
+  code_hash: string
+  usable_after: string
+  expires_at: string
+}
+
+export type RecoveryRow = RecoveryInput & { used_at: string | null; created_at: string }
+
+export type DeletionRequestRow = {
+  id: string
+  couple_id: string
+  requested_by: string
+  created_at: string
+}
+
 export interface Store {
   readonly kind: 'supabase' | 'memory'
 
@@ -158,6 +190,35 @@ export interface Store {
   releaseStatus(disputeId: string, lock: Lock, backTo: DisputeStatus): Promise<boolean>
   finishPerspectives(disputeId: string, lock: Lock, perspectives: Record<string, unknown>): Promise<boolean>
   finishReports(disputeId: string, lock: Lock, shared: unknown, reports: Record<string, unknown>): Promise<boolean>
+
+  /** Tüm veriyi siler (meseleler, cevaplar, raporlar, üyeler). Üyelik satırı kalır. */
+  deleteCouple(coupleId: string): Promise<void>
+  setMemberTokenHash(memberId: string, hash: string): Promise<void>
+
+  // Üyelik
+  getActiveSubscription(coupleId: string, now: string): Promise<SubscriptionRow | null>
+  createSubscription(
+    input: Pick<SubscriptionRow, 'couple_id' | 'member_id' | 'period' | 'provider' | 'provider_ref' | 'expires_at'>,
+  ): Promise<SubscriptionRow>
+  extendSubscription(id: string, expiresAt: string): Promise<void>
+  setSubscriptionTransfer(id: string, hash: string): Promise<void>
+  /** Aktarım koduyla, sahipsiz ve süresi dolmamış bir üyeliği yeni çifte bağlar (atomik). */
+  claimSubscription(hash: string, coupleId: string, memberId: string, now: string): Promise<SubscriptionRow | null>
+
+  // Partnerin ürettiği yeniden bağlanma kodu
+  createRecovery(input: RecoveryInput): Promise<void>
+  /** Bu üyelerden birine ait, bekleme süresi geçmiş, kullanılmamış ve süresi dolmamış kodu tek seferlik kullanır (atomik). */
+  useRecovery(hash: string, memberIds: string[], now: string): Promise<{ member_id: string } | null>
+  /** Kullanılmamış ve süresi dolmamış kod (bekleme süresi dolmamış olsa da). */
+  findRecovery(hash: string, memberIds: string[], now: string): Promise<RecoveryRow | null>
+  /** Bu üye için bekleyen (kullanılmamış, süresi dolmamış) en yeni kod. */
+  getPendingRecovery(memberId: string, now: string): Promise<RecoveryRow | null>
+  cancelRecoveries(memberId: string): Promise<void>
+
+  // Silme talebi
+  getDeletionRequest(coupleId: string): Promise<DeletionRequestRow | null>
+  createDeletionRequest(coupleId: string, memberId: string): Promise<DeletionRequestRow | 'exists'>
+  deleteDeletionRequest(coupleId: string): Promise<void>
 
   countCompletedDisputes(coupleId: string): Promise<number>
   getLatestRelationshipReport(coupleId: string): Promise<RelationshipReportRow | null>

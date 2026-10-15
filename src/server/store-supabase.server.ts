@@ -5,17 +5,34 @@ import { MeseleError } from './errors.server'
 import type {
   AnswerRow,
   CoupleRow,
+  DeletionRequestRow,
   DisputeRow,
   EntryRow,
   Lock,
   MemberRow,
   ReconsiderationRow,
+  RecoveryRow,
   RelationshipReportRow,
   ReportRow,
   Store,
+  SubscriptionRow,
 } from './store.server'
 
 const UNIQUE_VIOLATION = '23505'
+
+/**
+ * guncelleme-uyelik.sql henüz çalıştırılmadıysa okuma tarafı uygulamayı
+ * kilitlemesin: tablo yoksa "üyelik yok / talep yok" sayılır (yazmalar yine hata verir).
+ */
+let warnedMissing = false
+function tableMissing(error: PostgrestError | null) {
+  const missing = error?.code === 'PGRST205' || error?.code === '42P01'
+  if (missing && !warnedMissing) {
+    warnedMissing = true
+    console.error('[mesele] Üyelik tabloları yok: supabase/guncelleme-uyelik.sql dosyasını SQL Editor’de çalıştırın.')
+  }
+  return missing
+}
 
 function check(error: PostgrestError | null, context: string) {
   if (error) {
@@ -208,6 +225,140 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
       })
       check(error, 'finishReports')
       return data === true
+    },
+
+    async deleteCouple(coupleId) {
+      // Meseleler, cevaplar, raporlar ve üyeler "on delete cascade" ile silinir; üyelik kalır.
+      const { error } = await db.from('couples').delete().eq('id', coupleId)
+      check(error, 'deleteCouple')
+    },
+
+    async setMemberTokenHash(memberId, hash) {
+      const { error } = await db.from('couple_members').update({ auth_token_hash: hash }).eq('id', memberId)
+      check(error, 'setMemberTokenHash')
+    },
+
+    async getActiveSubscription(coupleId, at) {
+      const { data, error } = await db
+        .from('subscriptions')
+        .select()
+        .eq('couple_id', coupleId)
+        .gt('expires_at', at)
+        .order('expires_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (tableMissing(error)) return null
+      check(error, 'getActiveSubscription')
+      return (data as SubscriptionRow | null) ?? null
+    },
+
+    async createSubscription(input) {
+      const { data, error } = await db.from('subscriptions').insert(input).select().single()
+      check(error, 'createSubscription')
+      return data as SubscriptionRow
+    },
+
+    async extendSubscription(id, expiresAt) {
+      const { error } = await db.from('subscriptions').update({ expires_at: expiresAt }).eq('id', id)
+      check(error, 'extendSubscription')
+    },
+
+    async setSubscriptionTransfer(id, hash) {
+      const { error } = await db.from('subscriptions').update({ transfer_code_hash: hash }).eq('id', id)
+      check(error, 'setSubscriptionTransfer')
+    },
+
+    async claimSubscription(hash, coupleId, memberId, at) {
+      const { data, error } = await db
+        .from('subscriptions')
+        .update({ couple_id: coupleId, member_id: memberId, transfer_code_hash: null })
+        .eq('transfer_code_hash', hash)
+        .is('couple_id', null)
+        .gt('expires_at', at)
+        .select()
+        .maybeSingle()
+      check(error, 'claimSubscription')
+      return (data as SubscriptionRow | null) ?? null
+    },
+
+    async createRecovery(input) {
+      const del = await db.from('member_recovery').delete().eq('member_id', input.member_id).is('used_at', null)
+      check(del.error, 'createRecovery.cleanup')
+      const { error } = await db.from('member_recovery').insert(input)
+      check(error, 'createRecovery')
+    },
+
+    async useRecovery(hash, memberIds, at) {
+      if (memberIds.length === 0) return null
+      const { data, error } = await db
+        .from('member_recovery')
+        .update({ used_at: at })
+        .eq('code_hash', hash)
+        .in('member_id', memberIds)
+        .is('used_at', null)
+        .lte('usable_after', at)
+        .gt('expires_at', at)
+        .select('member_id')
+        .maybeSingle()
+      check(error, 'useRecovery')
+      return (data as { member_id: string } | null) ?? null
+    },
+
+    async findRecovery(hash, memberIds, at) {
+      if (memberIds.length === 0) return null
+      const { data, error } = await db
+        .from('member_recovery')
+        .select()
+        .eq('code_hash', hash)
+        .in('member_id', memberIds)
+        .is('used_at', null)
+        .gt('expires_at', at)
+        .maybeSingle()
+      check(error, 'findRecovery')
+      return (data as RecoveryRow | null) ?? null
+    },
+
+    async getPendingRecovery(memberId, at) {
+      const { data, error } = await db
+        .from('member_recovery')
+        .select()
+        .eq('member_id', memberId)
+        .is('used_at', null)
+        .gt('expires_at', at)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (tableMissing(error)) return null
+      check(error, 'getPendingRecovery')
+      return (data as RecoveryRow | null) ?? null
+    },
+
+    async cancelRecoveries(memberId) {
+      const { error } = await db.from('member_recovery').delete().eq('member_id', memberId).is('used_at', null)
+      check(error, 'cancelRecoveries')
+    },
+
+    async getDeletionRequest(coupleId) {
+      const { data, error } = await db.from('deletion_requests').select().eq('couple_id', coupleId).maybeSingle()
+      if (tableMissing(error)) return null
+      check(error, 'getDeletionRequest')
+      return (data as DeletionRequestRow | null) ?? null
+    },
+
+    async createDeletionRequest(coupleId, memberId) {
+      const { data, error } = await db
+        .from('deletion_requests')
+        .insert({ couple_id: coupleId, requested_by: memberId })
+        .select()
+        .single()
+      if (error?.code === UNIQUE_VIOLATION) return 'exists'
+      check(error, 'createDeletionRequest')
+      return data as DeletionRequestRow
+    },
+
+    async deleteDeletionRequest(coupleId) {
+      const { error } = await db.from('deletion_requests').delete().eq('couple_id', coupleId)
+      check(error, 'deleteDeletionRequest')
     },
 
     async countCompletedDisputes(coupleId) {

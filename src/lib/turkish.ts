@@ -102,6 +102,14 @@ export function formatDate(iso: string | null | undefined) {
   return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso))
 }
 
+/** Gün ve saat: "16 Ekim 09:30" */
+export function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return ''
+  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(
+    new Date(iso),
+  )
+}
+
 export function formatMonth(iso: string) {
   return new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(new Date(iso))
 }

@@ -6,6 +6,13 @@ import type { AuthedMember } from './auth.server'
 import { authenticateMember } from './auth.server'
 import { generateCoupleCode, generateMemberToken, hashMemberToken } from './crypto.server'
 import { fail } from './errors.server'
+import {
+  deletionFor,
+  generateReadableCode,
+  hashReadableCode,
+  membershipFor,
+  normalizeReadableCode,
+} from './account.server'
 import { activeSummary, summarize } from './disputes.server'
 import { overviewStatus } from './overview.server'
 import { getStore, type CoupleRow, type MemberRow } from './store.server'
@@ -136,5 +143,101 @@ export async function buildPanel(member: AuthedMember): Promise<PanelView> {
       completed: completed.length,
       status: await overviewStatus(member.coupleId, completed.length),
     },
+    membership: await membershipFor(member.coupleId, member.id),
+    deletion: await deletionFor(member.coupleId, member.id),
+    recoveryPending: couple.mode === 'solo' ? null : await pendingRecoveryFor(member, members),
   }
+}
+
+// ---------------------------------------------------------------------------
+// Cihazını kaybeden partner için yeniden bağlanma kodu
+// ---------------------------------------------------------------------------
+
+/**
+ * Kötüye kullanıma karşı: kod üretildikten ancak bir bekleme süresi (varsayılan 12 saat) sonra çalışır.
+ * Bu sürede hesap sahibinin (hâlâ açıksa) eski cihazında uyarı görünür ve iptal edebilir.
+ */
+const recoveryDelayMs = () => {
+  // Yalnızca sunucu tarafında, işletmeci tarafından değiştirilebilir (ör. testler için 0).
+  const minutes = Number(process.env.MESELE_RECOVERY_DELAY_MINUTES ?? 720)
+  return Number.isFinite(minutes) && minutes >= 0 ? minutes * 60 * 1000 : 12 * 60 * 60 * 1000
+}
+const RECOVERY_VALID_MS = 48 * 60 * 60 * 1000
+
+/**
+ * Partnerinin cihazı kaybolduysa (anahtarı yedeklenmemişse) diğer partner ona tek
+ * kullanımlık bir kod üretir. Kod çift koduyla birlikte kullanılır; eski cihazdaki
+ * anahtar geçersiz olur.
+ */
+export async function createPartnerRecovery(member: AuthedMember) {
+  const store = await getStore()
+  const partner = (await store.listMembers(member.coupleId)).find((m) => m.id !== member.id)
+  if (!partner) return fail('CONFLICT', 'Partneriniz henüz katılmadı.')
+  const code = generateReadableCode(8)
+  const delay = recoveryDelayMs()
+  const usableAfter = new Date(Date.now() + delay).toISOString()
+  const expiresAt = new Date(Date.now() + delay + RECOVERY_VALID_MS).toISOString()
+  await store.createRecovery({
+    member_id: partner.id,
+    created_by: member.id,
+    code_hash: await hashReadableCode(code),
+    usable_after: usableAfter,
+    expires_at: expiresAt,
+  })
+  return { code, usableAfter, expiresAt, partnerName: partner.display_name }
+}
+
+/** Hesap sahibi "bu kodu ben istemedim" der: bekleyen kodlar iptal edilir. */
+export async function cancelMyRecovery(member: AuthedMember) {
+  const store = await getStore()
+  await store.cancelRecoveries(member.id)
+  return { cancelled: true }
+}
+
+/** Bu üye için bekleyen kurtarma kodu (panelde uyarı için) */
+export async function pendingRecoveryFor(member: AuthedMember, members: MemberRow[]) {
+  const store = await getStore()
+  const r = await store.getPendingRecovery(member.id, new Date().toISOString())
+  if (!r) return null
+  return {
+    createdByName: members.find((m) => m.id === r.created_by)?.display_name ?? null,
+    usableAfter: r.usable_after,
+  }
+}
+
+export async function redeemRecovery(input: { coupleCode: string; recoveryCode: string }): Promise<SessionResult> {
+  const coupleCode = normalizeCode(input.coupleCode)
+  const recovery = normalizeReadableCode(input.recoveryCode)
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(coupleCode) || !/^[A-HJ-NP-Z2-9]{8}$/.test(recovery)) {
+    fail('VALIDATION', 'Çift kodu 6, yeniden bağlanma kodu 8 karakterdir.')
+  }
+  const store = await getStore()
+  const couple = await store.getCoupleByCode(coupleCode)
+  const notFound = () =>
+    fail('NOT_FOUND', 'Kodlar eşleşmedi ya da sürenin dolduğu görülüyor. Partnerinizden yeni bir kod isteyin.')
+  if (!couple) return notFound()
+  const members = await store.listMembers(couple.id)
+  const ids = members.map((m) => m.id)
+  const hash = await hashReadableCode(recovery)
+  const at = new Date().toISOString()
+  const used = await store.useRecovery(hash, ids, at)
+  if (!used) {
+    const waiting = await store.findRecovery(hash, ids, at)
+    if (waiting && waiting.usable_after > at) {
+      const when = new Date(waiting.usable_after).toLocaleString('tr-TR', {
+        timeZone: 'Europe/Istanbul',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      return fail('CONFLICT', `Güvenliğiniz için bu kod ${when} itibarıyla çalışmaya başlayacak.`)
+    }
+    return notFound()
+  }
+  const target = members.find((m) => m.id === used.member_id)
+  if (!target) return notFound()
+  const token = generateMemberToken()
+  await store.setMemberTokenHash(target.id, await hashMemberToken(token))
+  return session(token, target, couple)
 }
