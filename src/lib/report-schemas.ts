@@ -84,6 +84,12 @@ export const SharedReportSchema = z.object({
       .array(
         z.object({
           partner: z.enum(['A', 'B']).describe('Bu adımdaki kişi'),
+          short: z
+            .string()
+            .min(1)
+            .describe(
+              'Döngü çemberinde kişinin adının altında gösterilecek 2-5 kelimelik özet, ad OLMADAN. Örn: "odadan çıkıyor"',
+            ),
           trigger: z.string().min(1).describe('Bu adımı tetikleyen şey (olay ya da partnerin bir önceki tepkisi)'),
           feeling: z.string().min(1).describe('İçeride hissedilen birincil duygu'),
           reaction: z.string().min(1).describe('Dışarıya yansıyan otomatik tepki'),
@@ -97,6 +103,37 @@ export const SharedReportSchema = z.object({
       .min(1)
       .describe('Döngüyü dışsallaştıran cümle: düşmanınız birbiriniz değil, aranıza yerleşen bu dans.'),
   }),
+  breakCycle: z
+    .object({
+      explain: z
+        .string()
+        .min(1)
+        .describe(
+          'Bu çift için döngüyü kırmanın ne demek olduğu, 2-3 sade cümle: çatışmayı yok etmek değil biçimini değiştirmek; birinin fark edip adını koyması bile yeter.',
+        ),
+      namingPhrase: z
+        .string()
+        .min(1)
+        .describe(
+          'Döngü başladığında ikisinden birinin söyleyeceği, döngünün adını anan kısa, gündelik cümle, tırnaksız.',
+        ),
+      exits: z
+        .array(
+          z.object({
+            partner: z.enum(['A', 'B']),
+            moment: z.string().min(1).describe('Döngüde bu kişinin kendi otomatik tepkisine geçmek üzere olduğu an'),
+            instead: z
+              .string()
+              .min(1)
+              .describe('O an bunun yerine yapacağı küçük, gündelik, bu meseleye özgü davranış'),
+            say: z.string().min(1).describe('O an söyleyeceği kısa cümle, tırnaksız, "sen" hitabıyla partnerine'),
+          }),
+        )
+        .min(2)
+        .max(2)
+        .describe('Her partnerin döngüden çıkış kapısı: önce A, sonra B. Kendi payını görmek.'),
+    })
+    .describe('Döngüyü kırmak: isimlendirme ve her birinin kendi çıkış kapısı.'),
   whoIsRight: z.object({
     answer: z.string().min(1).describe("'Kim haklı?' sorusuna dürüst ama hüküm vermeyen, 2-3 cümlelik cevap."),
     pointA: z.string().min(1).describe('A kişisinin gerçekten haklı olduğu nokta, adıyla.'),
@@ -122,7 +159,9 @@ export const SharedReportSchema = z.object({
     )
     .min(3)
     .max(3)
-    .describe('Döngü yeniden başladığında kullanılacak tam 3 pratik mola / onarım adımı.'),
+    .describe(
+      'Döngü yeniden başladığında kullanılacak tam 3 adım: yumuşak başlangıç, mola, onarım girişimini kabul etmek.',
+    ),
   tonight: z.string().min(1).describe('Bugün için somut, küçük bir yeniden bağlanma önerisi.'),
   closing: z.string().min(1).describe('Umut veren, kısa kapanış.'),
   safety: Safety,
@@ -142,7 +181,7 @@ export const MyReportSchema = z.object({
     .string()
     .min(1)
     .describe(
-      'Okuyanın tartışma sırasında ve sonrasında hissettiklerinin yorumu, 3-5 cümle: aradaki değişim, en çok etkileyen his ve nedeni; olay ve karşılanmamış ihtiyaçla bağlantısı. Hisleri liste hâlinde sayma; tanı koyma; bilgi yetersizse belirsizliği söyle.',
+      'Okuyanın tartışma sırasında ve sonrasında hissettiklerinin yorumu, 3-5 cümle: hisler arasındaki ilişki, en çok etkileyen his ve nedeni; olay ve karşılanmamış ihtiyaçla bağlantısı. Hisleri liste hâlinde sayma; tanı koyma; bilgi yetersizse belirsizliği söyle.',
     ),
   partnerInner: z
     .string()

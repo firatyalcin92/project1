@@ -188,25 +188,25 @@ completed ◄─ generating_reports ◄─ reconsideration_completed ◄─ reco
 | **1. Anlat**                    | Olay · O an düşünce (+ tepki çipleri) · Tartışma sırasında / sonrasında hisler · En çok etkileyen his ve nedeni · İhtiyaç · Partnerin ihtiyacı · Kendinde değiştireceğin |
 | **2. Partnerinin Gözünden Gör** | "[Ad]'ın Gözünden" metni + partnerin paylaştığı ham yanıtlar + senin anlatımının ona nasıl yansıtıldığı                                                                  |
 | **3. Yeniden Değerlendir**      | Ne dokundu · Altında ne olabilir · Kendi payına dair yeni fark · Ona tek cümle · Yakınlık (1–5, yalnızca sana)                                                           |
-| **4. Çözüm Raporu**             | Sana Özel Ayna (hemen) + Ortak Rapor: Ortak Döngünüz, Kim Haklı?, Temel İhtiyaç Kesişimi, 3 onarım adımı, "Bugün için"                                                   |
+| **4. Çözüm Raporu**             | Sana Özel Ayna (hemen) + Ortak Rapor: Ortak Döngünüz (çember), Döngüden çıkış kapıları, Kim Haklı?, Temel İhtiyaç Kesişimi, 3 onarım adımı, "Bugün için"                 |
 
 **Gizlilik (v2):** Ayrı bir "özel/açık" seçeneği yoktur — tıpkı çift seansında olduğu gibi. Kullanıcıya "Cevaplarınız
 eşinize olduğu gibi gösterilmez; danışman analizde kullanır ve ihtiyaç diliyle yansıtabilir" hatırlatması gösterilir.
 Partner hiçbir zaman diğerinin ham cevabını görmez; yalnızca danışmanın yazdığı metinleri görür.
 
-**His soruları (v3):** 3. soruda iki ayrı çoklu seçim alanı vardır: _A · Tartışma sırasında_ ve _B · Tartışma
-sonrasında_ (7 grupta 55 seçenek + "Başka bir şey hissettim" metni). Seçim zorunlu değildir; 7'den fazla seçilince
+**His soruları (v3):** 3. soru, "Tartışma sırasında ve sonrasında neler hissettiniz?" diye tek bir çoklu seçim
+listesi gösterir (7 grupta 55 seçenek + "Başka bir şey hissettim" metni). Seçim zorunlu değildir; 7'den fazla seçilince
 nazik bir hatırlatma çıkar. 4. soru, işaretlenen hisler arasından en çok etkileyeni ve (isteğe bağlı) nedenini sorar.
 Hepsi `answers` tablosunda ayrı satırlarda saklanır, şema değişikliği gerekmez:
 
-| `question_id`    | `selected_tags`                     | `text_answer`         |
-| ---------------- | ----------------------------------- | --------------------- |
-| `his_sirasinda`  | tartışma sırasında seçilen hisler   | "başka bir şey" metni |
-| `his_sonrasinda` | tartışma sonrasında seçilen hisler  | "başka bir şey" metni |
-| `en_etkili`      | en çok etkileyen his (tek)          | nedeni                |
-| `duygular`       | v2'den kalan eski kayıtlar (okunur) | eski "diğer" metni    |
+| `question_id`                     | `selected_tags`                     | `text_answer`         |
+| --------------------------------- | ----------------------------------- | --------------------- |
+| `hisler`                          | seçilen hisler                      | "başka bir şey" metni |
+| `en_etkili`                       | en çok etkileyen his (tek)          | nedeni                |
+| `his_sirasinda`, `his_sonrasinda` | kısa süre kullanılan iki ayrı liste | (yalnızca okunur)     |
+| `duygular`                        | v2'den kalan eski kayıtlar          | (yalnızca okunur)     |
 
-Danışman istemleri hisleri liste olarak tekrar etmez; sırasında → sonrasında değişimini, en çok etkileyen hissi ve
+Danışman istemleri hisleri liste olarak tekrar etmez; hisler arasındaki ilişkiyi, en çok etkileyen hissi ve
 bunların olay ve ihtiyaçla bağlantısını değerlendirir (tanı koymadan, bir partnerin hissini diğerinin niyetine kanıt
 saymadan, bilgi yetersizse belirsizliği söyleyerek). Kişisel raporda "Hislerinizin izi" bölümü bu yorumu taşır.
 

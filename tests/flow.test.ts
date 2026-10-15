@@ -71,11 +71,10 @@ const fullAnswers = (
   answers: [
     { questionId: 'dusunce' as const, text: '“Yine beni dinlemiyor” diye düşündüm', tags: ['israr', 'uydurma-cip'] },
     {
-      questionId: 'his_sirasinda' as const,
+      questionId: 'hisler' as const,
       text: 'sıkışmışlık',
-      tags: ['ofkelendim', 'dinlenmedim', 'diger', 'uydurma-his'],
+      tags: ['ofkelendim', 'dinlenmedim', 'yalniz', 'diger', 'uydurma-his'],
     },
-    { questionId: 'his_sonrasinda' as const, text: '', tags: ['yalniz', 'kirildim', 'dinlenmedim'] },
     { questionId: 'en_etkili' as const, text: 'Çünkü kapı kapanınca tek başıma kaldım', tags: ['yalniz'] },
     { questionId: 'ihtiyac' as const, text: 'Beni duyduğunu söylemesi', tags: [] },
     { questionId: 'partner_ihtiyac' as const, text: 'Yorgun olduğunu fark etmemi', tags: [] },
@@ -149,11 +148,10 @@ describe('çift akışı: ham cevaplar partnere dönmez, analiz hepsini kullanı
     expect(afterA.status).toBe('answers_in_progress')
     expect(afterA.mine.reflection).toBe(r.reflection)
     expect(afterA.mine.answers.dusunce.tags).toEqual(['israr']) // geçersiz çip ayıklanır
-    expect(afterA.mine.answers.his_sirasinda).toEqual({
+    expect(afterA.mine.answers.hisler).toEqual({
       text: 'sıkışmışlık',
-      tags: ['ofkelendim', 'dinlenmedim', 'diger'],
+      tags: ['ofkelendim', 'dinlenmedim', 'yalniz', 'diger'],
     })
-    expect(afterA.mine.answers.his_sonrasinda.tags).toEqual(['yalniz', 'kirildim', 'dinlenmedim'])
     expect(afterA.mine.answers.en_etkili).toEqual({ text: 'Çünkü kapı kapanınca tek başıma kaldım', tags: ['yalniz'] })
     await expect(saveAnswers(ma, fullAnswers(id))).rejects.toThrow(/\[CONFLICT\]/)
 
@@ -326,7 +324,7 @@ describe('çift oluşturma: çift adı sorulmaz', () => {
   })
 })
 
-describe('his soruları (sırasında / sonrasında / en çok etkileyen)', () => {
+describe('his soruları (tek liste + en çok etkileyen)', () => {
   const RAW_WHY = 'NEDEN-HAM-CEVAP o an bana bir yabancı gibi baktı'
   const RAW_OTHER = 'DIGER-HAM-HIS içimde bir boşluk'
 
@@ -342,7 +340,7 @@ describe('his soruları (sırasında / sonrasında / en çok etkileyen)', () => 
     }
   }
 
-  it('her alan ayrı satırda, doğru kişiye bağlı saklanır; partner göremez', async () => {
+  it('his listesi ve en etkili his ayrı satırlarda, doğru kişiye bağlı saklanır; partner göremez', async () => {
     const store = createMemoryStore()
     __setStoreForTests(store)
     const { ma, mb } = await pair()
@@ -350,22 +348,18 @@ describe('his soruları (sırasında / sonrasında / en çok etkileyen)', () => 
     await saveAnswers(
       ma,
       feelingAnswers(id, {
-        his_sirasinda: { text: '', tags: ['ofkelendim', 'haksizlik'] },
-        his_sonrasinda: { text: RAW_OTHER, tags: ['yalniz', 'diger'] },
+        hisler: { text: RAW_OTHER, tags: ['ofkelendim', 'yalniz', 'diger'] },
         en_etkili: { text: RAW_WHY, tags: ['yalniz'] },
       }),
     )
 
     const rows = (await store.getAnswers([id])).filter((r) => r.member_id === ma.id)
     const row = (q: string) => rows.find((r) => r.question_id === q)
-    expect(row('his_sirasinda')?.selected_tags).toEqual(['ofkelendim', 'haksizlik'])
-    expect(row('his_sonrasinda')?.selected_tags).toEqual(['yalniz', 'diger'])
-    expect(row('his_sonrasinda')?.text_answer).toBe(RAW_OTHER)
+    expect(row('hisler')?.selected_tags).toEqual(['ofkelendim', 'yalniz', 'diger'])
+    expect(row('hisler')?.text_answer).toBe(RAW_OTHER)
     expect(row('en_etkili')?.selected_tags).toEqual(['yalniz'])
     expect(row('en_etkili')?.text_answer).toBe(RAW_WHY)
-    expect(rows.every((r) => r.member_id === ma.id)).toBe(true)
 
-    // Partnerin görünümünde bu cevaplar yok
     const vb = await getDisputeView(mb, id)
     expect(vb.mine.answers.en_etkili).toEqual({ text: '', tags: [] })
     expect(JSON.stringify(vb)).not.toContain('NEDEN-HAM-CEVAP')
@@ -378,83 +372,53 @@ describe('his soruları (sırasında / sonrasında / en çok etkileyen)', () => 
     const set = (o: Record<string, { text: string; tags: string[] }>) =>
       saveAnswers(ma, { ...feelingAnswers(id, o), submit: false })
 
-    // Seçilmemiş bir his "en etkili" olamaz; neden metni korunur.
-    let v = await set({
-      his_sirasinda: { text: '', tags: ['ofkelendim'] },
-      his_sonrasinda: { text: '', tags: [] },
-      en_etkili: { text: 'çünkü', tags: ['yalniz'] },
-    })
+    let v = await set({ hisler: { text: '', tags: ['ofkelendim'] }, en_etkili: { text: 'çünkü', tags: ['yalniz'] } })
     expect(v.mine.answers.en_etkili).toEqual({ text: 'çünkü', tags: [] })
 
-    // Birden fazla gönderilirse yalnızca ilk geçerli olan kalır.
     v = await set({
-      his_sirasinda: { text: '', tags: ['ofkelendim', 'kirildim'] },
-      his_sonrasinda: { text: '', tags: [] },
+      hisler: { text: '', tags: ['ofkelendim', 'kirildim'] },
       en_etkili: { text: '', tags: ['uydurma', 'kirildim', 'ofkelendim'] },
     })
     expect(v.mine.answers.en_etkili.tags).toEqual(['kirildim'])
 
-    // "Başka bir şey" seçili değilse metin tutulmaz; metin yoksa "diger" düşer.
-    v = await set({
-      his_sirasinda: { text: 'yazı ama çip yok', tags: ['ofkelendim'] },
-      his_sonrasinda: { text: '  ', tags: ['diger'] },
-      en_etkili: { text: '', tags: [] },
-    })
-    expect(v.mine.answers.his_sirasinda).toEqual({ text: '', tags: ['ofkelendim'] })
-    expect(v.mine.answers.his_sonrasinda).toEqual({ text: '', tags: [] })
+    v = await set({ hisler: { text: 'yazı ama çip yok', tags: ['ofkelendim'] }, en_etkili: { text: '', tags: [] } })
+    expect(v.mine.answers.hisler).toEqual({ text: '', tags: ['ofkelendim'] })
+    v = await set({ hisler: { text: '  ', tags: ['diger'] }, en_etkili: { text: '', tags: [] } })
+    expect(v.mine.answers.hisler).toEqual({ text: '', tags: [] })
 
     // Kendi yazdığı his de "en etkili" seçilebilir.
-    v = await set({
-      his_sirasinda: { text: '', tags: [] },
-      his_sonrasinda: { text: 'boşluk', tags: ['diger'] },
-      en_etkili: { text: '', tags: ['diger_sonrasinda'] },
-    })
-    expect(v.mine.answers.en_etkili.tags).toEqual(['diger_sonrasinda'])
+    v = await set({ hisler: { text: 'boşluk', tags: ['diger'] }, en_etkili: { text: '', tags: ['diger'] } })
+    expect(v.mine.answers.en_etkili.tags).toEqual(['diger'])
 
-    // His soruları isteğe bağlıdır: hiç seçim yapmadan gönderilebilir.
+    // His soruları isteğe bağlıdır.
     v = await saveAnswers(ma, {
-      ...feelingAnswers(id, {
-        his_sirasinda: { text: '', tags: [] },
-        his_sonrasinda: { text: '', tags: [] },
-        en_etkili: { text: '', tags: [] },
-      }),
+      ...feelingAnswers(id, { hisler: { text: '', tags: [] }, en_etkili: { text: '', tags: [] } }),
       submit: true,
     })
     expect(v.mine.submittedAt).toBeTruthy()
   })
 
-  it('yapay zekâ istemleri hisleri, değişimi ve en çok etkileyen hissi kullanır', async () => {
+  it('yapay zekâ istemleri hisleri ve en çok etkileyen hissi kullanır; ortak rapor döngü kırma rehberini içerir', async () => {
     const { ma, mb } = await pair()
-    const { id } = await createDispute(ma, 'Akşam yemeği')
+    const { id } = await createDispute(ma, 'Ev işleri')
     await saveAnswers(
       ma,
       feelingAnswers(id, {
-        his_sirasinda: { text: '', tags: ['ofkelendim', 'dinlenmedim'] },
-        his_sonrasinda: { text: RAW_OTHER, tags: ['yalniz', 'dinlenmedim', 'diger'] },
+        hisler: { text: RAW_OTHER, tags: ['ofkelendim', 'dinlenmedim', 'yalniz', 'diger'] },
         en_etkili: { text: RAW_WHY, tags: ['yalniz'] },
       }),
     )
     await saveAnswers(
       mb,
-      feelingAnswers(
-        id,
-        {
-          his_sirasinda: { text: '', tags: [] },
-          his_sonrasinda: { text: '', tags: [] },
-          en_etkili: { text: '', tags: [] },
-        },
-        RAW_B,
-      ),
+      feelingAnswers(id, { hisler: { text: '', tags: [] }, en_etkili: { text: '', tags: [] } }, RAW_B),
     )
     await ensurePerspectives(ma, id)
     const fromA = calls.find((c) => c.task === 'perspective' && c.user.includes('FIRAT-HAM-CEVAP'))!
-    expect(fromA.user).toContain('Tartışma SIRASINDA hissettikleri: Öfkelendim [öfke ve haksızlık]; Dinlenmediğimi')
-    expect(fromA.user).toContain('Tartışma SONRASINDA hissettikleri: Yalnız hissettim')
-    expect(fromA.user).toContain(`kendi ifadesiyle: «« ${RAW_OTHER} »»`)
-    expect(fromA.user).toMatch(
-      /Değişim: sonrasında da süren: Dinlenmediğimi hissettim \| yalnızca sırasında: Öfkelendim \| sonradan ortaya çıkan: Yalnız hissettim/,
+    expect(fromA.user).toContain(
+      'Tartışma sırasında ve sonrasında hissettikleri: Öfkelendim [öfke ve haksızlık]; Dinlenmediğimi hissettim',
     )
-    expect(fromA.user).toContain('Onu en çok etkileyen his: Yalnız hissettim (tartışma sonrasında)')
+    expect(fromA.user).toContain(`kendi ifadesiyle: «« ${RAW_OTHER} »»`)
+    expect(fromA.user).toContain('Onu en çok etkileyen his: Yalnız hissettim\n')
     expect(fromA.user).toContain(`Nedeni: «« ${RAW_WHY} »»`)
     expect(fromA.user).toMatch(/niyetinin kanıtı gibi sunma/)
     expect(fromA.system).toMatch(/## Duygular/)
@@ -462,14 +426,11 @@ describe('his soruları (sırasında / sonrasında / en çok etkileyen)', () => 
     expect(fromA.system).toMatch(/tanı çıkarma/)
     expect(fromA.system).toMatch(/belirsizliği açıkça söyle/)
     expect(fromA.system).toMatch(/eşit ciddiyetle/)
+    expect(fromA.system).toMatch(/## Sade ve gündelik ol/)
+    expect(fromA.system).toMatch(/Yürüyüşe çıkmak/)
 
-    // His seçmeyen partner için "tahmin yürütme" notu
     const fromB = calls.find((c) => c.task === 'perspective' && c.user.includes('AYSE-HAM-CEVAP'))!
     expect(fromB.user).toContain('işaretlemedi (bilgi yok; tahmin yürütme)')
-
-    // Partnerin okuyacağı görünüm ham "neden" metnini taşımaz
-    const vb = await getDisputeView(mb, id)
-    expect(JSON.stringify(vb)).not.toContain('NEDEN-HAM-CEVAP')
 
     await saveReconsideration(ma, reflections(id))
     await saveReconsideration(mb, reflections(id))
@@ -477,11 +438,29 @@ describe('his soruları (sırasında / sonrasında / en çok etkileyen)', () => 
     await ensureReports(ma, id)
     const mine = calls.filter((c) => c.task === 'my_report')
     expect(mine).toHaveLength(2)
-    for (const m of mine) expect(m.user).toMatch(/- feelings: .*LİSTE HÂLİNDE TEKRAR ETMEDEN/)
+    for (const m of mine) {
+      expect(m.user).toMatch(/- feelings: .*LİSTE HÂLİNDE TEKRAR ETMEDEN/)
+      expect(m.user).toContain('Döngüyü adlandırma cümlesi') // ortak rapordakini tekrar etmez
+    }
     const shared = calls.find((c) => c.task === 'shared_report')!
-    expect(shared.user).toContain(RAW_WHY) // ortak analiz de kullanır…
-    expect(shared.user).toMatch(/Hisleri liste hâlinde sayma; ikisinin duygularına eşit yer ver/)
-    const va = await getDisputeView(ma, id)
-    expect(va.report?.mine?.feelings).toBeTruthy()
+    expect(shared.user).toContain(RAW_WHY)
+    expect(shared.user).toMatch(/DÖNGÜ KIRMA REHBERİ/)
+    expect(shared.user).toMatch(/çatışmanın biçimini değiştirmektir/)
+    expect(shared.user).toMatch(/Onarım girişimini kabul etmek/)
+    expect(shared.user).toMatch(/short alanı ad olmadan 2-5 kelime/)
+
+    await approveSharedReport(ma, id)
+    const vb = await approveSharedReport(mb, id)
+    expect(vb.report?.shared?.report?.breakCycle.exits).toHaveLength(2)
+    expect(vb.report?.shared?.report?.cycle.steps[0]?.short).toBeTruthy()
+    expect(vb.report?.mine?.feelings).toBeTruthy()
+  })
+
+  it('isimler büyük harfle başlar', async () => {
+    const a = await createCouple({ mode: 'couple', displayName: 'fırat', partnerName: 'ayşe gül' })
+    expect(a.member.name).toBe('Fırat')
+    expect(a.couple.name).toBe('Fırat & Ayşe Gül')
+    const b = await joinCouple({ code: a.couple.code, displayName: 'ilknur' })
+    expect(b.member.name).toBe('İlknur')
   })
 })

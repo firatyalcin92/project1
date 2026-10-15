@@ -4,7 +4,7 @@ import { dative, genitive, locative } from './turkish'
  * MESELE soru seti (v3) — danışman sesiyle, adım adım.
  *
  * olay -> içten geçen düşünce (+ o an ne yapıldı) -> [danışman yansıtması]
- *      -> tartışma sırasında hissedilenler -> tartışma sonrasında hissedilenler
+ *      -> tartışma sırasında ve sonrasında hissedilenler (tek liste)
  *      -> en çok etkileyen his ve nedeni
  *      -> kendi ihtiyacı -> partnerin ihtiyacı (bakış açısı alma) -> kendinde değiştireceği
  *
@@ -15,9 +15,9 @@ import { dative, genitive, locative } from './turkish'
  * Çip kimlikleri veritabanına yazılır; etiketleri değiştirmek eski kayıtları bozmaz.
  *
  * Saklama (answers tablosu, her satır bir question_id):
- * - his_sirasinda   selected_tags = tartışma sırasında seçilen hisler, text_answer = "başka bir şey" metni
- * - his_sonrasinda  selected_tags = tartışma sonrasında seçilen hisler, text_answer = "başka bir şey" metni
+ * - hisler          selected_tags = tartışma sırasında ve sonrasında seçilen hisler, text_answer = "başka bir şey" metni
  * - en_etkili       selected_tags = [en çok etkileyen his], text_answer = nedeni (isteğe bağlı)
+ * - his_sirasinda / his_sonrasinda  kısa süre iki ayrı listeyle toplanan kayıtlar (yalnızca okunur)
  * - duygular        v2'den kalan eski kayıtlar (yalnızca okunur)
  */
 
@@ -181,12 +181,17 @@ export const PATTERN_LABEL: Record<string, string> = {
   asagilama: 'alay / küçümseme',
 }
 
+export const FEELINGS = 'hisler'
+export const STRONGEST_FEELING = 'en_etkili'
+/** Kısa süre kullanılan iki ayrı liste (sırasında / sonrasında) — eski kayıtlar için. */
 export const FEELING_DURING = 'his_sirasinda'
 export const FEELING_AFTER = 'his_sonrasinda'
-export const STRONGEST_FEELING = 'en_etkili'
 export const LEGACY_FEELINGS = 'duygular'
 
-/** En çok etkileyen his "başka bir şey" metinlerinden biriyse bu kimlikler saklanır. */
+/**
+ * En çok etkileyen his kullanıcının kendi yazdığı "başka bir şey" ise: tek listede OTHER_CHIP,
+ * eski iki listeli kayıtlarda bu kimlikler saklanır.
+ */
 export const STRONGEST_OTHER = { during: 'diger_sirasinda', after: 'diger_sonrasinda' } as const
 
 /** Bir his kimliğinin etiketi (yeni liste önce, sonra eski v2 listesi). */
@@ -203,20 +208,12 @@ export function chipLabel(questionId: string, chipId: string): string {
     if (chipId === OTHER_CHIP) return 'Diğer'
     return LEGACY_EMOTION_CHIPS.find((c) => c.id === chipId)?.label ?? chipId
   }
-  if (questionId === FEELING_DURING || questionId === FEELING_AFTER || questionId === STRONGEST_FEELING)
-    return feelingLabel(chipId)
+  if ([FEELINGS, FEELING_DURING, FEELING_AFTER, STRONGEST_FEELING].includes(questionId)) return feelingLabel(chipId)
   return REACTION_CHIPS.find((c) => c.id === chipId)?.label ?? chipId
 }
 
 export type QuestionId =
-  | 'olay'
-  | 'dusunce'
-  | typeof FEELING_DURING
-  | typeof FEELING_AFTER
-  | typeof STRONGEST_FEELING
-  | 'ihtiyac'
-  | 'partner_ihtiyac'
-  | 'degisim'
+  'olay' | 'dusunce' | typeof FEELINGS | typeof STRONGEST_FEELING | 'ihtiyac' | 'partner_ihtiyac' | 'degisim'
 
 /** text: serbest metin (+ isteğe bağlı çip); feelings: gruplu çoklu seçim; strongest: tek seçim + neden */
 export type QuestionKind = 'text' | 'feelings' | 'strongest'
@@ -284,27 +281,12 @@ export const QUESTIONS: readonly Question[] = [
     minLength: 5,
   },
   {
-    id: FEELING_DURING,
+    id: FEELINGS,
     kind: 'feelings',
     number: 3,
-    title: 'Tartışma sırasında hissettikleriniz',
+    title: 'Hissettikleriniz',
     prompt: () => FEELINGS_PROMPT,
-    section: 'A · Tartışma sırasında',
     helper: FEELINGS_HELPER,
-    placeholder: 'Kendi kelimelerinizle…',
-    examples: () => [],
-    textRequired: false,
-    minLength: 0,
-  },
-  {
-    id: FEELING_AFTER,
-    kind: 'feelings',
-    number: 3,
-    title: 'Tartışma sonrasında hissettikleriniz',
-    prompt: () => 'Peki tartışma bittikten sonra neler hissettiniz?',
-    section: 'B · Tartışma sonrasında',
-    helper:
-      'Bazı hisler devam etmiş, bazıları sonradan ortaya çıkmış olabilir. Aynı seçenekler burada yeniden var; size uyanları işaretleyin.',
     placeholder: 'Kendi kelimelerinizle…',
     examples: () => [],
     textRequired: false,
@@ -379,8 +361,7 @@ export const QUESTION_COUNT = Math.max(...QUESTIONS.map((q) => q.number))
 /** Olay anlatımı dispute_entries tablosunda, diğerleri answers tablosunda tutulur. */
 export const ANSWER_QUESTION_IDS = [
   'dusunce',
-  FEELING_DURING,
-  FEELING_AFTER,
+  FEELINGS,
   STRONGEST_FEELING,
   'ihtiyac',
   'partner_ihtiyac',
@@ -392,25 +373,33 @@ export type AnswerQuestionId = (typeof ANSWER_QUESTION_IDS)[number]
 export const REFLECTION_ANSWER_ID = 'yansima'
 
 export function allowedChipsFor(questionId: string): readonly string[] {
-  if (questionId === FEELING_DURING || questionId === FEELING_AFTER)
+  if (questionId === FEELINGS || questionId === FEELING_DURING || questionId === FEELING_AFTER)
     return [...FEELING_CHIPS.map((c) => c.id), OTHER_CHIP]
   if (questionId === STRONGEST_FEELING)
-    return [...FEELING_CHIPS.map((c) => c.id), STRONGEST_OTHER.during, STRONGEST_OTHER.after]
+    return [...FEELING_CHIPS.map((c) => c.id), OTHER_CHIP, STRONGEST_OTHER.during, STRONGEST_OTHER.after]
   if (questionId === 'dusunce') return REACTION_CHIPS.map((c) => c.id)
   return []
 }
 
-export type StrongestOption = { id: string; label: string; when: 'during' | 'after' | 'both' }
+export type FeelingDraft = { tags: readonly string[]; text: string }
+/** when: yalnızca eski iki listeli kayıtlarda bilinir. */
+export type StrongestOption = { id: string; label: string; when: 'during' | 'after' | 'both' | null }
 
 /**
- * "En çok etkileyen his" için seçenekler: iki alanda işaretlenen hisler (birleşik)
- * ve yazılan "başka bir şey" metinleri.
+ * "En çok etkileyen his" için seçenekler: işaretlenen hisler ve yazılan "başka bir şey" metni.
+ * answers içinde "hisler" varsa tek liste kullanılır; yoksa eski iki liste birleştirilir.
  */
-export function strongestOptions(
-  during: { tags: readonly string[]; text: string },
-  after: { tags: readonly string[]; text: string },
-): StrongestOption[] {
+export function strongestOptions(answers: Partial<Record<string, FeelingDraft>>): StrongestOption[] {
   const out: StrongestOption[] = []
+  const merged = answers[FEELINGS]
+  if (merged) {
+    for (const c of FEELING_CHIPS) if (merged.tags.includes(c.id)) out.push({ id: c.id, label: c.label, when: null })
+    if (merged.tags.includes(OTHER_CHIP) && merged.text.trim())
+      out.push({ id: OTHER_CHIP, label: merged.text.trim(), when: null })
+    return out
+  }
+  const during = answers[FEELING_DURING] ?? { tags: [], text: '' }
+  const after = answers[FEELING_AFTER] ?? { tags: [], text: '' }
   for (const c of FEELING_CHIPS) {
     const d = during.tags.includes(c.id)
     const a = after.tags.includes(c.id)
@@ -423,7 +412,7 @@ export function strongestOptions(
   return out
 }
 
-export const WHEN_LABEL: Record<StrongestOption['when'], string> = {
+export const WHEN_LABEL: Record<NonNullable<StrongestOption['when']>, string> = {
   during: 'tartışma sırasında',
   after: 'tartışma sonrasında',
   both: 'hem sırasında hem sonrasında',

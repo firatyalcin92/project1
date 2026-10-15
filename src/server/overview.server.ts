@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { FEELING_AFTER, FEELING_DURING, LEGACY_FEELINGS, OTHER_CHIP } from '~/lib/questions'
+import { FEELINGS, FEELING_AFTER, FEELING_DURING, LEGACY_FEELINGS, OTHER_CHIP } from '~/lib/questions'
 import { RelationshipReportSchema, type RelationshipReport, type SharedReport } from '~/lib/report-schemas'
 import { GENERATION_LOCK_MS, OVERVIEW_REFRESH_EVERY, OVERVIEW_THRESHOLD } from '~/lib/status'
 import type { OverviewStats, OverviewStatus, OverviewView, Role } from '~/lib/views'
@@ -9,7 +9,7 @@ import { generateJson } from './mesele.server'
 import { buildRelationshipPrompt, type OverviewDispute } from './prompts.server'
 import { getStore, type RelationshipReportRow } from './store.server'
 
-const EMOTION_QUESTIONS: string[] = [FEELING_DURING, FEELING_AFTER, LEGACY_FEELINGS]
+const EMOTION_QUESTIONS: string[] = [FEELINGS, FEELING_DURING, FEELING_AFTER, LEGACY_FEELINGS]
 
 /** Genel Görüş istemine giren en fazla mesele sayısı (en yeniler). */
 const MAX_DISPUTES_IN_PROMPT = 20
@@ -59,7 +59,7 @@ async function collect(coupleId: string) {
   for (const a of answers) {
     const role = roleOf.get(a.member_id)
     if (!role) continue
-    // v3: hisler "his_sirasinda" + "his_sonrasinda"; eski "duygular" kayıtları da sayılır.
+    // v3: "hisler" (ve kısa süre kullanılan "his_sirasinda" / "his_sonrasinda"); eski "duygular" da sayılır.
     // v2: tepki çipleri "dusunce" sorusunda; v1 kayıtları için "tepkiler" de sayılır.
     const bucket = EMOTION_QUESTIONS.includes(a.question_id)
       ? 'emotions'

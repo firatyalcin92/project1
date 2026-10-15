@@ -4,8 +4,7 @@ import { reflectAnswersFn, saveAnswersFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import {
   ANSWER_QUESTION_IDS,
-  FEELING_AFTER,
-  FEELING_DURING,
+  FEELINGS,
   FEELING_GROUPS,
   FEELING_SOFT_MAX,
   LIMITS,
@@ -46,7 +45,7 @@ function pageComplete(page: Page, d: Draft): boolean {
 
 /** Mevcut taslağa göre "en çok etkileyen his" seçenekleri. */
 function optionsFor(d: Pick<Draft, 'answers'>) {
-  return strongestOptions(d.answers[FEELING_DURING], d.answers[FEELING_AFTER])
+  return strongestOptions(d.answers)
 }
 
 function toPayload(disputeId: string, d: Draft, submit: boolean) {
@@ -128,7 +127,7 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
 
   // His sorusuna gelince, ilk iki cevap değiştiyse danışman yeniden yansıtır.
   useEffect(() => {
-    if (page !== FEELING_DURING) return
+    if (page !== FEELINGS) return
     const key = `${draft.whatHappened}\u0000${draft.answers.dusunce.text}`
     if (reflectedFor.current === '__saved__') {
       reflectedFor.current = key
@@ -197,8 +196,8 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
             partnerName={partnerName}
             update={update}
             setAnswer={setAnswer}
-            reflection={page === FEELING_DURING ? reflection : null}
-            reflecting={page === FEELING_DURING && reflect.isPending}
+            reflection={page === FEELINGS ? reflection : null}
+            reflecting={page === FEELINGS && reflect.isPending}
           />
         )}
       </div>
@@ -517,9 +516,11 @@ function StrongestPicker({
               )}
             >
               <span className="text-[15px] leading-snug font-medium">{o.label}</span>
-              <span className={cx('shrink-0 text-[12px]', selected === o.id ? 'text-on-clay/80' : 'text-ink-faint')}>
-                {WHEN_LABEL[o.when]}
-              </span>
+              {o.when ? (
+                <span className={cx('shrink-0 text-[12px]', selected === o.id ? 'text-on-clay/80' : 'text-ink-faint')}>
+                  {WHEN_LABEL[o.when]}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>

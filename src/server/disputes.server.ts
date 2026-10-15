@@ -1,8 +1,7 @@
 import '@tanstack/react-start/server-only'
 import {
   ANSWER_QUESTION_IDS,
-  FEELING_AFTER,
-  FEELING_DURING,
+  FEELINGS,
   LIMITS,
   OTHER_CHIP,
   QUESTIONS,
@@ -323,8 +322,8 @@ type AnswerInput = SaveAnswersInput['answers'][number]
 
 /**
  * Çipleri izinli listeyle sınırla, metinleri kırp.
- * - His alanlarında "başka bir şey" seçili değilse metin tutulmaz.
- * - En çok etkileyen his tek seçimdir ve aynı gönderimde iki his alanından birinde
+ * - His listesinde "başka bir şey" seçili değilse metin tutulmaz.
+ * - En çok etkileyen his tek seçimdir ve aynı gönderimde his listesinde
  *   işaretlenmiş olmalıdır; değilse seçim düşer (nedeni korunur).
  */
 export function normalizeAnswers(input: AnswerInput[]): AnswerInput[] {
@@ -333,7 +332,7 @@ export function normalizeAnswers(input: AnswerInput[]): AnswerInput[] {
     const allowed = allowedChipsFor(a.questionId)
     let tags = [...new Set(a.tags)].filter((t) => allowed.includes(t))
     let text = a.text.trim()
-    if (a.questionId === FEELING_DURING || a.questionId === FEELING_AFTER) {
+    if (a.questionId === FEELINGS) {
       text = tags.includes(OTHER_CHIP) ? text.slice(0, LIMITS.other) : ''
       if (!text) tags = tags.filter((t) => t !== OTHER_CHIP)
     } else {
@@ -344,8 +343,7 @@ export function normalizeAnswers(input: AnswerInput[]): AnswerInput[] {
 
   const strongest = byId.get(STRONGEST_FEELING)
   if (strongest) {
-    const blank = { tags: [] as string[], text: '' }
-    const options = strongestOptions(byId.get(FEELING_DURING) ?? blank, byId.get(FEELING_AFTER) ?? blank)
+    const options = strongestOptions({ [FEELINGS]: byId.get(FEELINGS) ?? { tags: [], text: '' } })
     const pick = strongest.tags.find((t) => options.some((o) => o.id === t))
     strongest.tags = pick ? [pick] : []
   }

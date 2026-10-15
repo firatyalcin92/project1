@@ -15,7 +15,8 @@ function cleanName(raw: string, max: number, label: string) {
   if (name.length < 1) fail('VALIDATION', `${label} boş kalamaz.`)
   if (name.length > max) fail('VALIDATION', `${label} en fazla ${max} karakter olabilir.`)
   if (/[<>{}\\]/.test(name)) fail('VALIDATION', `${label} içinde özel karakter kullanma.`)
-  return name
+  // "fırat" -> "Fırat", "ayşe gül" -> "Ayşe Gül" (Türkçe büyük harf: i -> İ)
+  return name.replace(/(^|\s)(\p{Ll})/gu, (_, sp: string, ch: string) => sp + ch.toLocaleUpperCase('tr'))
 }
 
 /** Kullanıcının yazdığı kodu normalize et: boşluk/tire temizle, büyük harfe çevir. */

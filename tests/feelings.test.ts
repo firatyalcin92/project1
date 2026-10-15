@@ -20,21 +20,21 @@ describe('his listesi', () => {
     expect(FEELING_CHIPS.map((c) => c.label)).toContain('Kendimi çaresizce açıklamaya çalıştım')
   })
 
-  it('soru akışı: 7 soru, iki his alanı aynı soru numarasında', () => {
+  it('soru akışı: 7 soru, 7 sayfa; sırasında ve sonrasında tek listede', () => {
     expect(QUESTION_COUNT).toBe(7)
     expect(QUESTIONS.map((q) => q.id)).toEqual([
       'olay',
       'dusunce',
-      'his_sirasinda',
-      'his_sonrasinda',
+      'hisler',
       'en_etkili',
       'ihtiyac',
       'partner_ihtiyac',
       'degisim',
     ])
-    const during = QUESTIONS.find((q) => q.id === 'his_sirasinda')!
-    expect(during.prompt('')).toBe('Tartışma sırasında ve sonrasında neler hissettiniz?')
-    expect(during.number).toBe(QUESTIONS.find((q) => q.id === 'his_sonrasinda')!.number)
+    expect(QUESTIONS.map((q) => q.number)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(QUESTIONS.find((q) => q.id === 'hisler')!.prompt('')).toBe(
+      'Tartışma sırasında ve sonrasında neler hissettiniz?',
+    )
     expect(QUESTIONS.find((q) => q.id === 'en_etkili')!.prompt('')).toBe(
       'Seçtiğiniz hisler arasından sizi en çok etkileyen hangisiydi? Neden?',
     )
@@ -42,18 +42,27 @@ describe('his listesi', () => {
     for (const id of ANSWER_QUESTION_IDS) expect(id).toMatch(/^[a-z_]{2,32}$/)
   })
 
-  it('en etkili his seçenekleri iki alanın birleşimidir', () => {
-    const opts = strongestOptions(
-      { tags: ['ofkelendim', 'yalniz', 'diger'], text: 'boşluk' },
-      { tags: ['yalniz', 'kirildim'], text: '' },
-    )
+  it('en etkili his seçenekleri işaretlenen hislerden oluşur', () => {
+    const opts = strongestOptions({ hisler: { tags: ['yalniz', 'ofkelendim', 'diger'], text: 'boşluk' } })
+    expect(opts.map((o) => [o.id, o.label, o.when])).toEqual([
+      ['yalniz', 'Yalnız hissettim', null],
+      ['ofkelendim', 'Öfkelendim', null],
+      ['diger', 'boşluk', null],
+    ])
+    expect(allowedChipsFor('en_etkili')).toContain('diger')
+  })
+
+  it('eski iki listeli kayıtlarda seçenekler birleşir ve zaman bilgisi korunur', () => {
+    const opts = strongestOptions({
+      his_sirasinda: { tags: ['ofkelendim', 'yalniz', 'diger'], text: 'boşluk' },
+      his_sonrasinda: { tags: ['yalniz', 'kirildim'], text: '' },
+    })
     expect(opts.map((o) => [o.id, o.when])).toEqual([
       ['yalniz', 'both'],
       ['kirildim', 'after'],
       ['ofkelendim', 'during'],
       ['diger_sirasinda', 'during'],
     ])
-    expect(allowedChipsFor('en_etkili')).toContain('diger_sonrasinda')
   })
 })
 
@@ -63,6 +72,19 @@ describe('eski kayıtlarla uyum', () => {
       answers: [{ question_id: 'duygular', text_answer: 'tükenmişlik', selected_tags: ['gorulmemis', 'diger'] }],
     })
     expect(lines).toEqual(['Hissettikleri: Görülmemiş, diğer: «« tükenmişlik »»'])
+  })
+
+  it('kısa süre kullanılan iki listeli kayıt değişimiyle okunur', () => {
+    const lines = describeFeelings({
+      answers: [
+        { question_id: 'his_sirasinda', text_answer: '', selected_tags: ['ofkelendim'] },
+        { question_id: 'his_sonrasinda', text_answer: '', selected_tags: ['yalniz'] },
+        { question_id: 'en_etkili', text_answer: '', selected_tags: ['yalniz'] },
+      ],
+    })
+    expect(lines[0]).toBe('Tartışma SIRASINDA hissettikleri: Öfkelendim [öfke ve haksızlık]')
+    expect(lines[2]).toContain('sonradan ortaya çıkan: Yalnız hissettim')
+    expect(lines[3]).toBe('Onu en çok etkileyen his: Yalnız hissettim (tartışma sonrasında)')
   })
 
   it('his cevabı hiç yoksa satır eklenmez', () => {

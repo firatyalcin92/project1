@@ -224,42 +224,166 @@ function ApprovalRow({ label, done }: { label: string; done: boolean }) {
 // ---------------------------------------------------------------------------
 
 /** Döngü: A ve B'nin adımları dikey akışta, son adımdan ilk adıma geri dönüş. */
-export function CycleLoop({ steps, names }: { steps: SharedReport['cycle']['steps']; names: Record<Role, string> }) {
+const polar = (angle: number, r: number) => {
+  const t = (angle * Math.PI) / 180
+  return { x: 50 + r * Math.cos(t), y: 50 + r * Math.sin(t) }
+}
+
+/**
+ * Döngü çemberi: adımlar saat yönünde bir çemberin üzerine dizilir, oklar bir
+ * adımdan diğerine ve sonuncudan yeniden ilkine gider. Altında adım adım ayrıntı.
+ */
+export function CycleCircle({
+  steps,
+  names,
+  name,
+}: {
+  steps: SharedReport['cycle']['steps']
+  names: Record<Role, string>
+  name: string
+}) {
+  const n = steps.length
+  const R = 36
+  const angles = steps.map((_, i) => -90 + (i * 360) / n)
+  // Düğümlerin kapladığı yerde ok çizilmez.
+  const gap = n <= 2 ? 38 : n === 3 ? 32 : 26
+  const arcs = angles.map((a) => {
+    const start = a + gap
+    const end = a + 360 / n - gap
+    const p1 = polar(start, R)
+    const p2 = polar(end, R)
+    return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${R} ${R} 0 ${end - start > 180 ? 1 : 0} 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
+  })
+  const label = (s: SharedReport['cycle']['steps'][number]) => s.short || s.reaction
+
   return (
-    <div className="relative">
-      <ol className="space-y-2">
-        {steps.map((s, i) => (
-          <li key={i} className="relative">
-            <div className="rounded-2xl border border-line bg-surface p-3.5 shadow-soft">
-              <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+    <div className="space-y-4">
+      <figure
+        className="relative mx-auto aspect-square w-full max-w-[340px]"
+        aria-label={`Döngü: ${steps.map((s) => label(s)).join(' → ')} → yeniden başa`}
+      >
+        <svg viewBox="0 0 100 100" className="absolute inset-0 size-full" aria-hidden>
+          <defs>
+            <marker
+              id="mesele-cycle-arrow"
+              viewBox="0 0 10 10"
+              refX="6"
+              refY="5"
+              markerWidth="4"
+              markerHeight="4"
+              orient="auto-start-reverse"
+            >
+              <path d="M0 0 L10 5 L0 10 z" style={{ fill: 'var(--color-clay)' }} />
+            </marker>
+          </defs>
+          <circle
+            cx="50"
+            cy="50"
+            r={R}
+            fill="none"
+            strokeWidth="0.5"
+            strokeDasharray="1 2"
+            style={{ stroke: 'var(--color-line-strong)' }}
+          />
+          {arcs.map((d, i) => (
+            <path
+              key={i}
+              d={d}
+              fill="none"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              markerEnd="url(#mesele-cycle-arrow)"
+              style={{ stroke: 'var(--color-clay)' }}
+            />
+          ))}
+        </svg>
+
+        <figcaption className="absolute inset-[31%] flex flex-col items-center justify-center gap-1 text-center">
+          <IconLoop size={20} className="text-clay" />
+          <span className="font-display text-[15px] leading-tight font-semibold text-ink">{name}</span>
+        </figcaption>
+
+        {steps.map((s, i) => {
+          const p = polar(angles[i]!, R)
+          return (
+            <div
+              key={i}
+              className={cx(
+                'absolute w-[36%] -translate-x-1/2 -translate-y-1/2 rounded-2xl border px-2 py-1.5 text-center shadow-soft',
+                s.partner === 'A' ? 'border-partner-a/30 bg-partner-a-soft' : 'border-partner-b/30 bg-partner-b-soft',
+              )}
+              style={{ left: `${Math.min(82, Math.max(18, p.x))}%`, top: `${p.y}%` }}
+            >
+              <p className="flex items-center justify-center gap-1 text-[11px] font-semibold text-ink-soft">
                 <span
-                  className="inline-block size-2.5 rounded-full"
+                  className="inline-flex size-4 items-center justify-center rounded-full text-[10px] text-white"
                   style={{ background: partnerColor(s.partner) }}
                   aria-hidden
-                />
+                >
+                  {i + 1}
+                </span>
                 {names[s.partner]}
               </p>
-              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[14px] leading-snug">
-                <dt className="text-ink-faint">Tetikleyen</dt>
-                <dd className="text-ink">{s.trigger}</dd>
-                <dt className="text-ink-faint">İçeride</dt>
-                <dd className="font-medium text-ink">{s.feeling}</dd>
-                <dt className="text-ink-faint">Dışarıda</dt>
-                <dd className="text-ink">{s.reaction}</dd>
-              </dl>
+              <p className="mt-0.5 text-[12.5px] leading-snug font-medium text-ink">{label(s)}</p>
             </div>
-            {i < steps.length - 1 ? (
-              <div className="flex justify-center py-0.5 text-ink-faint" aria-hidden>
-                ↓
-              </div>
-            ) : null}
+          )
+        })}
+      </figure>
+
+      <ol className="space-y-2">
+        {steps.map((s, i) => (
+          <li key={i} className="rounded-2xl border border-line bg-surface p-3.5">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <span
+                className="inline-flex size-5 items-center justify-center rounded-full text-[11px] text-white"
+                style={{ background: partnerColor(s.partner) }}
+                aria-hidden
+              >
+                {i + 1}
+              </span>
+              {names[s.partner]}
+            </p>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[14px] leading-snug">
+              <dt className="text-ink-faint">Tetikleyen</dt>
+              <dd className="text-ink">{s.trigger}</dd>
+              <dt className="text-ink-faint">İçeride</dt>
+              <dd className="font-medium text-ink">{s.feeling}</dd>
+              <dt className="text-ink-faint">Dışarıda</dt>
+              <dd className="text-ink">{s.reaction}</dd>
+            </dl>
           </li>
         ))}
       </ol>
-      <p className="mt-3 flex items-center justify-center gap-2 text-[13px] font-medium text-clay-strong">
-        <IconLoop size={18} /> …ve döngü yeniden başlar
+      <p className="flex items-center justify-center gap-2 text-[13px] font-medium text-clay-strong">
+        <IconLoop size={18} /> {steps.length}. adımdan sonra döngü 1. adıma döner
       </p>
     </div>
+  )
+}
+
+function BreakCycle({ data, names }: { data: SharedReport['breakCycle']; names: Record<Role, string> }) {
+  return (
+    <Card className="space-y-4">
+      <SectionTitle eyebrow="Döngüyü kırmak" title="Döngüden çıkış kapılarınız" />
+      <Paragraphs text={data.explain} className="text-ink-soft" />
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-ink">Döngüyü fark ettiğiniz an, ikinizden biri şunu desin:</p>
+        <Phrase text={data.namingPhrase} />
+      </div>
+      <div className="grid gap-3">
+        {data.exits.map((e, i) => (
+          <div
+            key={i}
+            className={cx('space-y-1.5 rounded-2xl p-4', e.partner === 'A' ? 'bg-partner-a-soft' : 'bg-partner-b-soft')}
+          >
+            <p className="font-semibold text-ink">{names[e.partner]} için çıkış kapısı</p>
+            <p className="text-[14px] text-ink-soft">{e.moment}</p>
+            <p className="leading-relaxed text-ink">{e.instead}</p>
+            <p className="font-display text-[16px] leading-relaxed text-ink italic">“{e.say}”</p>
+          </div>
+        ))}
+      </div>
+    </Card>
   )
 }
 
@@ -284,9 +408,12 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
         <p className="rounded-2xl bg-clay-soft/60 px-4 py-3 font-display text-[18px] leading-relaxed text-ink">
           {report.cycle.summary}
         </p>
-        <CycleLoop steps={report.cycle.steps} names={names} />
+        <CycleCircle steps={report.cycle.steps} names={names} name={report.cycle.name} />
         <p className="leading-relaxed text-ink-soft">{report.cycle.enemy}</p>
       </Card>
+
+      {/* Eski raporlarda bu bölüm yok. */}
+      {report.breakCycle ? <BreakCycle data={report.breakCycle} names={names} /> : null}
 
       <Card className="space-y-4">
         <SectionTitle eyebrow="Kim haklı?" title="Dürüst bir cevap" />

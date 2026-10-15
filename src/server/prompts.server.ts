@@ -1,6 +1,7 @@
 import '@tanstack/react-start/server-only'
 import {
   CLOSENESS_LABELS,
+  FEELINGS,
   FEELING_AFTER,
   FEELING_CHIPS,
   FEELING_DURING,
@@ -64,10 +65,18 @@ Birbirine tepkili, konuşamayan çiftlerin bu akşam eve gittiklerinde konuşabi
 - Suçlama yok ama kaçamak da yok: kör noktaları nazik ama dürüst söyle.
 - Tekrara düşme: bir fikri bir kez, en uygun yerde söyle. Her alan yeni bir şey katsın.
 
+## Sade ve gündelik ol (kesin kural)
+- Bu raporları her kesimden, her eğitim düzeyinden insan okuyacak. Bir mahalle komşusunun anlayacağı kadar sade yaz; kitap dili, akademik ya da "kişisel gelişim" dili kullanma.
+- "Empati kurmak", "validasyon", "sınır koymak", "aktif dinleme", "ben dili", "kaliteli zaman", "farkındalık" gibi kalıp terimleri kullanma; ne yapılacağını düz cümleyle söyle.
+- Öneriler sıradan bir günde, evin içinde, para, ekstra zaman ya da özel bir ortam gerektirmeden yapılabilir olsun. Yürüyüşe çıkmak, dışarıda kahve içmek, yemeğe gitmek, hafta sonu kaçamağı, mum ışığında konuşma, meditasyon, günlük tutma gibi klişe önerilerden kaçın.
+- Çiftin gerçek koşullarını hesaba kat: iş yorgunluğu, çocuk, ev işleri, aile, sınırlı vakit.
+- Her öneriyi ve her hazır cümleyi BU meselenin somut konusuna bağla. Ev işleri tartışmasıysa bulaşık, çamaşır, çocuğun yatma saati gibi o evin gerçek anları üzerinden konuş. "Bugün nasıldı?" ya da "Biraz rahatlayalım" gibi her çifte uyan genel cümleler kurma.
+- Hazır cümleler, o evde gerçekten söylenebilecek doğallıkta olsun: kısa, samimi, gündelik konuşma dili.
+
 ## Duygular
-Her kişi tartışma SIRASINDA ve SONRASINDA hissettiklerini ayrı ayrı işaretler, kendi kelimeleriyle başka hisler ekleyebilir ve onu en çok etkileyen hissi nedeniyle birlikte belirtir.
+Her kişi tartışma sırasında ve sonrasında hissettiklerini tek bir listede işaretler (bazı eski kayıtlarda sırasında / sonrasında diye iki ayrı liste vardır), kendi kelimeleriyle başka hisler ekleyebilir ve onu en çok etkileyen hissi nedeniyle birlikte belirtir.
 - Seçilen hisleri liste hâlinde geri sayma. Onları olay anlatımı, karşılanmamış ihtiyaçlar ve iki partnerin tartışma sırasındaki davranışlarıyla birlikte değerlendir.
-- Sırasında ve sonrasında hissedilenler arasındaki farkı anlamlandır. Örnek: tartışma sırasında öfke, sonrasında yalnızlık ve kırgınlık seçildiyse, öfkenin daha kırılgan bir duygunun önünde durmuş olabileceğini ve o duygunun tartışma bitince görünür hâle geldiğini anlat.
+- Hisler arasındaki ilişkiyi anlamlandır. Örnek: öfke ile birlikte yalnızlık ve kırgınlık seçildiyse, öfkenin daha kırılgan bir duygunun önünde durmuş olabileceğini anlat. Tek listede hangi hissin tartışmanın hangi anında yaşandığını varsayma; iki ayrı liste varsa aradaki değişimi anlamlandır.
 - "Anlaşılmadım", "dinlenmedim" gibi bir hissin hangi anla bağlantılı olduğunu yalnızca anlatım bunu destekliyorsa söyle.
 - En çok etkileyen hissi ve nedenini, o kişinin karşılanmamış ihtiyacına giden en önemli ipucu olarak kullan.
 - Hislerden kişilik özelliği ya da psikolojik tanı çıkarma.
@@ -177,16 +186,18 @@ function feelingList(a: AnswerLike | undefined) {
 export function describeFeelings(m: Pick<MemberMaterial, 'answers'>): string[] {
   const lines: string[] = []
   const answer = (id: string) => m.answers.find((a) => a.question_id === id)
+  const merged = answer(FEELINGS)
   const during = answer(FEELING_DURING)
   const after = answer(FEELING_AFTER)
   const strongest = answer(STRONGEST_FEELING)
+  const none = 'işaretlemedi (bilgi yok; tahmin yürütme)'
 
-  if (during || after) {
-    const d = feelingList(during)
-    const a = feelingList(after)
-    lines.push(`Tartışma SIRASINDA hissettikleri: ${d || 'işaretlemedi (bilgi yok; tahmin yürütme)'}`)
-    lines.push(`Tartışma SONRASINDA hissettikleri: ${a || 'işaretlemedi (bilgi yok; tahmin yürütme)'}`)
-
+  if (merged) {
+    lines.push(`Tartışma sırasında ve sonrasında hissettikleri: ${feelingList(merged) || none}`)
+  } else if (during || after) {
+    // Kısa süre kullanılan iki ayrı liste
+    lines.push(`Tartışma SIRASINDA hissettikleri: ${feelingList(during) || none}`)
+    lines.push(`Tartışma SONRASINDA hissettikleri: ${feelingList(after) || none}`)
     const dIds = new Set((during?.selected_tags ?? []).filter((t) => t !== OTHER_CHIP))
     const aIds = new Set((after?.selected_tags ?? []).filter((t) => t !== OTHER_CHIP))
     if (dIds.size && aIds.size) {
@@ -198,12 +209,17 @@ export function describeFeelings(m: Pick<MemberMaterial, 'answers'>): string[] {
   }
 
   if (strongest) {
-    const toDraft = (a: AnswerLike | undefined) => ({ tags: a?.selected_tags ?? [], text: a?.text_answer ?? '' })
-    const option = strongestOptions(toDraft(during), toDraft(after)).find((o) => strongest.selected_tags.includes(o.id))
+    const toDraft = (a: AnswerLike) => ({ tags: a.selected_tags, text: a.text_answer })
+    const drafts: Record<string, { tags: string[]; text: string }> = {}
+    if (merged) drafts[FEELINGS] = toDraft(merged)
+    if (during) drafts[FEELING_DURING] = toDraft(during)
+    if (after) drafts[FEELING_AFTER] = toDraft(after)
+    const option = strongestOptions(drafts).find((o) => strongest.selected_tags.includes(o.id))
     const why = strongest.text_answer.trim()
     if (option || why) {
+      const own = option?.id === OTHER_CHIP || option?.id.startsWith('diger_')
       const label = option
-        ? `${option.id.startsWith('diger_') ? quote(option.label, LIMITS.other) : option.label} (${WHEN_LABEL[option.when]})`
+        ? `${own ? quote(option.label, LIMITS.other) : option.label}${option.when ? ` (${WHEN_LABEL[option.when]})` : ''}`
         : 'belirtmedi'
       lines.push(`Onu en çok etkileyen his: ${label}`)
       lines.push(`   Nedeni: ${why ? quote(why) : 'yazmadı'}`)
@@ -288,7 +304,7 @@ Kurallar:
 - ${genitive(narrator.name)} cevaplarını ASLA aynen alıntılama; anlamı koru ama ihtiyaç diline çevir. Suçlayıcı cümleleri "${narrator.name} o an … hissetti, … ihtiyaç duyuyordu" diline çevir.
 - ${reader.name} hakkında hüküm verme.
 - ${narrator.name} hakkında üçüncü tekil şahısla yaz. readingNote alanında ${dative(reader.name)} "siz" diye seslen.
-- ${genitive(narrator.name)} işaretlediği hisleri liste hâlinde sayma. Tartışma sırasında ve sonrasında yaşadıklarının farkını ve onu en çok etkileyen hissi, olayla ve ihtiyacıyla bağlantılı biçimde anlat. Bu hisleri ${genitive(reader.name)} niyetinin kanıtı gibi sunma.
+- ${genitive(narrator.name)} işaretlediği hisleri liste hâlinde sayma. Hislerini ve onu en çok etkileyen hissi, olayla ve ihtiyacıyla bağlantılı biçimde anlat. Bu hisleri ${genitive(reader.name)} niyetinin kanıtı gibi sunma.
 - ${narrator.name} ${genitive(reader.name)} ihtiyacını tahmin etmeye çalıştıysa, bunu bir çaba ve iyi niyet olarak story içinde kısaca anabilirsin.
 - Kısa tut: story iki kısa paragraf; diğer alanlar birer cümle.
 
@@ -310,13 +326,28 @@ GÖREV: ${a.name} ve ${b.name} için ORTAK raporu yaz: "Döngü Analizi ve İhti
 Bu rapor İLİŞKİ düzeyindedir: döngü, iki tarafın haklılığı, ihtiyaçların kesişimi ve ortak onarım. Kişisel tavsiyeler, kişiye özel cümleler ve bireysel düşünce kalıpları burada YOK; onlar ayrı kişisel raporlarda. Partnerlerin cevaplarını alıntılama.
 
 Nasıl:
-1. Ortak döngünüz: İki anlatımdan tetikleyici → birincil duygu → otomatik tepki zincirini kur. Kısırdöngüyü adlarla tek cümlede göster (örnek kalıp: "${a.name} içine kapandıkça ${b.name} üstüne geliyor; ${b.name} ısrar ettikçe ${a.name} daha çok çekiliyor."). steps alanında A ve B'yi sırayla ver; son adım ilk adımı yeniden tetiklesin. Döngüye sıcak, akılda kalıcı bir ad ver ve onu dışsallaştır.
-2. Kim haklı?: İkisinin de gerçekten haklı olduğu noktayı adıyla ve somut olarak yaz. Kimseyi kazanan ilan etme. Asıl meselenin ne olduğunu söyle.
-3. Temel ihtiyaç kesişimi: Her birinin ihtiyacını ihtiyaç diliyle ve ikisinin de aradığı ortak zemini yaz.
-4. Ortak onarım adımları: Bu döngü yeniden başladığında İKİSİNİN de kullanacağı TAM 3 adım. Biri mutlaka mola (en az 20 dakika, ne zaman dönüleceğini söyleyerek), biri yumuşak başlangıç, biri yakınlığa davet. phrase doğal bir Türkçe cümle.
-5. tonight: İkisinin birlikte yapacağı küçük, somut bir ritüel (konuşma rehberi değil; o kişisel raporlarda).
-6. Yeniden değerlendirme notları varsa, birbirlerini anlamak için attıkları adımları takdir et.
-7. Hisler: Döngünün "birincil duygu" katmanını, ikisinin tartışma sırasında ve sonrasında işaretlediği hislerden ve onları en çok etkileyen histen kur. Hisleri liste hâlinde sayma; ikisinin duygularına eşit yer ver.
+1. Ortak döngünüz: İki anlatımdan tetikleyici → birincil duygu → otomatik tepki zincirini, anlatılardaki GERÇEK anlarla kur (genel ifadeler değil: kim ne dedi, kim ne yaptı). Kısırdöngüyü adlarla tek cümlede göster (örnek kalıp: "${a.name} içine kapandıkça ${b.name} üstüne geliyor; ${b.name} ısrar ettikçe ${a.name} daha çok çekiliyor."). steps alanında A ve B'yi sırayla ver; son adım ilk adımı yeniden tetiklesin; bu adımlar ekranda bir çember olarak çizilecek, her adımın short alanı ad olmadan 2-5 kelime olsun (ör. "odadan çıkıyor"). Döngüye bu meseleye özgü, sıcak, akılda kalıcı bir ad ver ve onu dışsallaştır.
+2. Döngüyü kırmak (breakCycle): Aşağıdaki rehberden yararlan ama metni kopyalama; bu çiftin döngüsüne ve meselesine uyarla, sade yaz.
+   - explain: Döngüyü kırmanın tartışmayı tamamen bitirmek değil, tartışmanın biçimini değiştirmek olduğunu; ikisinden birinin döngüyü fark edip adını koymasının bile küçük ama gerçek bir kırılma yarattığını bu çifte göre anlat.
+   - namingPhrase: Döngünün adını anan, ikisinin de o an söyleyebileceği kısa bir cümle (ör. "Yine o … döngüsüne giriyoruz, dur bir"). Bu cümle ikisini birbirine karşı değil, döngüye karşı aynı tarafa koyar.
+   - exits: Her biri için (önce ${a.name}, sonra ${b.name}) kendi rolünü gördüğü çıkış kapısı: döngüde kendi otomatik tepkisine geçmek üzere olduğu an, bunun yerine yapacağı küçük gündelik davranış ve söyleyeceği kısa cümle. İkisine eşit yük ver.
+3. Kim haklı?: İkisinin de gerçekten haklı olduğu noktayı adıyla ve anlatılardaki somut bir ayrıntıyla yaz. Kimseyi kazanan ilan etme. Asıl meseleyi, tartışmanın konusu değil altındaki ihtiyaç olarak, genel laflarla değil bu çifte özgü söyle.
+4. Temel ihtiyaç kesişimi: Her birinin ihtiyacını ihtiyaç diliyle ve ikisinin de aradığı ortak zemini yaz.
+5. Ortak onarım adımları (repairSteps): TAM 3 adım, bu sırayla: (a) Yumuşak başlangıç: konuyu suçlamadan açan, bu meseleye özgü cümle; (b) Mola: sesler yükselince "20 dakika ara verelim, sonra dönelim" gibi ne zaman dönüleceğini söyleyen cümle; (c) Onarım girişimini kabul etmek: biri gerginliği azaltmaya çalıştığında (bir şaka, bir dokunuş, bir özür, bir çay getirmek) bunu geri çevirmeden karşılayan cümle. namingPhrase'i burada tekrar etme.
+6. tonight: İkisinin bu akşam evde, yapacakları işlerin arasında yapabileceği küçük, somut ve bu meseleye özgü bir adım (ör. ev işleri tartışmasında: "Bu akşam bulaşığı birlikte kaldırırken…"). Yürüyüş, dışarı çıkma gibi klişeler yok.
+7. Yeniden değerlendirme notları varsa, birbirlerini anlamak için attıkları adımları takdir et.
+8. Hisler: Döngünün "birincil duygu" katmanını, ikisinin işaretlediği hislerden ve onları en çok etkileyen histen kur. Hisleri liste hâlinde sayma; ikisinin duygularına eşit yer ver.
+
+DÖNGÜ KIRMA REHBERİ (arka plan bilgisi; aynen kopyalama, sade dille uyarla):
+- Döngüyü kırmak, çatışmayı tamamen ortadan kaldırmak değil, çatışmanın biçimini değiştirmektir. Sağlıklı ilişkilerde de tartışma olur; fark, nasıl yürütüldüğündedir.
+- Döngüyü isimlendirmek: "Şu an o eski döngümüze giriyoruz" demek, iki kişiyi birbirine karşı değil, döngüye karşı aynı tarafa koyar.
+- Yumuşak başlangıç: Suçlama yerine ihtiyacı söylemek ("Sen hiç dinlemiyorsun" yerine "Beni duyduğunu bilmek istiyorum").
+- Zamanında mola: Sinirler yükseldiğinde "20 dakika sonra devam edelim" diyebilmek ve gerçekten geri dönmek.
+- Kendi payını görmek: Kendi rolünü (üstüne gitme ya da geri çekilme) fark edip adını koymak.
+- Onarım girişimlerini kabul etmek: Diğerinin gerginliği azaltma çabasını (şaka, dokunuş, özür) geri çevirmemek.
+- Döngüyü kırmak tek seferlik bir karar değil, her tartışmada yeniden hatırlanan bir alışkanlıktır; ama her seferinde eski kalıba dönme ihtimali biraz azalır.
+- Değişim, birinin tek başına bütün adımları yüklenmesiyle değil, ikisinin de kendi rolünü görmeye başlamasıyla hızlanır. Biri bile döngüyü ilk fark edip adını koyduğunda küçük ama gerçek bir kırılma olur; bu küçük kırılmalar birikir ve eski döngü ilişkinin alışılmış hâli olmaktan çıkar.
+- Döngü çok derin ve sık tekrarlıyorsa bir çift danışmanından destek almak süreci hızlandırabilir.
 
 ${header(a)}
 ${describeMember(a, b.name, opts) || emptyNote(a)}
@@ -328,7 +359,7 @@ ${describeMember(b, a.name, opts) || emptyNote(b)}`
 }
 
 const PERSONAL_GUIDE = (owner: string, partner: string) => `- greeting: ${dative(owner)} "siz" diye seslen.
-- feelings: ${genitive(owner)} tartışma sırasında ve sonrasında işaretlediği hisleri LİSTE HÂLİNDE TEKRAR ETMEDEN yorumla (3-5 cümle): sırasında ile sonrasında arasındaki değişimi anlamlandır; onu en çok etkileyen hissi ve nedenini olayla ve karşılanmamış ihtiyacıyla bağla. Anlatım bir bağlantıyı desteklemiyorsa onu kesinmiş gibi kurma. His işaretlemediyse bunu nazikçe söyle ve tahmin yürütme. ${genitive(partner)} hislerini burada değil partnerInner içinde, ihtiyaç diliyle ele al.
+- feelings: ${genitive(owner)} işaretlediği hisleri LİSTE HÂLİNDE TEKRAR ETMEDEN yorumla (3-5 cümle): hisler arasındaki ilişkiyi (ör. öfkenin altındaki kırılgan his) anlamlandır; onu en çok etkileyen hissi ve nedenini olayla ve karşılanmamış ihtiyacıyla bağla. Anlatım bir bağlantıyı desteklemiyorsa onu kesinmiş gibi kurma. His işaretlemediyse bunu nazikçe söyle ve tahmin yürütme. ${genitive(partner)} hislerini burada değil partnerInner içinde, ihtiyaç diliyle ele al.
 - partnerInner: ${genitive(partner)} o an iç dünyasında olanı (birincil duygu + ihtiyaç) ihtiyaç diliyle anlat.
 - needGuess: ${genitive(owner)} ${genitive(partner)} ihtiyacına dair tahminini ("ihtiyacına dair kendi tahmini" satırı) ele al.
 - yourPlace: Döngüdeki yeri; 2 cümle, ortak döngüyü tekrar anlatmadan.
@@ -352,7 +383,7 @@ export function buildMyReportPrompt(input: {
     ? `\nORTAK RAPORDA ZATEN SÖYLENENLER (bunları TEKRAR ETME, yalnızca gerekirse tek kelimeyle an):
 - Döngünün adı: ${quote(s.cycle.name, 120)} — ${quote(s.cycle.summary, 400)}
 - Ortak onarım cümleleri: ${s.repairSteps.map((r) => quote(r.phrase, 200)).join(' / ')}
-- Ortak ritüel: ${quote(s.tonight, 300)}\n`
+- Ortak ritüel: ${quote(s.tonight, 300)}${s.breakCycle ? `\n- Döngüyü adlandırma cümlesi: ${quote(s.breakCycle.namingPhrase, 200)}` : ''}\n`
     : ''
 
   const user = `MESELE: ${quote(input.title, LIMITS.title)}

@@ -46,24 +46,45 @@ function mockShared(a: string, b: string): SharedReport {
       steps: [
         {
           partner: 'A',
+          short: 'susup içine kapanıyor',
           trigger: 'Yükselen ses tonu',
           feeling: 'Yetersiz hissetmek',
           reaction: 'Susmak, içine kapanmak',
         },
         {
           partner: 'B',
+          short: 'üstüne gidiyor',
           trigger: `${genitive(a)} sessizliği`,
           feeling: 'Yalnız ve görülmemiş hissetmek',
           reaction: 'Israr etmek, sesi yükseltmek',
         },
         {
           partner: 'A',
+          short: 'odadan çıkıyor',
           trigger: `${genitive(b)} ısrarı`,
           feeling: 'Köşeye sıkışmış hissetmek',
           reaction: 'Ortamı terk etmek',
         },
       ],
       enemy: `Düşmanınız birbiriniz değil; "kapanan kapı ve çalan zil" dansı. Bu dansın adını koyduğunuzda, ona karşı birlikte durabilirsiniz.`,
+    },
+    breakCycle: {
+      explain: `Bu döngüyü kırmak hiç tartışmamak demek değil; tartışmanın gidişini değiştirmek demek. İkinizden biri "yine başladık" diye fark edip adını koyduğunda bile döngü biraz gevşer.`,
+      namingPhrase: 'Dur bir, yine kapı-zil döngüsüne giriyoruz.',
+      exits: [
+        {
+          partner: 'A',
+          moment: 'Susup içine kapanmak üzereyken',
+          instead: 'Kapıyı çarpıp çıkmak yerine ne zaman döneceğini söyleyip mutfağa geçmek',
+          say: 'Şu an susacağım ama gitmiyorum; çayı koyup on dakikaya geliyorum.',
+        },
+        {
+          partner: 'B',
+          moment: 'Arkasından gidip sesini yükseltmek üzereyken',
+          instead: 'Peşinden gitmek yerine onun döneceğine güvenip beklemek',
+          say: 'Tamam, bekliyorum. Döndüğünde konuşalım.',
+        },
+      ],
     },
     whoIsRight: {
       answer:
