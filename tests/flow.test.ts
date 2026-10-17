@@ -561,11 +561,29 @@ async function completeDispute(ma: Awaited<ReturnType<typeof pair>>['ma'], mb: t
 }
 
 describe('üyelik: bir mesele ücretsiz, sonrası çift düzeyinde üyelik', () => {
-  it('ikinci mesele üyelik ister; birinin alması ikisine yeter', async () => {
+  it('ikinci mesele açılır ama 1. sorudan sonrası üyelik ister; birinin alması ikisine yeter', async () => {
     const { ma, mb } = await pair()
-    await completeDispute(ma, mb, 'İlk')
-    await expect(createDispute(mb, 'İkinci')).rejects.toThrow(/\[PAYMENT_REQUIRED\]/)
-    expect((await buildPanel(ma)).membership).toMatchObject({ active: false, canCreateDispute: false, disputesUsed: 1 })
+    const firstId = await completeDispute(ma, mb, 'İlk')
+    expect(await getDisputeView(ma, firstId)).toMatchObject({ freeDispute: true, paywall: false })
+    expect((await buildPanel(ma)).membership).toMatchObject({
+      active: false,
+      nextDisputeFree: false,
+      disputesUsed: 1,
+      trialAvailable: true,
+      trialDays: 3,
+      prices: { monthly: 249, yearly: 1999 },
+    })
+
+    // Ücretsiz hak bitti: mesele yine de açılır, 1. soru kaydedilir
+    const { id } = await createDispute(mb, 'İkinci')
+    expect(await getDisputeView(mb, id)).toMatchObject({ freeDispute: false, paywall: true })
+    const draft = await saveAnswers(mb, { ...fullAnswers(id), submit: false })
+    expect(draft.mine.whatHappened).toContain('Cumartesi')
+    expect(draft.mine.answers.dusunce.text).toBe('') // 1. sorudan sonrası kaydedilmez
+    await expect(saveAnswers(mb, fullAnswers(id))).rejects.toThrow(/\[PAYMENT_REQUIRED\]/)
+    await expect(
+      reflectAnswers(mb, { disputeId: id, whatHappened: RAW_B, thought: 'Yine beni dinlemiyor' }),
+    ).rejects.toThrow(/\[PAYMENT_REQUIRED\]/)
 
     // Ödeme altyapısı yokken satın alma kapalı
     await expect(purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: true })).rejects.toThrow(/\[CONFIG\]/)
@@ -575,9 +593,39 @@ describe('üyelik: bir mesele ücretsiz, sonrası çift düzeyinde üyelik', () 
       /anahtarınızı yedekleyin/,
     )
     const m = await purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: false })
-    expect(m).toMatchObject({ active: true, period: 'monthly', purchasedByMe: true, canCreateDispute: true })
+    expect(m).toMatchObject({ active: true, trial: false, period: 'monthly', purchasedByMe: true, nextDisputeFree: true })
     expect((await buildPanel(mb)).membership).toMatchObject({ active: true, purchasedByMe: false })
-    await expect(createDispute(mb, 'İkinci')).resolves.toBeTruthy()
+    // Kilit kalktı: aynı meseleye kaldığı yerden devam
+    expect(await getDisputeView(mb, id)).toMatchObject({ paywall: false })
+    const done = await saveAnswers(mb, fullAnswers(id))
+    expect(done.progress.meSubmitted).toBe(true)
+  })
+
+  it('yıllık üyelik çift başına bir kez 3 gün ücretsiz denenir; deneme sırasında alınan üyelik üstüne eklenir', async () => {
+    vi.stubEnv('MESELE_PAYMENTS', 'test')
+    vi.stubEnv('MESELE_PRICE_MONTHLY', '299,90 TL')
+    vi.stubEnv('MESELE_PRICE_YEARLY', '2.499 ₺')
+    const { ma, mb } = await pair()
+    expect((await buildPanel(ma)).membership.prices).toEqual({ monthly: 299.9, yearly: 2499 })
+    await expect(
+      purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: true, trial: true }),
+    ).rejects.toThrow(/yalnızca yıllık/)
+
+    const t = await purchase(ma, { period: 'yearly', keyBackedUp: true, codeSaved: true, trial: true })
+    expect(t).toMatchObject({ active: true, trial: true, period: 'yearly', trialAvailable: false })
+    const days = (Date.parse(t.expiresAt!) - Date.now()) / 86_400_000
+    expect(days).toBeGreaterThan(2.9)
+    expect(days).toBeLessThan(3.1)
+    // Partner için de açık; ikinci deneme yok
+    expect((await buildPanel(mb)).membership).toMatchObject({ active: true, trial: true })
+    await expect(
+      purchase(mb, { period: 'yearly', keyBackedUp: true, codeSaved: true, trial: true }),
+    ).rejects.toThrow(/deneme hakkınızı kullandınız/)
+
+    // Deneme sırasında yıllık alındı: kalan deneme günleri korunur
+    const paid = await purchase(mb, { period: 'yearly', keyBackedUp: true, codeSaved: true })
+    expect(paid).toMatchObject({ active: true, trial: false, period: 'yearly', purchasedByMe: true })
+    expect(Date.parse(paid.expiresAt!) - Date.parse(t.expiresAt!)).toBeGreaterThan(364 * 86_400_000)
   })
 
   it('partner katılmadıysa çift kodunun saklandığı onaylanmalı', async () => {

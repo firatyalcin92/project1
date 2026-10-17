@@ -27,7 +27,3 @@ services:
       # Ödeme altyapısı bağlanana kadar: "test" → üyelik ödeme alınmadan denenebilir
       - key: MESELE_PAYMENTS
         value: test
-      - key: MESELE_PRICE_MONTHLY
-        sync: false
-      - key: MESELE_PRICE_YEARLY
-        sync: false

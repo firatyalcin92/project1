@@ -29,6 +29,7 @@ import {
 import { genitive } from '~/lib/turkish'
 import type { AnswerDraft, DisputeView } from '~/lib/views'
 import { LogoMark } from '../brand'
+import { OfferSheet } from '../offer'
 import { IconArrowLeft, IconArrowRight, IconUsers } from '../icons'
 import { BottomBar } from '../layout'
 import { Button, ChipToggle, Notice, TextArea, cx } from '../ui'
@@ -151,8 +152,17 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
   const [pageIndex, setPageIndex] = useState(() => {
     if (!view.mine.whatHappened && !agreed(view.mine)) return 0
     const firstOpen = PAGES.findIndex((p) => p !== 'giris' && !pageComplete(p, { ...view.mine }, view.answerOrder))
-    return firstOpen === -1 ? PAGES.length - 1 : firstOpen
+    const index = firstOpen === -1 ? PAGES.length - 1 : firstOpen
+    // Üyelik gerekiyorsa 1. sorunun ötesine geçilmez.
+    return view.paywall ? Math.min(index, PAGES.indexOf('olay')) : index
   })
+  // Ücretsiz hak bittiyse: 1. sorudan sonra teklif ekranı (satın alınca kilit kalkar).
+  const [unlocked, setUnlocked] = useState(false)
+  const [offerOpen, setOfferOpen] = useState(false)
+  const paywall = view.paywall && !unlocked
+  const onPaymentRequired = (e: unknown) => {
+    if (parseError(e).code === 'PAYMENT_REQUIRED') setOfferOpen(true)
+  }
   const [confirming, setConfirming] = useState(false)
   const [reflection, setReflection] = useState(view.mine.reflection)
   // Yansıtmanın hangi "olay + düşünce" için üretildiği; durum olduğu için değişince ekran yenilenir.
@@ -175,6 +185,7 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
       dirty.current = false
       if (submit) onView(v)
     },
+    onError: onPaymentRequired,
   })
 
   const reflect = useMutation({
@@ -183,6 +194,7 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
         data: { disputeId: view.id, whatHappened: draft.whatHappened, thought: draft.answers.dusunce.text },
       }),
     onSuccess: (r) => setReflection(r.reflection),
+    onError: onPaymentRequired,
   })
 
   // His sorusuna gelince, ilk iki cevap değiştiyse danışman yeniden yansıtır.
@@ -313,7 +325,17 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
                   Cevaplarımı gönder
                 </Button>
               ) : (
-                <Button full size="lg" disabled={!complete} onClick={() => go(1)}>
+                <Button
+                  full
+                  size="lg"
+                  disabled={!complete}
+                  onClick={() => {
+                    if (page === 'olay' && paywall) {
+                      if (dirty.current) save.mutate(false)
+                      setOfferOpen(true)
+                    } else go(1)
+                  }}
+                >
                   Devam <IconArrowRight size={18} />
                 </Button>
               )}
@@ -332,6 +354,18 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
             </p>
           )}
         </BottomBar>
+        {offerOpen ? (
+          <OfferSheet
+            variant="continue"
+            onClose={() => setOfferOpen(false)}
+            onPurchased={() => {
+              setUnlocked(true)
+              setOfferOpen(false)
+              save.reset()
+              if (page === 'olay') go(1)
+            }}
+          />
+        ) : null}
       </div>
     </Meta.Provider>
   )

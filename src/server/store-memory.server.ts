@@ -321,6 +321,10 @@ export function createMemoryStore(): Store {
       return rows[0] ? clone(rows[0]) : null
     },
 
+    async hasAnySubscription(coupleId) {
+      return [...t.subscriptions.values()].some((r) => r.couple_id === coupleId)
+    },
+
     async createSubscription(input) {
       const row: SubscriptionRow = {
         id: crypto.randomUUID(),

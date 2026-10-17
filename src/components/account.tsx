@@ -1,40 +1,29 @@
 import { Link } from '@tanstack/react-router'
-import { PLAN_LABEL } from '~/lib/plans'
+import { PLAN_LABEL, formatPrice } from '~/lib/plans'
 import { formatDate } from '~/lib/turkish'
 import type { MembershipView } from '~/lib/views'
-import { IconCheck, IconSparkle } from './icons'
+import { IconCheck } from './icons'
 import { Card, CopyButton, LinkButton, Notice } from './ui'
 
 /** Üyelik durumu, tek satırlık özet. */
 export function membershipLine(m: MembershipView, partnerName: string | null) {
+  if (m.active && m.trial) {
+    const yearly = m.prices.yearly ? ` Sonrasında yıllık üyelik ${formatPrice(m.prices.yearly)}.` : ''
+    return `Ücretsiz denemeniz ${formatDate(m.expiresAt)} tarihine kadar açık.${yearly}`
+  }
   if (m.active) {
     const who = m.purchasedByMe ? 'Sizin aldığınız' : `${partnerName ?? 'Partnerinizin'} aldığı`
     return `${PLAN_LABEL[m.period!]} üyelik ${formatDate(m.expiresAt)} tarihine kadar açık. ${who} üyelik ikiniz için de geçerli.`
   }
-  const left = Math.max(0, m.freeLimit - m.disputesUsed)
-  return left > 0
-    ? `İlk meseleniz ücretsiz. Sonrası için aylık ya da yıllık üyelik.`
-    : 'Ücretsiz meselenizi kullandınız. Yeni meseleler için üyelik gerekiyor.'
-}
-
-/** Yeni mesele açılamıyorsa panelde gösterilir. */
-export function PaywallCard({ membership, solo }: { membership: MembershipView; solo: boolean }) {
-  return (
-    <Card className="animate-rise space-y-3 border-honey/40 bg-honey-soft/40 text-center">
-      <span className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-surface text-honey shadow-soft">
-        <IconSparkle size={22} />
-      </span>
-      <p className="font-display text-xl font-semibold">İlk meseleniz ücretsizdi</p>
-      <p className="text-sm leading-relaxed text-ink-soft">
-        Yeni bir mesele açmak için üyeliğinizi başlatın. {solo ? '' : 'Birinizin alması ikiniz için de yeterli. '}
-        Önceki meseleleriniz ve raporlarınız her zaman açık kalır.
-      </p>
-      <LinkButton to="/uyelik" full>
-        Üyelik seçeneklerini gör
-      </LinkButton>
-      <p className="text-[12px] text-ink-faint">{membership.disputesUsed} mesele açıldı</p>
-    </Card>
-  )
+  const prices = [
+    m.prices.monthly ? `aylık ${formatPrice(m.prices.monthly)}` : null,
+    m.prices.yearly ? `yıllık ${formatPrice(m.prices.yearly)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' ya da ')
+  return m.disputesUsed < m.freeLimit
+    ? `İlk meseleniz ücretsiz. Sonrası için ${prices || 'aylık ya da yıllık'} üyelik.`
+    : `Ücretsiz meselenizi kullandınız. Yeni meseleler için ${prices || 'aylık ya da yıllık'} üyelik.`
 }
 
 /** Silme tamamlandıktan sonra: aktarım kodu ve sonraki adımlar. */

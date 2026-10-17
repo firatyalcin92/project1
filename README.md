@@ -240,6 +240,15 @@ dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı ayna
 
 - **Bir mesele ücretsiz**, sonrası aylık ya da yıllık üyelik. Üyelik **çift düzeyindedir**: birinin alması
   ikisine yeter (`subscriptions` tablosu). Bu bilgi ana sayfada, çift oluştururken ve panelde baştan söylenir.
+- **Fiyatlar:** aylık 249 ₺, yıllık 1.999 ₺ (`DEFAULT_PRICES`, `src/lib/plans.ts`); `MESELE_PRICE_MONTHLY` /
+  `MESELE_PRICE_YEARLY` ortam değişkenleri bunları geçersiz kılar.
+- **3 gün ücretsiz deneme:** yıllık üyelik çift başına bir kez 3 gün ücretsiz denenebilir (`provider = 'trial'`;
+  aktarım koduna dönüşmez). Deneme sırasında alınan üyelik, kalan deneme günlerinin üstüne eklenir.
+- **Teklif ekranları** (`src/components/offer.tsx`, aylık + yıllık, yıllık öne çıkar):
+  1. ilk meseleye başlamadan önce: yıllık, 3 gün ücretsiz deneme teklifiyle (bir kez);
+  2. ilk mesele tamamlanınca: panele dönüşte bir kez, ayrıca rapor sayfasının sonunda kart;
+  3. ücretsiz hak bittiyse yeni meselede **1. sorudan sonra**: mesele açılır, 1. soru kaydedilir; sonrası
+     (kayıt, yansıtma, gönderim) sunucuda `PAYMENT_REQUIRED` ile kilitlidir.
 - **Satın almadan önce** cihaz anahtarı yedeklenmiş olmalı; partner katılmadıysa çift kodunun paylaşıldığı ya da
   saklandığı onaylanmalı. Böylece satın alan kimse kayıtlarını kaybetmez.
 - **Ödeme altyapısı henüz bağlı değil.** `MESELE_PAYMENTS=test` iken üyelik ödeme alınmadan başlar (yalnızca deneme);

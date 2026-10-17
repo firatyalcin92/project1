@@ -252,6 +252,13 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
       return (data as SubscriptionRow | null) ?? null
     },
 
+    async hasAnySubscription(coupleId) {
+      const { data, error } = await db.from('subscriptions').select('id').eq('couple_id', coupleId).limit(1)
+      if (tableMissing(error)) return false
+      check(error, 'hasAnySubscription')
+      return (data?.length ?? 0) > 0
+    },
+
     async createSubscription(input) {
       const { data, error } = await db.from('subscriptions').insert(input).select().single()
       check(error, 'createSubscription')

@@ -1,15 +1,27 @@
 import '@tanstack/react-start/server-only'
-import { FREE_DISPUTES, PLAN_PERIODS, addPeriod, type PaymentMode, type SalePeriod } from '~/lib/plans'
+import {
+  DEFAULT_PRICES,
+  FREE_DISPUTES,
+  PLAN_PERIODS,
+  TRIAL_DAYS,
+  addDays,
+  addPeriod,
+  parsePrice,
+  type PaymentMode,
+  type SalePeriod,
+} from '~/lib/plans'
 import type { DeletionView, MembershipView } from '~/lib/views'
 import type { AuthedMember } from './auth.server'
 import { CODE_ALPHABET, hashMemberToken } from './crypto.server'
 import { fail } from './errors.server'
-import { getStore, type SubscriptionRow } from './store.server'
+import { getStore, type DisputeRow, type SubscriptionRow } from './store.server'
 
 /**
  * Üyelik (çift düzeyinde), üyelik aktarımı ve "tüm verileri sil" talebi.
  *
- * - Bir mesele ücretsizdir; sonrası için aktif üyelik gerekir.
+ * - Bir mesele ücretsizdir. Sonraki meseleler açılabilir, ama 1. sorudan sonrası için aktif
+ *   üyelik gerekir (teklif o noktada gösterilir).
+ * - Yıllık üyelik çift başına bir kez 3 gün ücretsiz denenebilir (provider = 'trial').
  * - Çiftlerden birinin satın alması ikisine de yeter.
  * - Veriler silinse bile üyelik satırı kalır; satın alan kişi bir aktarım koduyla
  *   kalan süreyi yeni bir çifte ya da bireysel hesaba taşıyabilir.
@@ -21,13 +33,34 @@ export function paymentMode(env: NodeJS.ProcessEnv = process.env): PaymentMode {
   return env.MESELE_PAYMENTS?.trim().toLowerCase() === 'test' ? 'test' : 'none'
 }
 
-function prices(env: NodeJS.ProcessEnv = process.env): Record<SalePeriod, string | null> {
-  const read = (v: string | undefined) => (v && v.trim() ? v.trim().slice(0, 40) : null)
+export function prices(env: NodeJS.ProcessEnv = process.env): Record<SalePeriod, number | null> {
   return {
-    monthly: read(env.MESELE_PRICE_MONTHLY),
-    yearly: read(env.MESELE_PRICE_YEARLY),
+    monthly: parsePrice(env.MESELE_PRICE_MONTHLY) ?? DEFAULT_PRICES.monthly,
+    yearly: parsePrice(env.MESELE_PRICE_YEARLY) ?? DEFAULT_PRICES.yearly,
   }
 }
+
+const TRIAL_PROVIDER = 'trial'
+
+/** Ücretsiz hakla açılan meseleler: çiftin en eski FREE_DISPUTES meselesi. */
+export function isFreeDispute(d: Pick<DisputeRow, 'id'>, all: Pick<DisputeRow, 'id' | 'created_at'>[]) {
+  const oldest = [...all].sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(0, FREE_DISPUTES)
+  return oldest.some((x) => x.id === d.id)
+}
+
+/** Bu meselede 1. sorudan sonrası için üyelik gerekiyor mu? */
+export async function disputeAccess(d: DisputeRow) {
+  const store = await getStore()
+  const [sub, all] = await Promise.all([
+    store.getActiveSubscription(d.couple_id, nowIso()),
+    store.listDisputes(d.couple_id),
+  ])
+  const free = isFreeDispute(d, all)
+  return { free, paywall: !free && !sub }
+}
+
+export const PAYWALL_MESSAGE =
+  'Ücretsiz meselenizi kullandınız. Bu meseleye devam etmek için aylık ya da yıllık üyeliğinizi başlatın; anlattıklarınız kayıtlı.'
 
 /** Okunaklı tek kullanımlık kod: XXXX-XXXX(-XXXX). Karışan karakterler yok. */
 export function generateReadableCode(length: number) {
@@ -42,39 +75,33 @@ export const hashReadableCode = (raw: string) => hashMemberToken(`mesele:${norma
 
 export async function membershipFor(coupleId: string, memberId: string): Promise<MembershipView> {
   const store = await getStore()
-  const [sub, disputes] = await Promise.all([
+  const [sub, disputes, everSubscribed] = await Promise.all([
     store.getActiveSubscription(coupleId, nowIso()),
     store.listDisputes(coupleId),
+    store.hasAnySubscription(coupleId),
   ])
   return {
     active: Boolean(sub),
     period: sub?.period ?? null,
     expiresAt: sub?.expires_at ?? null,
     purchasedByMe: Boolean(sub && sub.member_id === memberId),
+    trial: sub?.provider === TRIAL_PROVIDER,
+    trialAvailable: !everSubscribed,
+    trialDays: TRIAL_DAYS,
     freeLimit: FREE_DISPUTES,
     disputesUsed: disputes.length,
-    canCreateDispute: Boolean(sub) || disputes.length < FREE_DISPUTES,
+    nextDisputeFree: Boolean(sub) || disputes.length < FREE_DISPUTES,
     payments: paymentMode(),
     prices: prices(),
   }
 }
 
-/** Yeni mesele açmadan önce: ücretsiz hak bittiyse üyelik gerekir. */
-export async function assertCanCreateDispute(member: AuthedMember) {
-  const m = await membershipFor(member.coupleId, member.id)
-  if (!m.canCreateDispute) {
-    fail(
-      'PAYMENT_REQUIRED',
-      `İlk meseleniz ücretsizdi. Yeni bir mesele açmak için üyeliğinizi başlatın; çiftlerden birinin alması ikiniz için de yeterli.`,
-    )
-  }
-}
-
 export async function purchase(
   member: AuthedMember,
-  input: { period: SalePeriod; keyBackedUp: boolean; codeSaved: boolean },
+  input: { period: SalePeriod; keyBackedUp: boolean; codeSaved: boolean; trial?: boolean },
 ): Promise<MembershipView> {
   if (!PLAN_PERIODS.includes(input.period)) fail('VALIDATION', 'Geçersiz üyelik süresi.')
+  if (input.trial && input.period !== 'yearly') fail('VALIDATION', 'Ücretsiz deneme yalnızca yıllık üyelikte var.')
   const store = await getStore()
   const [couple, members] = await Promise.all([store.getCouple(member.coupleId), store.listMembers(member.coupleId)])
   if (!couple) return fail('UNAUTHORIZED', 'Çift bulunamadı.')
@@ -91,7 +118,28 @@ export async function purchase(
   }
 
   const active = await store.getActiveSubscription(member.coupleId, nowIso())
-  if (active) {
+  if (input.trial) {
+    if (await store.hasAnySubscription(member.coupleId))
+      fail('CONFLICT', 'Ücretsiz deneme hakkınızı kullandınız; aylık ya da yıllık üyelik seçebilirsiniz.')
+    await store.createSubscription({
+      couple_id: member.coupleId,
+      member_id: member.id,
+      period: 'yearly',
+      provider: TRIAL_PROVIDER,
+      provider_ref: null,
+      expires_at: addDays(nowIso(), TRIAL_DAYS),
+    })
+  } else if (active?.provider === TRIAL_PROVIDER) {
+    // Deneme sırasında satın alma: kalan deneme günleri korunur, üyelik onun üstüne başlar.
+    await store.createSubscription({
+      couple_id: member.coupleId,
+      member_id: member.id,
+      period: input.period,
+      provider: 'test',
+      provider_ref: null,
+      expires_at: addPeriod(active.expires_at, input.period),
+    })
+  } else if (active) {
     await store.extendSubscription(active.id, addPeriod(active.expires_at, input.period))
   } else {
     await store.createSubscription({
@@ -108,7 +156,8 @@ export async function purchase(
 
 /** Satın alan kişiye, kalan süreyi taşıyabilmesi için tek seferlik aktarım kodu üretir. */
 async function issueTransferCode(sub: SubscriptionRow | null, memberId: string) {
-  if (!sub || sub.member_id !== memberId) return null
+  // Ücretsiz deneme aktarılmaz.
+  if (!sub || sub.member_id !== memberId || sub.provider === TRIAL_PROVIDER) return null
   const code = generateReadableCode(12)
   const store = await getStore()
   await store.setSubscriptionTransfer(sub.id, await hashReadableCode(code))

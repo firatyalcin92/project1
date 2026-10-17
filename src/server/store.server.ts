@@ -197,6 +197,8 @@ export interface Store {
 
   // Üyelik
   getActiveSubscription(coupleId: string, now: string): Promise<SubscriptionRow | null>
+  /** Bu çift için (deneme dahil) hiç üyelik kaydı oluştu mu? */
+  hasAnySubscription(coupleId: string): Promise<boolean>
   createSubscription(
     input: Pick<SubscriptionRow, 'couple_id' | 'member_id' | 'period' | 'provider' | 'provider_ref' | 'expires_at'>,
   ): Promise<SubscriptionRow>

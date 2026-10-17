@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { QueryError } from '~/components/boundaries'
@@ -9,14 +9,17 @@ import { MyReportView, SharedGate, SharedReportView } from '~/components/dispute
 import { useDispute } from '~/components/dispute/use-dispute'
 import { Generating, WaitingForPartner } from '~/components/dispute/waiting'
 import { ReadinessCard, readinessFromView } from '~/components/readiness'
-import { IconArrowRight } from '~/components/icons'
+import { IconArrowRight, IconSparkle } from '~/components/icons'
+import { OfferSheet } from '~/components/offer'
 import { AppShell, BottomBar } from '~/components/layout'
 import { Disclaimer, SafetyNote } from '~/components/safety'
 import { StepTrack } from '~/components/steps'
 import { Button, Card, Disclosure, LinkButton, Notice } from '~/components/ui'
+import { getPanelFn } from '~/functions/couple'
 import { cancelDisputeFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import { requireMember } from '~/lib/guard'
+import { formatPrice, yearlyDeal } from '~/lib/plans'
 import { QUESTIONS } from '~/lib/questions'
 import { formatDate, genitive } from '~/lib/turkish'
 import type { DisputeView } from '~/lib/views'
@@ -298,6 +301,8 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
         </div>
       </Disclosure>
 
+      {view.freeDispute ? <NextDisputeOffer solo={solo} /> : null}
+
       <Card className="space-y-3">
         <p className="font-semibold">Bu döngü sık tekrar ediyorsa</p>
         <p className="text-sm leading-relaxed text-ink-soft">
@@ -321,6 +326,33 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
       </LinkButton>
       <Disclaimer />
     </div>
+  )
+}
+
+/** Ücretsiz mesele tamamlandı: sıradaki meseleler için yıllık teklif (aylık da seçilebilir). */
+function NextDisputeOffer({ solo }: { solo: boolean }) {
+  const panel = useQuery({ queryKey: ['panel'], queryFn: () => getPanelFn() })
+  const [open, setOpen] = useState(false)
+  const m = panel.data?.membership
+  if (!m || m.active || m.payments !== 'test') return null
+  const deal = yearlyDeal(m.prices)
+  return (
+    <Card className="space-y-3 border-honey/40 bg-honey-soft/40">
+      <p className="flex items-center gap-2 font-semibold">
+        <IconSparkle size={18} className="text-honey" /> Sıradaki meseleler için
+      </p>
+      <p className="text-sm leading-relaxed text-ink-soft">
+        {m.prices.yearly ? `Yıllık üyelik ${formatPrice(m.prices.yearly)}` : 'Yıllık üyelik'}
+        {deal ? `, ayda yaklaşık ${formatPrice(deal.perMonth)}` : ''}.
+        {m.trialAvailable ? ` İlk ${m.trialDays} günü ücretsiz.` : ''}
+        {m.prices.monthly ? ` Dilerseniz aylık ${formatPrice(m.prices.monthly)}.` : ''}
+        {solo ? '' : ' Birinizin alması ikiniz için de yeterli.'}
+      </p>
+      <Button full onClick={() => setOpen(true)}>
+        {m.trialAvailable ? `${m.trialDays} gün ücretsiz dene` : 'Üyelik seçeneklerini gör'}
+      </Button>
+      {open ? <OfferSheet variant="resolved" onClose={() => setOpen(false)} onPurchased={() => setOpen(false)} /> : null}
+    </Card>
   )
 }
 

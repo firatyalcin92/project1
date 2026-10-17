@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { QueryError } from '~/components/boundaries'
 import { ProgressRing } from '~/components/charts'
 import { CodeTiles } from '~/components/code-tiles'
-import { DeletionDone, PaywallCard } from '~/components/account'
+import { DeletionDone } from '~/components/account'
+import { OfferSheet, markOfferSeen, offerSeen } from '~/components/offer'
 import { IconArchive, IconArrowRight, IconKey, IconPlus, IconShare, IconSparkle } from '~/components/icons'
 import { ReadinessCard, readinessFromSummary } from '~/components/readiness'
 import { AppShell } from '~/components/layout'
@@ -118,16 +119,9 @@ function PanelBody({ data, onDeleted }: { data: PanelView; onDeleted: (v: { tran
 
       {!solo && !data.partner ? <InviteCard code={data.couple.code} myName={data.me.name} /> : null}
 
-      {data.active ? (
-        <ActiveCard data={data} />
-      ) : data.membership.canCreateDispute ? (
-        <NewDisputeCard
-          hasPartner={solo || Boolean(data.partner)}
-          freeNote={!data.membership.active && data.membership.disputesUsed < data.membership.freeLimit}
-        />
-      ) : (
-        <PaywallCard membership={data.membership} solo={solo} />
-      )}
+      {data.active ? <ActiveCard data={data} /> : <NewDisputeCard data={data} />}
+
+      <ResolvedOffer data={data} />
 
       {solo ? null : <OverviewCard data={data} />}
 
@@ -202,7 +196,33 @@ function ActiveCard({ data }: { data: PanelView }) {
   )
 }
 
-function NewDisputeCard({ hasPartner, freeNote }: { hasPartner: boolean; freeNote: boolean }) {
+/** İlk mesele tamamlandıktan sonra, panele dönünce bir kez: yıllık teklif. */
+function ResolvedOffer({ data }: { data: PanelView }) {
+  const m = data.membership
+  const eligible =
+    !data.active && !m.active && m.payments === 'test' && m.disputesUsed === m.freeLimit && data.completedCount >= 1
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    if (!eligible || offerSeen('cozum', data.me.id)) return
+    // Panel önce görünsün, teklif ardından gelsin.
+    const t = setTimeout(() => {
+      markOfferSeen('cozum', data.me.id)
+      setShow(true)
+    }, 900)
+    return () => clearTimeout(t)
+  }, [eligible, data.me.id])
+  if (!show) return null
+  return <OfferSheet variant="resolved" onClose={() => setShow(false)} onPurchased={() => setShow(false)} />
+}
+
+function NewDisputeCard({ data }: { data: PanelView }) {
+  const m = data.membership
+  const hasPartner = data.couple.mode === 'solo' || Boolean(data.partner)
+  const freeNote = !m.active && m.nextDisputeFree
+  const paidNext = !m.active && !m.nextDisputeFree
+  // İlk meseleye başlamadan önce: yıllık üyelik, 3 gün ücretsiz deneme teklifiyle (bir kez).
+  const startOffer = !m.active && m.disputesUsed === 0 && m.trialAvailable && m.payments === 'test'
+  const [offer, setOffer] = useState(false)
   const [title, setTitle] = useState('')
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
@@ -222,9 +242,30 @@ function NewDisputeCard({ hasPartner, freeNote }: { hasPartner: boolean; freeNot
         <p className="text-sm leading-relaxed text-ink-soft">
           Az önceki tartışma, haftalardır dönen bir konu ya da adını koyamadığınız bir kırgınlık. Birlikte bakalım.
         </p>
-        <Button full onClick={() => setOpen(true)}>
+        <Button
+          full
+          onClick={() => {
+            if (startOffer && !offerSeen('baslangic', data.me.id)) {
+              markOfferSeen('baslangic', data.me.id)
+              setOffer(true)
+            } else setOpen(true)
+          }}
+        >
           <IconPlus size={18} /> Yeni bir mesele aç
         </Button>
+        {offer ? (
+          <OfferSheet
+            variant="start"
+            onClose={() => {
+              setOffer(false)
+              setOpen(true)
+            }}
+            onPurchased={() => {
+              setOffer(false)
+              setOpen(true)
+            }}
+          />
+        ) : null}
         {!hasPartner ? (
           <p className="text-[13px] text-ink-faint">
             Şimdi başlayabilirsiniz; partneriniz katıldığında o da anlatacak.
@@ -233,6 +274,11 @@ function NewDisputeCard({ hasPartner, freeNote }: { hasPartner: boolean; freeNot
         {freeNote ? (
           <p className="text-[13px] text-ink-faint">
             İlk meseleniz ücretsiz. Sonrası için aylık ya da yıllık üyelik.
+          </p>
+        ) : paidNext ? (
+          <p className="text-[13px] text-ink-faint">
+            Ücretsiz meselenizi kullandınız. İlk soruyu yanıtladıktan sonra aylık ya da yıllık üyelikle devam
+            edebilirsiniz.
           </p>
         ) : null}
       </Card>
@@ -258,14 +304,7 @@ function NewDisputeCard({ hasPartner, freeNote }: { hasPartner: boolean; freeNot
           autoFocus
         />
         {mutation.isError ? (
-          <Notice tone="error">
-            {parseError(mutation.error).message}{' '}
-            {parseError(mutation.error).code === 'PAYMENT_REQUIRED' ? (
-              <Link to="/uyelik" className="font-semibold underline">
-                Üyelik
-              </Link>
-            ) : null}
-          </Notice>
+          <Notice tone="error">{parseError(mutation.error).message}</Notice>
         ) : null}
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setOpen(false)}>

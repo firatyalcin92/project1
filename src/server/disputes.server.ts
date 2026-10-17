@@ -44,7 +44,7 @@ import type {
   MemberInfo,
   ReconsiderationView,
 } from '~/lib/views'
-import { assertCanCreateDispute } from './account.server'
+import { PAYWALL_MESSAGE, disputeAccess } from './account.server'
 import { requireDispute, type AuthedMember } from './auth.server'
 import { fail } from './errors.server'
 import { generateJson } from './mesele.server'
@@ -167,11 +167,20 @@ export async function getDisputeView(member: AuthedMember, disputeId: string): P
   const dispute = await requireDispute(member, disputeId)
   const store = await getStore()
   const bundle = await loadBundle(dispute)
-  const reports = dispute.status === 'completed' ? await store.getReports(dispute.id) : []
-  return buildView(member, dispute, bundle, reports)
+  const [reports, access] = await Promise.all([
+    dispute.status === 'completed' ? store.getReports(dispute.id) : Promise.resolve([]),
+    disputeAccess(dispute),
+  ])
+  return buildView(member, dispute, bundle, reports, access)
 }
 
-function buildView(member: AuthedMember, d: DisputeRow, b: Bundle, reports: ReportRow[]): DisputeView {
+function buildView(
+  member: AuthedMember,
+  d: DisputeRow,
+  b: Bundle,
+  reports: ReportRow[],
+  access: { free: boolean; paywall: boolean },
+): DisputeView {
   const solo = b.couple.mode === 'solo'
   const me = b.members.find((m) => m.id === member.id)!
   const partner = solo ? null : (b.members.find((m) => m.id !== member.id) ?? null)
@@ -233,6 +242,9 @@ function buildView(member: AuthedMember, d: DisputeRow, b: Bundle, reports: Repo
     ...summarize(d, member.id),
     canCancel: d.created_by === member.id && isAnswerPhase(d.status),
     mode: b.couple.mode,
+    freeDispute: access.free,
+    // Kilit yalnızca anlatma adımında anlamlıdır; gönderilmiş anlatımlar sonraki adımlara geçer.
+    paywall: access.paywall && isAnswerPhase(d.status) && !myEntry?.submitted_at,
     answerOrder: order,
     // Yalnızca 1. soru: ilk anlatan bitirdiyse ikinci anlatan onun olay anlatımını görür.
     partnerEvent: order === 'second' && partnerEntry?.submitted_at ? partnerEntry.what_happened || null : null,
@@ -320,7 +332,7 @@ export async function createDispute(member: AuthedMember, title: string): Promis
   const existing = await store.listDisputes(member.coupleId)
   const open = existing.find((d) => d.status !== 'completed')
   if (open) fail('CONFLICT', `Önce açık olan "${open.title}" meselesini tamamlayalım.`)
-  await assertCanCreateDispute(member)
+  // Ücretsiz hak bitse de mesele açılır; 1. sorudan sonrası için üyelik istenir (saveAnswers).
   const d = await store.createDispute({
     couple_id: member.coupleId,
     created_by: member.id,
@@ -410,7 +422,14 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
   const store = await getStore()
 
   const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
-  const answers = normalizeAnswers(input.answers)
+  let answers = normalizeAnswers(input.answers)
+
+  // Üyelik gerekiyorsa yalnızca 1. soru (olay / onay) kaydedilir; gönderim için üyelik şart.
+  const { paywall } = await disputeAccess(d)
+  if (paywall) {
+    if (input.submit) fail('PAYMENT_REQUIRED', PAYWALL_MESSAGE)
+    answers = answers.filter((a) => a.questionId === EVENT_AGREE)
+  }
 
   if (input.submit) {
     const olay = QUESTIONS.find((q) => q.id === 'olay')!
@@ -461,6 +480,7 @@ export async function reflectAnswers(
   input: { disputeId: string; whatHappened: string; thought: string },
 ): Promise<{ reflection: string }> {
   const d = await assertCanAnswer(member, input.disputeId)
+  if ((await disputeAccess(d)).paywall) fail('PAYMENT_REQUIRED', PAYWALL_MESSAGE)
   const bundle = await loadBundle(d)
   let whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
   // İkinci anlatan: ilk anlatanın olay anlatımı ortak zemindir; kendi eklemesi varsa ona eklenir.

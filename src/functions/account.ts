@@ -15,6 +15,7 @@ export const purchaseFn = createServerFn({ method: 'POST' })
       period: z.enum(PLAN_PERIODS as unknown as ['monthly', 'yearly']),
       keyBackedUp: z.boolean(),
       codeSaved: z.boolean(),
+      trial: z.boolean().optional(),
     }),
   )
   .handler(async ({ data, context }) => {

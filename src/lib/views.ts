@@ -42,11 +42,17 @@ export type MembershipView = {
   period: PlanPeriod | null
   expiresAt: string | null
   purchasedByMe: boolean
+  /** Açık üyelik ücretsiz deneme mi? */
+  trial: boolean
+  /** Yıllık üyelik 3 gün ücretsiz denenebilir mi? (çift başına bir kez) */
+  trialAvailable: boolean
+  trialDays: number
   freeLimit: number
   disputesUsed: number
-  canCreateDispute: boolean
+  /** Açılacak bir sonraki mesele ücretsiz mi (ya da üyelik açık mı)? */
+  nextDisputeFree: boolean
   payments: PaymentMode
-  prices: Record<SalePeriod, string | null>
+  prices: Record<SalePeriod, number | null>
 }
 
 /** Bekleyen "tüm verileri sil" talebi (yoksa null) */
@@ -98,6 +104,10 @@ export type DisputeView = {
   createdByMe: boolean
   canCancel: boolean
   mode: Mode
+  /** Ücretsiz hakla açılan mesele mi? */
+  freeDispute: boolean
+  /** Üyelik yok ve mesele ücretsiz değil: 1. sorudan sonrası için üyelik gerekir */
+  paywall: boolean
   /** Çift modunda sırayla anlatım: first önce anlatır, second onun olay anlatımını görüp ekler */
   answerOrder: 'first' | 'second' | 'solo'
   /** Yalnızca ikinci anlatana: ilk anlatanın 1. soru (olay) metni */
