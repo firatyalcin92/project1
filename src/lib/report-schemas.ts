@@ -44,12 +44,14 @@ export const PerspectiveSchema = z.object({
   headline: z
     .string()
     .min(1)
-    .describe("Tek cümlelik sıcak başlık. Örn: 'Ayşe için o akşam, görülmeyi beklediği bir akşamdı.'"),
+    .describe(
+      "Anlatanın o an yaşadığını özetleyen, öznesi ve yüklemi tam, dilbilgisi açısından kusursuz tek cümle. Örn: 'Ayşe o akşam görülmeyi bekledi.' ('X için o akşam … bir andı' gibi düşük cümleler kurma)",
+    ),
   story: z
     .string()
     .min(1)
     .describe(
-      'Anlatan kişinin yaşadıklarının, üçüncü tekil şahısla, iki kısa paragraflık şefkatli yeniden anlatımı. Paragrafları boş satırla ayır. Suçlayıcı ifadeleri yumuşat ama anlamı değiştirme.',
+      'Anlatan kişinin yaşadıklarının iki kısa paragraflık şefkatli yeniden anlatımı. Anlatandan adıyla, üçüncü şahısla bahset; okuyan kişiye "sen" diye hitap et ve ondan bahsederken adını değil "sen / senin / sana" kullan (ör. "senin çıkardığın sözler onu derinden etkiledi"). Paragrafları boş satırla ayır. Suçlayıcı ifadeleri yumuşat ama anlamı değiştirme.',
     ),
   beneath: z
     .string()
@@ -58,10 +60,6 @@ export const PerspectiveSchema = z.object({
       "Görünen tepkinin altındaki birincil duygu. Örn: 'Sesinin yükselmesinin altında belki de yalnız kalma korkusu vardı.'",
     ),
   need: z.string().min(1).describe('O an en çok neye ihtiyaç duyduğu, tek cümle.'),
-  readingNote: z
-    .string()
-    .min(1)
-    .describe('Okuyan partnere "siz" hitabıyla tek cümlelik nazik not: savunmaya geçmeden, merakla okuması için.'),
 })
 
 export type Perspective = z.infer<typeof PerspectiveSchema>
@@ -106,7 +104,9 @@ export const SharedReportSchema = z.object({
     enemy: z
       .string()
       .min(1)
-      .describe('Döngüyü dışsallaştıran cümle: düşmanınız birbiriniz değil, aranıza yerleşen bu dans.'),
+      .describe(
+        'Döngüyü dışsallaştıran cümle: düşmanınız birbiriniz değil, aranıza yerleşen bu döngü. ("dans" kelimesini kullanma)',
+      ),
   }),
   breakCycle: z
     .object({
@@ -141,9 +141,20 @@ export const SharedReportSchema = z.object({
     .describe('Döngüyü kırmak: isimlendirme ve her birinin kendi çıkış kapısı.'),
   whoIsRight: z.object({
     answer: z.string().min(1).describe("'Kim haklı?' sorusuna dürüst ama hüküm vermeyen, 2-3 cümlelik cevap."),
-    pointA: z.string().min(1).describe('A kişisinin gerçekten haklı olduğu nokta, adıyla.'),
-    pointB: z.string().min(1).describe('B kişisinin gerçekten haklı olduğu nokta, adıyla.'),
-    realIssue: z.string().min(1).describe('Asıl mesele: tartışmanın konusu değil, altındaki bağ ihtiyacı.'),
+    pointA: z
+      .string()
+      .min(1)
+      .describe('A kişisinin bu olayda somut olarak haklı olduğu davranış/tutum, adıyla. İhtiyaç kelimesi kullanma.'),
+    pointB: z
+      .string()
+      .min(1)
+      .describe('B kişisinin bu olayda somut olarak haklı olduğu davranış/tutum, adıyla. İhtiyaç kelimesi kullanma.'),
+    realIssue: z
+      .string()
+      .min(1)
+      .describe(
+        'Görünen konu ile asıl dönen şey arasındaki fark, tek cümle. İhtiyaçları sayma (onlar needs alanında).',
+      ),
   }),
   needs: z.object({
     a: z.string().min(1).describe('A kişisinin temel ihtiyacı, adıyla.'),
@@ -276,7 +287,7 @@ export const RelationshipReportSchema = z.object({
   story: Section.describe('1. İlişkinizin hikâyesi: meseleler boyunca görülen genel resim.'),
   coreCycle: Section.extend({
     cycleName: z.string().min(1).describe('En sık tekrarlayan döngünün adı'),
-  }).describe('2. Tekrarlayan dansınız: ana kısırdöngü (takip/geri çekilme vb.).'),
+  }).describe('2. Tekrarlayan döngünüz: ana kısırdöngü (takip/geri çekilme vb.).'),
   triggers: Section.describe('3. Sık tetikleyiciler: tekrar eden konular ve anlar.'),
   emotionMap: Section.describe('4. Birincil duygu haritası: her birinin en sık hissettiği duygular.'),
   attachmentNeeds: Section.describe('5. Bağlanma ihtiyaçlarınız: her birinin derindeki ihtiyacı.'),

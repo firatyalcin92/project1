@@ -12,6 +12,9 @@ import {
   PATTERN_LABEL,
   REACTION_CHIPS,
   RECONSIDER_QUESTIONS,
+  AGREE_TAG,
+  EVENT_AGREE,
+  NEED_CHIPS,
   STRONGEST_FEELING,
   THOUGHTS,
   THOUGHT_CHIPS,
@@ -64,6 +67,8 @@ function describeHistory(items: HistoryItem[], opts: { includeMine: boolean }) {
 }
 
 export type MemberMaterial = {
+  /** Çift modunda sırayla anlatım (yoksa first) */
+  order?: 'first' | 'second' | 'solo'
   memberId: string
   role: Role
   name: string
@@ -87,7 +92,7 @@ Birbirine tepkili, konuşamayan çiftlerin bu akşam eve gittiklerinde konuşabi
 - Yapıcı olmaya, etkili iletişime ve onarıma yönlendirirsin.
 
 ## Bakış açın
-- Duygu Odaklı Çift Terapisi (EFT): Çiftin düşmanı birbirleri değil, aralarına yerleşen olumsuz döngüdür. Öfke, savunma, alay ve sessizlik çoğu zaman ikincil tepkilerdir; altlarında birincil duygular (yalnızlık, görülmemek, önemsiz hissetmek, yetersizlik korkusu, kırgınlık, kaybetme korkusu) ve bağlanma ihtiyaçları (görülmek, önemli olmak, güvende hissetmek, yakınlık, takdir) yatar. Takipçi (üstüne giden) ile geri çekilen (susan, kapanan) arasındaki dansı tanırsın.
+- Duygu Odaklı Çift Terapisi (EFT): Çiftin düşmanı birbirleri değil, aralarına yerleşen olumsuz döngüdür. Öfke, savunma, alay ve sessizlik çoğu zaman ikincil tepkilerdir; altlarında birincil duygular (yalnızlık, görülmemek, önemsiz hissetmek, yetersizlik korkusu, kırgınlık, kaybetme korkusu) ve bağlanma ihtiyaçları (görülmek, önemli olmak, güvende hissetmek, yakınlık, takdir) yatar. Takipçi (üstüne giden) ile geri çekilen (susan, kapanan) arasındaki döngüyü tanırsın. Bu döngüden bahsederken "dans" kelimesini kullanma; "döngü" de.
 - Gottman yaklaşımı: Dört Atlı (eleştiri, aşağılama, savunma, duvar örme) ve panzehirleri (yumuşak başlangıç ve "ben" dili, takdir, sorumluluk almak, kendini sakinleştirme molası). Duygusal taşmada en az 20 dakikalık molanın değerini bilirsin.
 
 ## Üslubun
@@ -174,7 +179,17 @@ export function describeMember(
   const answer = (id: string) => m.answers.find((a) => a.question_id === id)
   const text = (id: string) => answer(id)?.text_answer.trim() ?? ''
 
-  if (m.entry?.what_happened.trim()) lines.push(`Ne oldu (kendi anlatımı): ${quote(m.entry.what_happened)}`)
+  const agreeRow = answer(EVENT_AGREE)
+  const afterPartner = m.order === 'second' && Boolean(agreeRow)
+  if (afterPartner && agreeRow!.selected_tags.includes(AGREE_TAG) && !m.entry?.what_happened.trim()) {
+    lines.push('Ne oldu: partnerinin olay anlatımını okudu ve aynen onayladı (eklemesi yok).')
+  } else if (m.entry?.what_happened.trim()) {
+    lines.push(
+      afterPartner
+        ? `Ne oldu (partnerinin olay anlatımını okuduktan sonra kendi eklediği / düzelttiği): ${quote(m.entry.what_happened)}`
+        : `Ne oldu (kendi anlatımı): ${quote(m.entry.what_happened)}`,
+    )
+  }
 
   if (text('dusunce')) lines.push(`O an içinden geçen düşünce: ${quote(text('dusunce'))}`)
   const thoughts = (answer(THOUGHTS)?.selected_tags ?? [])
@@ -188,8 +203,13 @@ export function describeMember(
 
   lines.push(...describeFeelings(m))
 
+  const needs = (answer('ihtiyac')?.selected_tags ?? [])
+    .map((id) => NEED_CHIPS.find((c) => c.id === id)?.label)
+    .filter(Boolean)
+    .join(', ')
+  if (needs) lines.push(`Kendi ihtiyacı (seçtikleri): ${needs}`)
   if (text('ihtiyac'))
-    lines.push(`Kendi ihtiyacı (${genitive(partnerName)} ne yapmasını isterdi): ${quote(text('ihtiyac'))}`)
+    lines.push(`Kendi ihtiyacı — ${genitive(partnerName)} neyi farklı yapmasını isterdi: ${quote(text('ihtiyac'))}`)
   if (text('partner_ihtiyac'))
     lines.push(`${genitive(partnerName)} ihtiyacına dair kendi tahmini: ${quote(text('partner_ihtiyac'))}`)
   if (text('degisim')) lines.push(`Kendinde müdahale etmesi gerektiğini düşündüğü şey: ${quote(text('degisim'))}`)
@@ -362,7 +382,8 @@ Amaç: ${reader.name}, ${genitive(narrator.name)} o an ne yaşadığını savunm
 Kurallar:
 - ${genitive(narrator.name)} cevaplarını ASLA aynen alıntılama; anlamı koru ama ihtiyaç diline çevir. Suçlayıcı cümleleri "${narrator.name} o an … hissetti, … ihtiyaç duyuyordu" diline çevir.
 - ${reader.name} hakkında hüküm verme.
-- ${narrator.name} hakkında üçüncü tekil şahısla yaz. readingNote alanında ${dative(reader.name)} "siz" diye seslen.
+- ${narrator.name} hakkında adıyla, üçüncü tekil şahısla yaz. ${dative(reader.name)} ise "sen" diye hitap et: ondan bahsederken adını kullanma, "sen / senin / sana" de (ör. "${reader.name} şunu dedi" değil, "senin söylediğin söz onu derinden etkiledi").
+- Cümleler dilbilgisi açısından kusursuz ve doğal olsun; düşük, yarım ya da çeviri kokan cümle kurma. headline öznesi ve yüklemi tam tek bir cümle olsun.
 - ${genitive(narrator.name)} işaretlediği hisleri liste hâlinde sayma. Hislerini ve onu en çok etkileyen hissi, olayla ve ihtiyacıyla bağlantılı biçimde anlat. Bu hisleri ${genitive(reader.name)} niyetinin kanıtı gibi sunma.
 - ${narrator.name} ${genitive(reader.name)} ihtiyacını tahmin etmeye çalıştıysa, bunu bir çaba ve iyi niyet olarak story içinde kısaca anabilirsin.
 - Kısa tut: story iki kısa paragraf; diğer alanlar birer cümle.
@@ -395,8 +416,13 @@ Nasıl:
    - explain: Döngüyü kırmanın tartışmayı tamamen bitirmek değil, tartışmanın biçimini değiştirmek olduğunu; ikisinden birinin döngüyü fark edip adını koymasının bile küçük ama gerçek bir kırılma yarattığını bu çifte göre anlat.
    - namingPhrase: Döngünün adını anan, ikisinin de o an söyleyebileceği kısa bir cümle (ör. "Yine o … döngüsüne giriyoruz, dur bir"). Bu cümle ikisini birbirine karşı değil, döngüye karşı aynı tarafa koyar.
    - exits: Her biri için (önce ${a.name}, sonra ${b.name}) kendi rolünü gördüğü çıkış kapısı: döngüde kendi otomatik tepkisine geçmek üzere olduğu an, bunun yerine yapacağı küçük gündelik davranış ve söyleyeceği kısa cümle. İkisine eşit yük ver.
-3. Kim haklı?: İkisinin de gerçekten haklı olduğu noktayı adıyla ve anlatılardaki somut bir ayrıntıyla yaz. Kimseyi kazanan ilan etme. Asıl meseleyi, tartışmanın konusu değil altındaki ihtiyaç olarak, genel laflarla değil bu çifte özgü söyle.
-4. Temel ihtiyaç kesişimi: Her birinin ihtiyacını ihtiyaç diliyle ve ikisinin de aradığı ortak zemini yaz.
+3. Kim haklı? (whoIsRight) — DAVRANIŞ ve TUTUM düzeyinde, ihtiyaç kelimesi kullanmadan:
+   - pointA / pointB: Bu olayda her birinin somut olarak neyde haklı olduğu; anlatılardaki bir ayrıntıyla (ör. "Arif, kutlamada eğlenip kendisi gibi olmak istemekte haklı."). "ihtiyaç", "kabul görmek", "saygı görmek" gibi ihtiyaç kelimeleri burada YOK.
+   - answer: Kimseyi kazanan ilan etmeden, bu tartışmaya özgü 2 cümle; genel laflar ("ikiniz de kendi açınızdan haklısınız") kurma.
+   - realIssue: Tartışmanın GÖRÜNEN konusu ile asıl dönen şey arasındaki fark, tek cümle (ör. "Mesele dans değil; Gamze'nin endişesi Arif'e eleştiri olarak ulaştı."). İhtiyaçları burada sayma.
+4. Temel ihtiyaç kesişimi (needs) — İHTİYAÇ düzeyinde, "Kim haklı?" bölümündeki cümleleri ve kelimeleri TEKRAR ETMEDEN:
+   - needs.a / needs.b: Her birinin "Kendi ihtiyacı (seçtikleri)" satırına ve en çok etkileyen hissine dayanan, ihtiyaç dilinde bir cümle. Seçtiği ihtiyaçları kendi kelimelerinle, bu olaya bağlayarak yaz.
+   - commonGround: İki ihtiyacın buluştuğu nokta; yukarıda söylenmemiş yeni bir şey söyle.
 5. Ortak onarım adımları (repairSteps): TAM 3 adım, bu sırayla: (a) Yumuşak başlangıç: konuyu suçlamadan açan, bu meseleye özgü cümle; (b) Mola: sesler yükselince "20 dakika ara verelim, sonra dönelim" gibi ne zaman dönüleceğini söyleyen cümle; (c) Onarım girişimini kabul etmek: biri gerginliği azaltmaya çalıştığında (bir şaka, bir dokunuş, bir özür, bir çay getirmek) bunu geri çevirmeden karşılayan cümle. namingPhrase'i burada tekrar etme.
 6. tonight: İkisinin bu akşam evde, yapacakları işlerin arasında yapabileceği küçük, somut ve bu meseleye özgü bir adım (ör. ev işleri tartışmasında: "Bu akşam bulaşığı birlikte kaldırırken…"). Yürüyüş, dışarı çıkma gibi klişeler yok.
 7. Yeniden değerlendirme notları varsa, birbirlerini anlamak için attıkları adımları takdir et.

@@ -1,8 +1,11 @@
 import '@tanstack/react-start/server-only'
 import {
   ANSWER_QUESTION_IDS,
+  AGREE_TAG,
+  EVENT_AGREE,
   FEELINGS,
   FEELING_MAX,
+  NEEDS_MAX,
   FEELING_MIN,
   LIMITS,
   OTHER_CHIP,
@@ -95,6 +98,7 @@ export function summarize(d: DisputeRow, memberId: string): DisputeSummary {
 }
 
 type Bundle = {
+  dispute: DisputeRow
   couple: CoupleRow
   members: MemberRow[]
   entries: EntryRow[]
@@ -112,12 +116,25 @@ async function loadBundle(d: DisputeRow): Promise<Bundle> {
     store.getReconsiderations([d.id]),
   ])
   if (!couple) return fail('NOT_FOUND', 'Aradığınız mesele bulunamadı.')
-  return { couple, members, entries, answers, reconsiderations }
+  return { dispute: d, couple, members, entries, answers, reconsiderations }
+}
+
+/**
+ * Çift modunda meseleyi önce açan anlatır; diğeri ancak o bitirince başlar ve ilk
+ * anlatımı görüp onaylayabilir ya da ekleme yapabilir.
+ */
+export type AnswerOrder = 'first' | 'second' | 'solo'
+
+function orderOf(memberId: string, b: Pick<Bundle, 'couple' | 'dispute' | 'members'>): AnswerOrder {
+  if (b.couple.mode === 'solo') return 'solo'
+  const firstId = b.dispute.created_by ?? b.members.find((m) => m.role === 'A')?.id
+  return firstId === memberId ? 'first' : 'second'
 }
 
 function materialFor(member: MemberRow, b: Bundle): MemberMaterial {
   const entry = b.entries.find((e) => e.member_id === member.id) ?? null
   return {
+    order: orderOf(member.id, b),
     memberId: member.id,
     role: member.role,
     name: member.display_name,
@@ -211,10 +228,14 @@ function buildView(member: AuthedMember, d: DisputeRow, b: Bundle, reports: Repo
     }
   }
 
+  const order = orderOf(member.id, b)
   return {
     ...summarize(d, member.id),
     canCancel: d.created_by === member.id && isAnswerPhase(d.status),
     mode: b.couple.mode,
+    answerOrder: order,
+    // Yalnızca 1. soru: ilk anlatan bitirdiyse ikinci anlatan onun olay anlatımını görür.
+    partnerEvent: order === 'second' && partnerEntry?.submitted_at ? partnerEntry.what_happened || null : null,
     me: toInfo(me),
     partner: partner ? toInfo(partner) : null,
     partnerName: partnerNameOf(b, member),
@@ -271,10 +292,17 @@ export async function activeSummary(
   const phase = stepOf(active.status)
   let meDone = false
   let partnerDone = false
+  let waitingForFirst = false
   if (phase === 1) {
     const entries = await store.getEntries([active.id])
     meDone = entries.some((e) => e.member_id === member.id && e.submitted_at)
     partnerDone = entries.some((e) => e.member_id !== member.id && e.submitted_at)
+    const [couple, members] = await Promise.all([
+      store.getCouple(active.couple_id),
+      store.listMembers(active.couple_id),
+    ])
+    const second = couple ? orderOf(member.id, { couple, dispute: active, members }) === 'second' : false
+    waitingForFirst = second && !partnerDone && !entries.some((e) => e.member_id === member.id)
   } else if (phase === 3) {
     const recs = await store.getReconsiderations([active.id])
     meDone = recs.some((r) => r.member_id === member.id && r.submitted_at)
@@ -282,7 +310,7 @@ export async function activeSummary(
   } else {
     meDone = partnerDone = true
   }
-  return { ...summarize(active, member.id), meDone, partnerDone }
+  return { ...summarize(active, member.id), meDone, partnerDone, waitingForFirst }
 }
 
 export async function createDispute(member: AuthedMember, title: string): Promise<{ id: string }> {
@@ -325,8 +353,21 @@ async function assertCanAnswer(member: AuthedMember, disputeId: string) {
   const d = await requireDispute(member, disputeId)
   if (!isAnswerPhase(d.status)) fail('CONFLICT', 'Bu meselede anlatma adımı tamamlandı.')
   const store = await getStore()
-  const [entry] = (await store.getEntries([d.id])).filter((e) => e.member_id === member.id)
+  const entries = await store.getEntries([d.id])
+  const entry = entries.find((e) => e.member_id === member.id)
   if (entry?.submitted_at) fail('CONFLICT', 'Anlatımınızı zaten gönderdiniz.')
+  // Sırayla anlatım: ikinci anlatan, ilk anlatan bitirene kadar başlayamaz (önceden taslağı varsa dokunulmaz).
+  const [couple, members] = await Promise.all([store.getCouple(d.couple_id), store.listMembers(d.couple_id)])
+  if (couple && orderOf(member.id, { couple, dispute: d, members }) === 'second' && !entry) {
+    const first = members.find((m) => m.id !== member.id)
+    const firstDone = entries.some((e) => e.member_id === first?.id && e.submitted_at)
+    if (!firstDone) {
+      fail(
+        'CONFLICT',
+        `Önce ${first?.display_name ?? 'partneriniz'} anlatmayı bitirmeli; bitirdiğinde sıra size gelecek.`,
+      )
+    }
+  }
   return d
 }
 
@@ -351,6 +392,7 @@ export function normalizeAnswers(input: AnswerInput[]): AnswerInput[] {
     } else {
       text = text.slice(0, LIMITS.text)
     }
+    if (a.questionId === 'ihtiyac') tags = tags.slice(0, NEEDS_MAX)
     byId.set(a.questionId, { questionId: a.questionId, text, tags })
   }
 
@@ -372,15 +414,19 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
 
   if (input.submit) {
     const olay = QUESTIONS.find((q) => q.id === 'olay')!
-    if (whatHappened.length < olay.minLength)
-      fail('VALIDATION', 'Olayı biraz daha anlatır mısınız? Birkaç cümle yeterli.')
     const find = (id: string) => answers.find((x) => x.questionId === id)
+    const second = (await loadBundle(d).then((b) => orderOf(member.id, b))) === 'second'
+    const agreed = second && Boolean(find(EVENT_AGREE)?.tags.includes(AGREE_TAG))
+    // İkinci anlatan ilk anlatımı aynen onaylayabilir ya da kısa da olsa ekleme yapar.
+    if (!agreed && whatHappened.length < (second ? 10 : olay.minLength))
+      fail('VALIDATION', 'Olayı biraz daha anlatır mısınız? Birkaç cümle yeterli.')
     for (const q of QUESTIONS) {
       if (q.id === 'olay') continue
       const a = find(q.id)
       if (q.textRequired && !(a && a.text.length >= q.minLength))
         fail('VALIDATION', `"${q.title}" sorusunu biraz açar mısınız?`)
-      if (q.chipsRequired && !a?.tags.length) fail('VALIDATION', 'O an ne yaptığınızı seçer misiniz?')
+      if (q.chipsRequired && !a?.tags.length)
+        fail('VALIDATION', q.chipsError?.replace('Devam etmek için', 'Lütfen') ?? 'Bir seçim yapar mısınız?')
     }
     const feelings = find(FEELINGS)
     if (!feelings || feelingCount(feelings) < FEELING_MIN)
@@ -415,12 +461,21 @@ export async function reflectAnswers(
   input: { disputeId: string; whatHappened: string; thought: string },
 ): Promise<{ reflection: string }> {
   const d = await assertCanAnswer(member, input.disputeId)
-  const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
+  const bundle = await loadBundle(d)
+  let whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
+  // İkinci anlatan: ilk anlatanın olay anlatımı ortak zemindir; kendi eklemesi varsa ona eklenir.
+  if (orderOf(member.id, bundle) === 'second') {
+    const first = bundle.entries.find((e) => e.member_id !== member.id && e.submitted_at)
+    if (first?.what_happened)
+      whatHappened = [first.what_happened, whatHappened && `Kendi eklemesi: ${whatHappened}`]
+        .filter(Boolean)
+        .join('\n\n')
+        .slice(0, LIMITS.text)
+  }
   const thought = input.thought.trim().slice(0, LIMITS.text)
   if (whatHappened.length < 20 || thought.length < 3) {
     fail('VALIDATION', 'Önce ilk iki soruyu biraz anlatır mısınız?')
   }
-  const bundle = await loadBundle(d)
   const prompt = buildReflectionPrompt({
     name: member.name,
     partnerName: partnerNameOf(bundle, member) ?? '',

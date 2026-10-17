@@ -205,6 +205,13 @@ hissettiniz?" (5 grupta 17 duygu + "Başka bir şey hissettim" metni); en az 1, 
 işaretlenen hisler arasından en çok etkileyeni zorunlu olarak sorar; "Neden?" kutusu seçilen hissin hemen altında açılır. 2. soruda "O an ne yaptınız?" seçimi de zorunludur. Her soruda danışmanın sorusu, açıklaması ve cevap alanı sırayla
 belirir; his sorusu, danışmanın yansıtma metni gelmeden açılmaz.
 
+**Sırayla anlatım:** Çift modunda meseleyi açan önce bütün soruları yanıtlar; diğer partner ancak o bitirince
+başlar (başlık yeniden sorulmaz). İkinci partnerin 1. sorusunda ilk anlatanın olay anlatımı gösterilir; aynen
+onaylayabilir (`olay_onay`) ya da eklemesini yazar. Bu, ham metnin partnere gösterildiği tek yerdir ve ilk anlatana
+soru ekranında açıkça söylenir. Kendi ihtiyacı sorusu 16 seçenekten en fazla 5 ihtiyaç + değişen bir takip
+sorusudur; soruların ifadesi her meselede (mesele kimliğine göre sabit) değişir. Genel Görüş 5 meseleden sonra
+açılır ve her 5 yeni meselede kendiliğinden güncellenir.
+
 **İtiraz:** "Gözünden" adımında "İtirazım var" ile, partnerin gözünden metne ya da kendi anlatımının yansıtılışına
 itiraz yazılabilir (`reconsiderations.reflections.items.itiraz`). Partnere gösterilmez; danışman raporda iki bakışı
 ayrı ayrı ele alır ve yanlış anlaşılanı düzeltir.

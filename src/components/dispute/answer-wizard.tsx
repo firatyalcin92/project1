@@ -1,9 +1,11 @@
 import { useMutation } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { reflectAnswersFn, saveAnswersFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import {
+  AGREE_TAG,
   ANSWER_QUESTION_IDS,
+  EVENT_AGREE,
   FEELINGS,
   FEELING_GROUPS,
   FEELING_MAX,
@@ -19,10 +21,12 @@ import {
   feelingCount,
   introMessage,
   privacyNotice,
+  seedFor,
   strongestOptions,
   type AnswerQuestionId,
   type Question,
 } from '~/lib/questions'
+import { genitive } from '~/lib/turkish'
 import type { AnswerDraft, DisputeView } from '~/lib/views'
 import { LogoMark } from '../brand'
 import { IconArrowLeft, IconArrowRight, IconUsers } from '../icons'
@@ -31,30 +35,46 @@ import { Button, ChipToggle, Notice, TextArea, cx } from '../ui'
 
 type Draft = { whatHappened: string; answers: Record<AnswerQuestionId, AnswerDraft> }
 
+/** Mesele bilgisi: soru ifadesi seçimi ve sırayla anlatım */
+type WizardMeta = { disputeId: string; order: 'first' | 'second' | 'solo'; partnerEvent: string | null }
+const Meta = createContext<WizardMeta>({ disputeId: '', order: 'solo', partnerEvent: null })
+const useSeed = (questionId: string) => seedFor(useContext(Meta).disputeId, questionId)
+
+/** İkinci anlatan, ilk anlatımı aynen onayladı mı? */
+const agreed = (d: Pick<Draft, 'answers'>) => d.answers[EVENT_AGREE]?.tags.includes(AGREE_TAG) ?? false
+
 type Page = 'giris' | Question['id'] | 'ozet'
 const PAGES: Page[] = ['giris', ...QUESTIONS.map((q) => q.id), 'ozet']
 
 /** Sayfa neden henüz geçilemiyor? (geçilebiliyorsa null) */
-function blockReason(page: Page, d: Draft): string | null {
+function blockReason(page: Page, d: Draft, order: WizardMeta['order'] = 'solo'): string | null {
   if (page === 'giris' || page === 'ozet') return null
   const q = QUESTIONS.find((x) => x.id === page)!
-  if (page === 'olay') return d.whatHappened.trim().length >= q.minLength ? null : ''
+  if (page === 'olay') {
+    if (order === 'second')
+      return agreed(d) || d.whatHappened.trim().length >= 10 ? null : 'Onaylayın ya da kendi eklemenizi yazın.'
+    return d.whatHappened.trim().length >= q.minLength ? null : ''
+  }
   const a = d.answers[page as AnswerQuestionId]
   if (q.kind === 'feelings')
     return feelingCount(a) >= FEELING_MIN ? null : 'Devam etmek için sizi anlatan en az bir his seçin.'
   if (q.kind === 'strongest')
     return optionsFor(d).some((o) => a.tags.includes(o.id)) ? null : 'Devam etmek için birini seçin.'
+  if (q.kind === 'needs') {
+    if (a.tags.length === 0) return q.chipsError ?? ''
+    return a.text.trim().length >= q.minLength ? null : ''
+  }
   if (q.textRequired && a.text.trim().length < q.minLength) return ''
-  if (q.chipsRequired && a.tags.length === 0) return 'Devam etmek için o an ne yaptığınızı seçin.'
+  if (q.chipsRequired && a.tags.length === 0) return q.chipsError ?? ''
   return null
 }
 
-const pageComplete = (page: Page, d: Draft) => blockReason(page, d) === null
+const pageComplete = (page: Page, d: Draft, order?: WizardMeta['order']) => blockReason(page, d, order) === null
 
 /** Sayfaya dönüldüğünde (önceden cevaplanmışsa) her şey hemen görünür. */
 function hasContent(page: Page, d: Draft) {
   if (page === 'giris' || page === 'ozet') return false
-  if (page === 'olay') return d.whatHappened.trim().length > 0
+  if (page === 'olay') return d.whatHappened.trim().length > 0 || agreed(d)
   const a = d.answers[page as AnswerQuestionId]
   return a.text.trim().length > 0 || a.tags.length > 0
 }
@@ -123,13 +143,14 @@ function Bubble({ children, typing }: { children?: ReactNode; typing?: boolean }
 export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: DisputeView) => void }) {
   const partnerName = view.partnerName ?? ''
   const solo = view.mode === 'solo'
+  const meta: WizardMeta = { disputeId: view.id, order: view.answerOrder, partnerEvent: view.partnerEvent }
   const [draft, setDraft] = useState<Draft>(() => ({
     whatHappened: view.mine.whatHappened,
     answers: view.mine.answers,
   }))
   const [pageIndex, setPageIndex] = useState(() => {
-    if (!view.mine.whatHappened) return 0
-    const firstOpen = PAGES.findIndex((p) => p !== 'giris' && !pageComplete(p, { ...view.mine }))
+    if (!view.mine.whatHappened && !agreed(view.mine)) return 0
+    const firstOpen = PAGES.findIndex((p) => p !== 'giris' && !pageComplete(p, { ...view.mine }, view.answerOrder))
     return firstOpen === -1 ? PAGES.length - 1 : firstOpen
   })
   const [confirming, setConfirming] = useState(false)
@@ -204,109 +225,129 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
     requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
-  const reason = blockReason(page, draft)
+  const reason = blockReason(page, draft, meta.order)
   const revealed = page === 'ozet' || revealedPage === page
   const complete = reason === null && revealed
-  const allComplete = useMemo(() => PAGES.every((p) => pageComplete(p, draft)), [draft])
+  const allComplete = useMemo(() => PAGES.every((p) => pageComplete(p, draft, meta.order)), [draft, meta.order])
   const questionIndex = QUESTIONS.findIndex((q) => q.id === page)
   const question = questionIndex >= 0 ? QUESTIONS[questionIndex]! : null
 
   return (
-    <div ref={topRef} className="scroll-mt-20">
-      {question ? (
-        <div className="mb-5 flex items-center gap-3">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-            <div
-              className="h-full rounded-full bg-clay transition-[width] duration-500"
-              style={{ width: `${((questionIndex + 1) / QUESTIONS.length) * 100}%` }}
-            />
-          </div>
-          <span className="text-xs font-medium text-ink-faint tabular-nums">
-            {question.number} / {QUESTION_COUNT}
-          </span>
-        </div>
-      ) : null}
-
-      <div key={page} className="animate-rise space-y-5">
-        {page === 'giris' ? (
-          <Intro partnerName={partnerName} solo={solo} onRevealed={() => setRevealedPage('giris')} />
-        ) : page === 'ozet' ? (
-          <Summary draft={draft} partnerName={partnerName} solo={solo} />
-        ) : (
-          <QuestionStep
-            question={question!}
-            draft={draft}
-            partnerName={partnerName}
-            update={update}
-            setAnswer={setAnswer}
-            reflection={page === FEELINGS ? reflection : null}
-            ready={page === FEELINGS ? reflectionReady : true}
-            onRevealed={() => setRevealedPage(page)}
-          />
-        )}
-      </div>
-
-      {save.isError ? (
-        <div className="mt-4">
-          <Notice tone="error">{parseError(save.error).message}</Notice>
-        </div>
-      ) : null}
-
-      <BottomBar>
-        {page === 'ozet' && confirming ? (
-          <div className="space-y-3">
-            <p className="text-center text-sm text-ink-soft">
-              Gönderdikten sonra cevaplarınızı değiştiremezsiniz.{' '}
-              {solo
-                ? 'Ardından danışman raporunuz hazırlanacak.'
-                : 'Ardından partnerinizin de anlatmasını bekleyeceğiz.'}
-            </p>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setConfirming(false)}>
-                Bir daha bakayım
-              </Button>
-              <Button full loading={save.isPending} onClick={() => save.mutate(true)}>
-                Evet, gönder
-              </Button>
+    <Meta.Provider value={meta}>
+      <div ref={topRef} className="scroll-mt-20">
+        {question ? (
+          <div className="mb-5 flex items-center gap-3">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+              <div
+                className="h-full rounded-full bg-clay transition-[width] duration-500"
+                style={{ width: `${((questionIndex + 1) / QUESTIONS.length) * 100}%` }}
+              />
             </div>
+            <span className="text-xs font-medium text-ink-faint tabular-nums">
+              {question.number} / {QUESTION_COUNT}
+            </span>
           </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            {pageIndex > 0 ? (
-              <Button variant="secondary" aria-label="Önceki soru" onClick={() => go(-1)}>
-                <IconArrowLeft size={18} />
-              </Button>
-            ) : null}
-            {page === 'giris' ? (
-              <Button full size="lg" disabled={!revealed} onClick={() => go(1)}>
-                Hazırım, başlayalım <IconArrowRight size={18} />
-              </Button>
-            ) : page === 'ozet' ? (
-              <Button full size="lg" disabled={!allComplete} onClick={() => setConfirming(true)}>
-                Cevaplarımı gönder
-              </Button>
-            ) : (
-              <Button full size="lg" disabled={!complete} onClick={() => go(1)}>
-                Devam <IconArrowRight size={18} />
-              </Button>
-            )}
+        ) : null}
+
+        <div key={page} className="animate-rise space-y-5">
+          {page === 'giris' ? (
+            <Intro
+              partnerName={partnerName}
+              solo={solo}
+              order={meta.order}
+              onRevealed={() => setRevealedPage('giris')}
+            />
+          ) : page === 'ozet' ? (
+            <Summary draft={draft} partnerName={partnerName} solo={solo} order={meta.order} />
+          ) : (
+            <QuestionStep
+              question={question!}
+              draft={draft}
+              partnerName={partnerName}
+              update={update}
+              setAnswer={setAnswer}
+              reflection={page === FEELINGS ? reflection : null}
+              ready={page === FEELINGS ? reflectionReady : true}
+              onRevealed={() => setRevealedPage(page)}
+            />
+          )}
+        </div>
+
+        {save.isError ? (
+          <div className="mt-4">
+            <Notice tone="error">{parseError(save.error).message}</Notice>
           </div>
-        )}
-        {revealed && reason ? (
-          <p className="mt-2 text-center text-[13px] text-ink-soft">{reason}</p>
-        ) : (
-          <p
-            className={cx('mt-2 text-center text-[12px] text-ink-faint', save.isPending ? 'opacity-100' : 'opacity-0')}
-          >
-            Taslak kaydediliyor…
-          </p>
-        )}
-      </BottomBar>
-    </div>
+        ) : null}
+
+        <BottomBar>
+          {page === 'ozet' && confirming ? (
+            <div className="space-y-3">
+              <p className="text-center text-sm text-ink-soft">
+                Gönderdikten sonra cevaplarınızı değiştiremezsiniz.{' '}
+                {solo
+                  ? 'Ardından danışman raporunuz hazırlanacak.'
+                  : 'Ardından partnerinizin de anlatmasını bekleyeceğiz.'}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setConfirming(false)}>
+                  Bir daha bakayım
+                </Button>
+                <Button full loading={save.isPending} onClick={() => save.mutate(true)}>
+                  Evet, gönder
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {pageIndex > 0 ? (
+                <Button variant="secondary" aria-label="Önceki soru" onClick={() => go(-1)}>
+                  <IconArrowLeft size={18} />
+                </Button>
+              ) : null}
+              {page === 'giris' ? (
+                <Button full size="lg" disabled={!revealed} onClick={() => go(1)}>
+                  Hazırım, başlayalım <IconArrowRight size={18} />
+                </Button>
+              ) : page === 'ozet' ? (
+                <Button full size="lg" disabled={!allComplete} onClick={() => setConfirming(true)}>
+                  Cevaplarımı gönder
+                </Button>
+              ) : (
+                <Button full size="lg" disabled={!complete} onClick={() => go(1)}>
+                  Devam <IconArrowRight size={18} />
+                </Button>
+              )}
+            </div>
+          )}
+          {revealed && reason ? (
+            <p className="mt-2 text-center text-[13px] text-ink-soft">{reason}</p>
+          ) : (
+            <p
+              className={cx(
+                'mt-2 text-center text-[12px] text-ink-faint',
+                save.isPending ? 'opacity-100' : 'opacity-0',
+              )}
+            >
+              Taslak kaydediliyor…
+            </p>
+          )}
+        </BottomBar>
+      </div>
+    </Meta.Provider>
   )
 }
 
-function Intro({ partnerName, solo, onRevealed }: { partnerName: string; solo: boolean; onRevealed: () => void }) {
+function Intro({
+  partnerName,
+  solo,
+  order,
+  onRevealed,
+}: {
+  partnerName: string
+  solo: boolean
+  order: WizardMeta['order']
+  onRevealed: () => void
+}) {
   const messages = introMessage(partnerName)
   const shown = useReveal(messages.length + 1, { instant: false })
   useEffect(() => {
@@ -324,7 +365,7 @@ function Intro({ partnerName, solo, onRevealed }: { partnerName: string; solo: b
       {shown > messages.length ? (
         <div className="flex animate-rise gap-2.5 rounded-2xl border border-line bg-sunken px-4 py-3 text-[14px] leading-relaxed text-ink-soft">
           <IconUsers size={18} className="mt-0.5 shrink-0" />
-          <p>{privacyNotice(partnerName, solo)}</p>
+          <p>{privacyNotice(partnerName, solo, order)}</p>
         </div>
       ) : null}
     </section>
@@ -351,6 +392,9 @@ function QuestionStep({
   onRevealed: () => void
 }) {
   // Aşamalar: 1 soru · 2 açıklama · 3 cevap alanı
+  const seed = useSeed(q.id)
+  const meta = useContext(Meta)
+  const afterPartner = q.id === 'olay' && meta.order === 'second' && Boolean(meta.partnerEvent)
   const [instant] = useState(() => hasContent(q.id, draft))
   const shown = useReveal(3, { instant, ready })
   useEffect(() => {
@@ -366,7 +410,10 @@ function QuestionStep({
         <div className="animate-rise">
           <Bubble>
             <span id={`q-${q.id}`} className="font-medium">
-              {q.number}. {q.prompt(partnerName)}
+              {q.number}.{' '}
+              {afterPartner
+                ? `${partnerName || 'Partneriniz'} yaşananları şöyle anlattı. Sizin eklemek ya da düzeltmek istediğiniz bir kısım var mı? Yaşanan tartışmayı bir de sizden dinliyorum, buyurun.`
+                : q.prompt(partnerName, seed)}
             </span>
           </Bubble>
         </div>
@@ -380,7 +427,18 @@ function QuestionStep({
               </span>
             </p>
           ) : null}
-          {q.helper ? <p className="px-1 text-[14px] leading-relaxed text-ink-soft">{q.helper}</p> : null}
+          {afterPartner ? (
+            <figure className="rounded-2xl border-l-4 border-partner-b bg-partner-b-soft/60 px-4 py-3">
+              <figcaption className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
+                {partnerName || 'Partneriniz'} anlatıyor
+              </figcaption>
+              <blockquote className="mt-1.5 text-[15px] leading-relaxed whitespace-pre-line text-ink">
+                {meta.partnerEvent}
+              </blockquote>
+            </figure>
+          ) : q.helper ? (
+            <p className="px-1 text-[14px] leading-relaxed text-ink-soft">{q.helper}</p>
+          ) : null}
         </div>
       ) : null}
       {shown >= 3 ? (
@@ -393,6 +451,15 @@ function QuestionStep({
             />
           ) : q.kind === 'strongest' ? (
             <StrongestPicker draft={draft} question={q} onChange={(patch) => setAnswer(STRONGEST_FEELING, patch)} />
+          ) : q.kind === 'needs' ? (
+            <NeedsStep
+              question={q}
+              answer={draft.answers[q.id as AnswerQuestionId]}
+              partnerName={partnerName}
+              onChange={(patch) => setAnswer(q.id as AnswerQuestionId, patch)}
+            />
+          ) : afterPartner ? (
+            <EventAfterPartner draft={draft} partnerName={partnerName} update={update} setAnswer={setAnswer} />
           ) : (
             <TextStep question={q} draft={draft} partnerName={partnerName} update={update} setAnswer={setAnswer} />
           )}
@@ -424,6 +491,8 @@ function TextStep({
   setAnswer: (id: AnswerQuestionId, patch: Partial<AnswerDraft>) => void
 }) {
   const isEvent = q.id === 'olay'
+  const seed = useSeed(q.id)
+  const order = useContext(Meta).order
   const answer = isEvent ? null : draft.answers[q.id as AnswerQuestionId]
   const text = isEvent ? draft.whatHappened : answer!.text
   const setText = (v: string) =>
@@ -454,9 +523,15 @@ function TextStep({
           maxLength={LIMITS.text}
           minRows={isEvent ? 7 : 4}
           placeholder={q.placeholder}
-          aria-label={q.prompt(partnerName)}
+          aria-label={q.prompt(partnerName, seed)}
         />
         <MicHint />
+        {isEvent && order === 'first' ? (
+          <p className="rounded-2xl bg-sunken px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-soft">
+            Bu kutuya yazdıklarınızı {partnerName || 'partneriniz'} olduğu gibi görecek; onaylayacak ya da kendi
+            gözünden ekleme yapıp devam edecek. Diğer cevaplarınız ona gösterilmez.
+          </p>
+        ) : null}
         {short ? (
           <p className="px-1 text-[13px] text-ink-faint">Biraz daha açar mısınız? Birkaç kelime daha yeter.</p>
         ) : null}
@@ -675,14 +750,133 @@ function StrongestPicker({
   )
 }
 
+/** İkinci anlatan: ilk anlatımı aynen onayla ya da kendi eklemeni yaz. */
+function EventAfterPartner({
+  draft,
+  partnerName,
+  update,
+  setAnswer,
+}: {
+  draft: Draft
+  partnerName: string
+  update: (fn: (d: Draft) => Draft) => void
+  setAnswer: (id: AnswerQuestionId, patch: Partial<AnswerDraft>) => void
+}) {
+  const ok = agreed(draft)
+  return (
+    <div className="space-y-3">
+      <ChipToggle
+        shape="soft"
+        label={`Aynen böyle oldu, eklemem yok`}
+        selected={ok}
+        onToggle={() => {
+          setAnswer(EVENT_AGREE, { tags: ok ? [] : [AGREE_TAG] })
+          if (!ok) update((d) => ({ ...d, whatHappened: '' }))
+        }}
+      />
+      {ok ? (
+        <p className="px-1 text-[13px] text-ink-faint">
+          Danışman, {partnerName ? genitive(partnerName) : 'partnerinizin'} anlatımını ikinizin ortak anlatımı olarak
+          ele alacak.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <p className="px-1 text-[14px] text-ink-soft">
+            Ya da sizin gözünüzden eklemek, düzeltmek istediklerinizi yazın:
+          </p>
+          <TextArea
+            value={draft.whatHappened}
+            onChange={(v) => update((d) => ({ ...d, whatHappened: v }))}
+            maxLength={LIMITS.text}
+            minRows={5}
+            placeholder="Ben biraz farklı hatırlıyorum: …"
+            aria-label="Eklemek ya da düzeltmek istedikleriniz"
+          />
+          <MicHint />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Kendi ihtiyacı: ihtiyaç seçimi (en fazla 5), ardından değişen bir takip sorusu. */
+function NeedsStep({
+  question: q,
+  answer,
+  partnerName,
+  onChange,
+}: {
+  question: Question
+  answer: AnswerDraft
+  partnerName: string
+  onChange: (patch: Partial<AnswerDraft>) => void
+}) {
+  const seed = useSeed(q.id)
+  const max = q.chipsMax ?? 5
+  const full = answer.tags.length >= max
+  const [followInstant] = useState(() => answer.text.trim().length > 0)
+  const followStage = useReveal(1, { instant: followInstant, ready: answer.tags.length > 0 })
+  const toggle = (id: string) => {
+    const on = answer.tags.includes(id)
+    if (!on && full) return
+    onChange({ tags: on ? answer.tags.filter((t) => t !== id) : [...answer.tags, id] })
+  }
+  return (
+    <div className="space-y-4">
+      <p className="flex items-center justify-between rounded-2xl bg-sunken px-4 py-2.5 text-[13px] text-ink-soft">
+        <span>{full ? `En fazla ${max} ihtiyaç seçebilirsiniz.` : 'Size uyanlara dokunun.'}</span>
+        <span className="font-semibold tabular-nums">
+          {answer.tags.length} / {max}
+        </span>
+      </p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={q.title}>
+        {q.chips!.map((chip, i) => {
+          const selected = answer.tags.includes(chip.id)
+          return (
+            <span key={chip.id} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
+              <ChipToggle
+                shape="soft"
+                label={chip.label}
+                selected={selected}
+                disabled={full && !selected}
+                onToggle={() => toggle(chip.id)}
+              />
+            </span>
+          )
+        })}
+      </div>
+      {q.followUp && followStage >= 1 ? (
+        <div className="animate-rise space-y-3 pt-1">
+          <Bubble>
+            <span className="font-medium">{q.followUp(partnerName, seed)}</span>
+          </Bubble>
+          <TextArea
+            value={answer.text}
+            onChange={(v) => onChange({ text: v })}
+            maxLength={LIMITS.text}
+            minRows={3}
+            placeholder={q.placeholder}
+            aria-label={q.followUp(partnerName, seed)}
+          />
+          <MicHint />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /** Özet ve tamamlanmış meseledeki "Anlattıklarınız" için tek satırlık gövde. */
 export function answerBody(q: Question, draft: Pick<Draft, 'whatHappened' | 'answers'>): string {
-  if (q.id === 'olay') return draft.whatHappened
+  if (q.id === 'olay')
+    return agreed(draft) && !draft.whatHappened ? 'Partnerimin anlatımını onayladım.' : draft.whatHappened
   const a = draft.answers[q.id as AnswerQuestionId]
   if (q.kind === 'feelings') {
     const chips = a.tags.filter((t) => t !== OTHER_CHIP).map((t) => chipLabel(q.id, t))
     if (a.tags.includes(OTHER_CHIP) && a.text) chips.push(a.text)
     return chips.join(', ')
+  }
+  if (q.kind === 'needs') {
+    return [a.tags.map((t) => chipLabel(q.id, t)).join(', '), a.text].filter(Boolean).join(' — ')
   }
   if (q.kind === 'strongest') {
     const option = optionsFor(draft).find((o) => a.tags.includes(o.id))
@@ -695,7 +889,17 @@ export function answerBody(q: Question, draft: Pick<Draft, 'whatHappened' | 'ans
   return [a.text, thoughts.join(', '), chips.join(', ')].filter(Boolean).join(' — ')
 }
 
-function Summary({ draft, partnerName, solo }: { draft: Draft; partnerName: string; solo: boolean }) {
+function Summary({
+  draft,
+  partnerName,
+  solo,
+  order,
+}: {
+  draft: Draft
+  partnerName: string
+  solo: boolean
+  order: WizardMeta['order']
+}) {
   return (
     <section className="space-y-4" aria-label="Cevaplarınızın özeti">
       <Bubble>Teşekkür ederim. Anlattıklarınıza son bir kez göz atın; isterseniz geri dönüp düzeltebilirsiniz.</Bubble>
@@ -707,7 +911,7 @@ function Summary({ draft, partnerName, solo }: { draft: Draft; partnerName: stri
           </li>
         ))}
       </ul>
-      <p className="px-1 text-[13px] leading-relaxed text-ink-faint">{privacyNotice(partnerName, solo)}</p>
+      <p className="px-1 text-[13px] leading-relaxed text-ink-faint">{privacyNotice(partnerName, solo, order)}</p>
     </section>
   )
 }

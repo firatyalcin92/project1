@@ -75,6 +75,15 @@ function Phase({ view, onView, reflecting, setReflecting }: PhaseProps) {
   switch (view.status) {
     case 'draft':
     case 'answers_in_progress':
+      // Sırayla anlatım: ilk anlatan bitirmeden ikinci anlatan başlamaz.
+      if (
+        view.answerOrder === 'second' &&
+        !view.progress.partnerSubmitted &&
+        !view.progress.meSubmitted &&
+        !view.mine.whatHappened
+      ) {
+        return <WaitingForFirst name={view.partner?.name ?? view.partnerName ?? 'Partneriniz'} />
+      }
       return view.progress.meSubmitted ? (
         <WaitingForPartner view={view} />
       ) : (
@@ -95,6 +104,18 @@ function Phase({ view, onView, reflecting, setReflecting }: PhaseProps) {
     case 'completed':
       return <Resolution view={view} onView={onView} />
   }
+}
+
+function WaitingForFirst({ name }: { name: string }) {
+  return (
+    <Card className="animate-rise space-y-3 py-8 text-center">
+      <h2 className="text-[22px] font-semibold">Önce {name} anlatıyor</h2>
+      <p className="mx-auto max-w-sm leading-relaxed text-ink-soft">
+        {name} bitirdiğinde sıra size gelecek. Onun olay anlatımını okuyacak, eklemek ya da düzeltmek istediklerinizi
+        yazacaksınız. Bu ekran kendiliğinden ilerler; yeni bir başlık girmenize gerek yok.
+      </p>
+    </Card>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -280,8 +301,8 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
       <Card className="space-y-3">
         <p className="font-semibold">Bu döngü sık tekrar ediyorsa</p>
         <p className="text-sm leading-relaxed text-ink-soft">
-          Bazı danslar iki kişiyle değil, bir rehberle daha kolay değişir. Bir aile ya da çift danışmanıyla birkaç
-          seans, burada gördüklerinizi kalıcı hâle getirebilir.
+          Bazen ilişkideki döngüleri değiştirmek için dışarıdan bir bakışa ihtiyaç duyulur. Bir aile veya çift
+          danışmanıyla yapacağınız görüşmeler, burada fark ettiklerinizi günlük hayatınıza taşımanıza yardımcı olabilir.
         </p>
         {COUNSELOR_URL ? (
           <a

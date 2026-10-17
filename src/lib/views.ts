@@ -31,6 +31,8 @@ export type DisputeSummary = {
 export type ActiveDisputeSummary = DisputeSummary & {
   meDone: boolean
   partnerDone: boolean
+  /** Sırayla anlatım: önce partner anlatıyor, sıra henüz bende değil */
+  waitingForFirst: boolean
 }
 
 export type OverviewStatus = 'locked' | 'available' | 'generating' | 'ready'
@@ -96,6 +98,10 @@ export type DisputeView = {
   createdByMe: boolean
   canCancel: boolean
   mode: Mode
+  /** Çift modunda sırayla anlatım: first önce anlatır, second onun olay anlatımını görüp ekler */
+  answerOrder: 'first' | 'second' | 'solo'
+  /** Yalnızca ikinci anlatana: ilk anlatanın 1. soru (olay) metni */
+  partnerEvent: string | null
   me: MemberInfo
   partner: MemberInfo | null
   partnerName: string | null

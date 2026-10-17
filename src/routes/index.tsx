@@ -156,7 +156,10 @@ function Landing() {
           </h2>
           <ul className="mt-3 space-y-2 leading-relaxed text-ink-soft">
             <li>• E-posta, telefon ya da şifre istemiyoruz; takma ad da olur.</li>
-            <li>• Partneriniz cevaplarınızı olduğu gibi görmez; danışman onları ihtiyaç diliyle yansıtır.</li>
+            <li>
+              • Olay anlatımı dışında partneriniz cevaplarınızı olduğu gibi görmez; danışman onları ihtiyaç diliyle
+              yansıtır.
+            </li>
             <li>• Üçüncü kişilerle paylaşılmaz, reklam için kullanılmaz.</li>
             <li>• Tüm verilerinizi istediğiniz an silebilirsiniz (çift olarak kullanıyorsanız ikinizin onayıyla).</li>
           </ul>

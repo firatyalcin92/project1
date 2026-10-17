@@ -252,14 +252,18 @@ export function chipLabel(questionId: string, chipId: string): string {
   }
   if ([FEELINGS, FEELING_DURING, FEELING_AFTER, STRONGEST_FEELING].includes(questionId)) return feelingLabel(chipId)
   if (questionId === THOUGHTS) return THOUGHT_CHIPS.find((c) => c.id === chipId)?.label ?? chipId
+  if (questionId === 'ihtiyac') return NEED_CHIPS.find((c) => c.id === chipId)?.label ?? chipId
   return REACTION_CHIPS.find((c) => c.id === chipId)?.label ?? chipId
 }
 
 export type QuestionId =
   'olay' | 'dusunce' | typeof FEELINGS | typeof STRONGEST_FEELING | 'ihtiyac' | 'partner_ihtiyac' | 'degisim'
 
-/** text: serbest metin (+ isteğe bağlı çip); feelings: gruplu çoklu seçim; strongest: tek seçim + neden */
-export type QuestionKind = 'text' | 'feelings' | 'strongest'
+/**
+ * text: serbest metin (+ isteğe bağlı çip) · feelings: gruplu çoklu seçim ·
+ * strongest: tek seçim + neden · needs: ihtiyaç seçimi + takip sorusu
+ */
+export type QuestionKind = 'text' | 'feelings' | 'strongest' | 'needs'
 
 export type Question = {
   id: QuestionId
@@ -268,8 +272,11 @@ export type Question = {
   number: number
   /** Kısa başlık (ilerleme, özet, rapor kayıtları) */
   title: string
-  /** Danışmanın sorusu; partner adıyla kişiselleşir. */
-  prompt: (partnerName: string) => string
+  /**
+   * Danışmanın sorusu; partner adıyla kişiselleşir. seed her meselede farklı bir
+   * ifade seçer (aynı mantık, farklı söyleyiş); verilmezse ilk ifade.
+   */
+  prompt: (partnerName: string, seed?: number) => string
   /** Aynı sorunun bölümü (ör. "A · Tartışma sırasında") */
   section?: string
   helper?: string
@@ -282,11 +289,55 @@ export type Question = {
   chipsRequired?: boolean
   /** Aynı sayfada, ayrı bir satıra kaydedilen isteğe bağlı düşünce çipleri */
   thoughts?: { answerId: typeof THOUGHTS; chips: readonly Chip[]; prompt: string }
+  /** Seçilebilecek en fazla çip sayısı */
+  chipsMax?: number
+  /** Çip seçilmeden geçilmek istendiğinde gösterilecek neden */
+  chipsError?: string
+  /** Çipler seçildikten sonra açılan takip sorusu (metin kutusu buna cevap verir) */
+  followUp?: (partnerName: string, seed?: number) => string
   textRequired: boolean
   minLength: number
 }
 
 const p = (name: string) => name || 'partneriniz'
+
+/** Her mesele için aynı soruyu farklı ifadeyle sormak: seed'e göre sabit seçim. */
+export function pick(variants: readonly string[], seed = 0) {
+  return variants[Math.abs(seed) % variants.length]!
+}
+
+/** Mesele kimliğinden ve sorudan sabit bir sayı (iki partner de aynı ifadeyi görür). */
+export function seedFor(disputeId: string, questionId: string) {
+  let h = 0
+  for (const ch of `${disputeId}:${questionId}`) h = (h * 31 + ch.charCodeAt(0)) | 0
+  return Math.abs(h)
+}
+
+/** Kendi ihtiyacı sorusundaki seçenekler */
+export const NEED_CHIPS = [
+  { id: 'duyulmak', label: 'Dinlenmek, duyulmak' },
+  { id: 'anlasilmak', label: 'Anlaşılmak' },
+  { id: 'onemsenmek', label: 'Önemsenmek, öncelik verilmek' },
+  { id: 'saygi', label: 'Saygı görmek' },
+  { id: 'takdir', label: 'Emeğimin görülmesi' },
+  { id: 'kabul', label: 'Olduğum gibi kabul görmek' },
+  { id: 'guven', label: 'Güvende hissetmek' },
+  { id: 'yakinlik', label: 'Yakınlık, şefkat' },
+  { id: 'destek', label: 'Destek, yükün paylaşılması' },
+  { id: 'adalet', label: 'Adil davranılmak' },
+  { id: 'alan', label: 'Sakinleşmek için biraz alan' },
+  { id: 'ozgurluk', label: 'Kendi kararımı verebilmek' },
+  { id: 'aciklik', label: 'Açık ve dürüst konuşulması' },
+  { id: 'guvence', label: 'Yalnız bırakılmayacağımı bilmek' },
+  { id: 'birlikte', label: 'Birlikte karar vermek' },
+  { id: 'huzur', label: 'Huzur, sakinlik' },
+] as const satisfies readonly Chip[]
+
+export const NEEDS_MAX = 5
+
+/** İkinci anlatan, ilk anlatıyı aynen onaylarsa (olay_onay satırı) */
+export const EVENT_AGREE = 'olay_onay'
+export const AGREE_TAG = 'onay'
 
 const FEELINGS_PROMPT = 'Tartışma sırasında ve sonrasında neler hissettiniz?'
 const FEELINGS_HELPER =
@@ -298,7 +349,15 @@ export const QUESTIONS: readonly Question[] = [
     kind: 'text',
     number: 1,
     title: 'Ne oldu?',
-    prompt: () => 'Tam olarak ne oldu, detaylıca anlatır mısınız? Sesle de yazabilirsiniz, dinliyorum.',
+    prompt: (_n, seed) =>
+      pick(
+        [
+          'Tam olarak ne oldu, detaylıca anlatır mısınız? Sesle de yazabilirsiniz, dinliyorum.',
+          'Neler yaşandı? İlk kıvılcımdan itibaren, adım adım anlatır mısınız? Sesle de anlatabilirsiniz.',
+          'Bu tartışma nasıl başladı ve nasıl büyüdü? Olduğu gibi anlatın, dinliyorum.',
+        ],
+        seed,
+      ),
     helper: 'Neredeydiniz, kim ne dedi, ilk ne oldu, sonra nasıl büyüdü? Bir film sahnesi gibi anlatın.',
     placeholder: 'Akşam eve geldiğimde…',
     examples: (n) => [
@@ -314,7 +373,15 @@ export const QUESTIONS: readonly Question[] = [
     kind: 'text',
     number: 2,
     title: 'O an ne düşündünüz?',
-    prompt: () => 'Peki siz o esnada ne düşündünüz, içinizden geçen düşünce ne oldu?',
+    prompt: (_n, seed) =>
+      pick(
+        [
+          'Peki siz o esnada ne düşündünüz, içinizden geçen düşünce ne oldu?',
+          'O an aklınızdan neler geçti? İçinizden kurduğunuz cümle neydi?',
+          'Tartışmanın en sıcak anında kafanızda hangi düşünce dönüyordu?',
+        ],
+        seed,
+      ),
     helper: 'Aklınızdan geçen cümleyi olduğu gibi yazın; burada doğru ya da yanlış yok.',
     placeholder: '“Yine beni dinlemiyor” diye düşündüm…',
     examples: () => [
@@ -330,6 +397,7 @@ export const QUESTIONS: readonly Question[] = [
     chips: REACTION_CHIPS,
     chipsPrompt: 'Peki o an ne yaptınız? Birden fazla seçebilirsiniz.',
     chipsRequired: true,
+    chipsError: 'Devam etmek için o an ne yaptığınızı seçin.',
     textRequired: true,
     minLength: 5,
   },
@@ -338,7 +406,15 @@ export const QUESTIONS: readonly Question[] = [
     kind: 'feelings',
     number: 3,
     title: 'Hissettikleriniz',
-    prompt: () => FEELINGS_PROMPT,
+    prompt: (_n, seed) =>
+      pick(
+        [
+          FEELINGS_PROMPT,
+          'Bu tartışma sizde hangi duyguları uyandırdı, o an ve sonrasında?',
+          'O anlarda ve tartışma bittikten sonra içinizde neler vardı?',
+        ],
+        seed,
+      ),
     helper: FEELINGS_HELPER,
     placeholder: 'Kendi kelimelerinizle…',
     examples: () => [],
@@ -350,8 +426,16 @@ export const QUESTIONS: readonly Question[] = [
     kind: 'strongest',
     number: 4,
     title: 'Sizi en çok etkileyen his',
-    prompt: () => 'Seçtiğiniz hisler arasından sizi en çok etkileyen hangisiydi? Neden?',
-    helper: 'Birine dokunarak seçin. Nedenini yazmak isteğe bağlı ama danışmana çok yardımcı olur.',
+    prompt: (_n, seed) =>
+      pick(
+        [
+          'Seçtiğiniz hisler arasından sizi en çok etkileyen hangisiydi? Neden?',
+          'Bu duygulardan hangisi sizi en derinden etkiledi? Neden?',
+        ],
+        seed,
+      ),
+    helper:
+      'Birine dokunarak seçin. Nedenini birkaç cümleyle yazarsanız, size hazırlayacağım rapor ve öneriler doğrudan buna göre şekillenir.',
     placeholder: 'Çünkü o an…',
     examples: () => [],
     textRequired: false,
@@ -359,12 +443,24 @@ export const QUESTIONS: readonly Question[] = [
   },
   {
     id: 'ihtiyac',
-    kind: 'text',
+    kind: 'needs',
     number: 5,
     title: 'Sizin ihtiyacınız',
-    prompt: (n) =>
-      `Yaşadığınız bu olayda sizin tam olarak ihtiyacınız neydi? ${n || 'Eşiniz'} ne yapsaydı bu kadar büyümezdi sizin için?`,
-    helper: 'Bir cümle, bir bakış, bir dokunuş olabilir. “Haklısın” değil; altındaki ihtiyaç.',
+    prompt: () => 'Yaşadığınız bu olayda sizin tam olarak ihtiyacınız neydi?',
+    helper: 'Size en uygun ihtiyaçları seçin (en fazla 5). “Haklı çıkmak” değil; altındaki ihtiyaç.',
+    chips: NEED_CHIPS,
+    chipsMax: NEEDS_MAX,
+    chipsRequired: true,
+    chipsError: 'Devam etmek için en az bir ihtiyaç seçin.',
+    followUp: (n, seed) =>
+      pick(
+        [
+          `Bu durumun daha fazla büyümemesi için ${p(n)} neyi farklı yapabilirdi?`,
+          `Aynı olay tekrar yaşansa ${genitive(p(n))} nasıl davranması işleri kolaylaştırırdı?`,
+          `${p(n)} o an neyi farklı yapsaydı sizin için daha kolay olurdu?`,
+        ],
+        seed,
+      ),
     placeholder: 'Sadece bir dakika durup beni dinlemesi…',
     examples: () => [
       'Sadece bir dakika telefonu bırakıp beni dinlemesi.',
@@ -379,8 +475,15 @@ export const QUESTIONS: readonly Question[] = [
     kind: 'text',
     number: 6,
     title: `Onun ihtiyacı`,
-    prompt: (n) =>
-      `Peki sizce ${n ? genitive(n) : 'eşinizin'} ihtiyacı neydi? O, kendisine ne yapılmasını, ne söylenmesini isterdi?`,
+    prompt: (n, seed) =>
+      pick(
+        [
+          `Peki sizce ${n ? genitive(n) : 'eşinizin'} ihtiyacı neydi? O, kendisine ne yapılmasını, ne söylenmesini isterdi?`,
+          `Bir an ${n ? genitive(n) : 'eşinizin'} yerine geçin: o anda onun en çok neye ihtiyacı vardı sizce?`,
+          `Sizce ${p(n)} o an sizden ne duymak ya da ne görmek isterdi?`,
+        ],
+        seed,
+      ),
     helper: 'Bir an onun yerine geçin. Bu soru, döngüyü kırmanın en güçlü anahtarlarından biri.',
     placeholder: 'Belki de yorgun olduğunu fark etmemi…',
     examples: () => [
@@ -396,7 +499,15 @@ export const QUESTIONS: readonly Question[] = [
     kind: 'text',
     number: 7,
     title: 'Kendinizde değiştireceğiniz',
-    prompt: () => 'Aynı konuda tekrar tartışma yaşamamanız için sizin kendinizde neye müdahale etmeniz gerekiyor?',
+    prompt: (_n, seed) =>
+      pick(
+        [
+          'Aynı konuda tekrar tartışma yaşamamanız için sizin kendinizde neye müdahale etmeniz gerekiyor?',
+          'Bir dahaki sefere sizin elinizde olan, farklı yapabileceğiniz küçük bir şey ne olabilir?',
+          'Bu döngüyü kırmak için kendi tarafınızda neyi değiştirmeyi denemek istersiniz?',
+        ],
+        seed,
+      ),
     helper: 'Onun değil, sizin elinizde olan küçük ama gerçek bir değişiklik.',
     placeholder: 'Sesim yükselmeye başladığında…',
     examples: () => [
@@ -413,6 +524,7 @@ export const QUESTION_COUNT = Math.max(...QUESTIONS.map((q) => q.number))
 
 /** Olay anlatımı dispute_entries tablosunda, diğerleri answers tablosunda tutulur. */
 export const ANSWER_QUESTION_IDS = [
+  EVENT_AGREE,
   'dusunce',
   THOUGHTS,
   FEELINGS,
@@ -433,6 +545,8 @@ export function allowedChipsFor(questionId: string): readonly string[] {
     return [...FEELING_CHIPS.map((c) => c.id), OTHER_CHIP, STRONGEST_OTHER.during, STRONGEST_OTHER.after]
   if (questionId === 'dusunce') return REACTION_CHIPS.map((c) => c.id)
   if (questionId === THOUGHTS) return THOUGHT_CHIPS.map((c) => c.id)
+  if (questionId === 'ihtiyac') return NEED_CHIPS.map((c) => c.id)
+  if (questionId === EVENT_AGREE) return [AGREE_TAG]
   return []
 }
 
@@ -481,13 +595,16 @@ export function introMessage(partnerName: string) {
   return [
     'Merhaba, yeni mesele için ben hazırım. Bakalım neler olmuş ve neler yapabilirsiniz, birlikte değerlendirelim.',
     `Unutmayın: burada amacımız haklıyı haksızı bulmak, iyiyi kötüyü belirlemek değil. Ne yaşandığını, bunun sizde ve ${n} nasıl bir karşılık bulduğunu anlamaya çalışacağız; ilişkinizin bu tartışmada tıkandığı yerleri görüp neler yapabileceğinize bakacağız.`,
-    `Size başlangıçta ${QUESTION_COUNT} sorum var. Ne kadar detaylı yanıt verir, düşüncelerinizden ve duygularınızdan ne kadar bahsederseniz bana o kadar yardımcı olur.`,
+    `Size başlangıçta ${QUESTION_COUNT} sorum var. Ne kadar detaylı yanıt verir, düşüncelerinizden ve duygularınızdan ne kadar bahsederseniz, size hazırlayacağım rapor ve öneriler de o kadar size özel olur.`,
   ]
 }
 
-export function privacyNotice(partnerName: string, solo: boolean) {
+export function privacyNotice(partnerName: string, solo: boolean, order: 'first' | 'second' | 'solo' = 'second') {
   if (solo) return 'Cevaplarınız yalnızca size özel danışman raporunu hazırlamak için kullanılır; kimseyle paylaşılmaz.'
-  return `Cevaplarınız ${partnerName ? dative(partnerName) : 'eşinize'} olduğu gibi gösterilmez ve üçüncü kişilerle paylaşılmaz. Danışman analizde bunları kullanır ve raporda ihtiyaç diliyle, uygun bir dille yansıtabilir. Bunu bilerek, içinizden geldiği gibi yazın.`
+  const to = partnerName ? dative(partnerName) : 'eşinize'
+  if (order === 'first')
+    return `İlk sorudaki olay anlatımınızı ${partnerName || 'eşiniz'} okuyup ekleme yapabilecek. Diğer cevaplarınız ${to} olduğu gibi gösterilmez ve üçüncü kişilerle paylaşılmaz; danışman bunları analizde kullanır ve raporda ihtiyaç diliyle yansıtır.`
+  return `Cevaplarınız ${to} olduğu gibi gösterilmez ve üçüncü kişilerle paylaşılmaz. Danışman analizde bunları kullanır ve raporda ihtiyaç diliyle, uygun bir dille yansıtabilir. Bunu bilerek, içinizden geldiği gibi yazın.`
 }
 
 // ---------------------------------------------------------------------------

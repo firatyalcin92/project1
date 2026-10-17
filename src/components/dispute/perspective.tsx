@@ -22,9 +22,9 @@ export function PerspectiveCard({
         </Eyebrow>
         <h2 className="text-[24px] leading-snug font-semibold">{perspective.headline}</h2>
       </div>
-      {/* Okumaya başlamadan önce: merakla okuma notu en üstte. */}
-      <p className="rounded-2xl border-l-4 border-clay bg-clay-soft/50 py-2.5 pr-3 pl-3.5 font-display text-[16px] leading-relaxed text-ink italic">
-        {perspective.readingNote}
+      {/* Okumaya başlamadan önce */}
+      <p className="rounded-2xl border-l-4 border-clay bg-clay-soft/50 py-2.5 pr-3 pl-3.5 text-[14px] leading-relaxed text-ink">
+        Bu metni özenle hazırladık. Lütfen merakla okuyun; yüz yüze konuşmanız için aklınıza gelenleri not alın.
       </p>
       <Paragraphs text={perspective.story} className="text-[17px] text-ink" />
       <div className={`rounded-2xl px-4 py-3 ${tone === 'b' ? 'bg-partner-b-soft' : 'bg-partner-a-soft'}`}>

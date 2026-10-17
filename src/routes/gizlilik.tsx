@@ -42,7 +42,11 @@ function Privacy() {
 
         <Item icon={<IconUsers size={18} />} title="Partneriniz cevaplarınızı olduğu gibi görmez">
           <p>
-            Yazdıklarınız partnerinize hiçbir ekranda olduğu gibi gösterilmez. Danışman (yapay zekâ) cevaplarınızı
+            Tek istisna ilk sorudur: meseleyi ilk anlatan kişinin olay anlatımı (“Ne oldu?”), partnerine “eklemek ya da
+            düzeltmek istediğiniz var mı?” diye gösterilir. Bunu soruyu yanıtlarken ekranda açıkça görürsünüz.
+          </p>
+          <p>
+            Diğer yazdıklarınız partnerinize hiçbir ekranda olduğu gibi gösterilmez. Danışman (yapay zekâ) cevaplarınızı
             analizde kullanır; partnerinizin okuyacağı metinlerde alıntı yapmadan, ihtiyaç diliyle yansıtır.
           </p>
           <p>

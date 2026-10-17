@@ -109,3 +109,19 @@ describe('eski kayıtlarla uyum', () => {
     expect(describeFeelings({ answers: [] })).toEqual([])
   })
 })
+
+describe('soru ifadeleri her meselede değişir', () => {
+  it('aynı soru, farklı mesele → farklı ifade olabilir; aynı mesele → hep aynı', async () => {
+    const { QUESTIONS: qs, seedFor } = await import('~/lib/questions')
+    const q = qs.find((x) => x.id === 'degisim')!
+    const seen = new Set(['a', 'b', 'c', 'd', 'e', 'f'].map((id) => q.prompt('Gamze', seedFor(id, q.id))))
+    expect(seen.size).toBeGreaterThan(1)
+    expect(q.prompt('Gamze', seedFor('x', q.id))).toBe(q.prompt('Gamze', seedFor('x', q.id)))
+    const need = qs.find((x) => x.id === 'ihtiyac')!
+    expect(need.prompt('Gamze')).toBe('Yaşadığınız bu olayda sizin tam olarak ihtiyacınız neydi?')
+    expect(need.followUp!('Gamze', 0)).toBe('Bu durumun daha fazla büyümemesi için Gamze neyi farklı yapabilirdi?')
+    expect(need.followUp!('Gamze', 1)).toBe(
+      'Aynı olay tekrar yaşansa Gamze’nin nasıl davranması işleri kolaylaştırırdı?',
+    )
+  })
+})

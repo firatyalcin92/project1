@@ -29,6 +29,20 @@ export function readinessFromView(view: DisputeView): Readiness | null {
   switch (view.status) {
     case 'draft':
     case 'answers_in_progress': {
+      // Sırayla anlatım
+      if (view.answerOrder === 'second' && !pr.partnerSubmitted && !pr.meSubmitted)
+        return {
+          headline: `${p} meseleyi anlatıyor. Bitirdiğinde sıra size gelecek; onun olay anlatımını okuyup kendi tarafınızı ekleyeceksiniz.`,
+          rows: [me('waiting', 'Sırasını bekliyor'), them('doing', 'Anlatıyor')],
+        }
+      if (view.answerOrder === 'first' && !pr.meSubmitted)
+        return {
+          headline: `Önce siz anlatıyorsunuz. Bitirdiğinizde ${p} olay anlatımınızı okuyup kendi tarafını ekleyecek.`,
+          rows: [
+            me('doing', 'Anlatıyor'),
+            them(joined ? 'waiting' : 'absent', joined ? 'Sırası sizden sonra' : 'Henüz katılmadı'),
+          ],
+        }
       const mine = pr.meSubmitted ? me('done', 'Anlattı') : me('doing', 'Anlatıyor')
       const theirs = !joined
         ? them('absent', 'Henüz katılmadı')
@@ -109,6 +123,14 @@ export function readinessFromSummary(
     label: done ? 'Hazır' : 'Devam ediyor',
     partner: isPartner,
   })
+  if (a.waitingForFirst)
+    return {
+      headline: `${p} meseleyi anlatıyor; bitirdiğinde sıra sizde.`,
+      rows: [
+        { who: 'Siz', state: 'waiting', label: 'Sıranızı bekliyorsunuz', partner: false },
+        { who: p, state: 'doing', label: 'Anlatıyor', partner: true },
+      ],
+    }
   const headline =
     a.meDone && !a.partnerDone
       ? `Siz hazırsınız; ${p} bekleniyor.`

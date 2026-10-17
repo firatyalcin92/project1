@@ -11,6 +11,18 @@ export function activeLine(
   switch (a.status) {
     case 'draft':
     case 'answers_in_progress':
+      if (a.waitingForFirst)
+        return {
+          text: `${p} bu meseleyi anlatıyor. Bitirdiğinde sıra size gelecek; başlık girmenize gerek yok, buradan devam edeceksiniz.`,
+          cta: 'Meseleyi açın',
+          waiting: true,
+        }
+      if (!a.meDone && a.partnerDone)
+        return {
+          text: `${p} anlattı. Sıra sizde: onun olay anlatımını okuyup kendi tarafınızı ekleyin.`,
+          cta: 'Anlatmaya başlayın',
+          waiting: false,
+        }
       if (!a.meDone)
         return {
           text: 'Sizin anlatmanız bekleniyor. Kimse sözünüzü kesmeyecek.',

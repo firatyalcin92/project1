@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { useEffect, useRef } from 'react'
 import { QueryError } from '~/components/boundaries'
 import { LogoMark } from '~/components/brand'
 import { PairedBars, ProgressRing, type PairedRow } from '~/components/charts'
-import { IconLock, IconSparkle } from '~/components/icons'
+import { IconCheck, IconLock, IconSparkle } from '~/components/icons'
 import { AppShell, PageTitle } from '~/components/layout'
 import { Disclaimer, SafetyNote } from '~/components/safety'
 import { Button, Card, Notice, Paragraphs, cx } from '~/components/ui'
@@ -37,6 +38,17 @@ function Overview() {
       void qc.invalidateQueries({ queryKey: ['panel'] })
     },
   })
+
+  // Her 5 yeni meselede Genel Görüş kendiliğinden güncellenir.
+  const autoTried = useRef(false)
+  useEffect(() => {
+    const d = query.data
+    if (!d || autoTried.current || generate.isPending) return
+    if (d.canRefresh && d.status !== 'generating') {
+      autoTried.current = true
+      generate.mutate()
+    }
+  }, [query.data, generate])
 
   return (
     <AppShell back="/panel" title="Genel Görüş">
@@ -79,7 +91,7 @@ function OverviewBody({
         <PageTitle
           eyebrow="Genel Görüş"
           title="İlişkinizin bütününe bakan rapor"
-          lead={`Tek bir kavga değil, aranızdaki dansın tamamı. ${data.threshold} meseleyi birlikte tamamladığınızda açılır.`}
+          lead={`Tek bir kavga değil, aranızdaki döngünün tamamı. ${data.threshold} meseleyi birlikte tamamladığınızda açılır.`}
         />
         <Card className="flex items-center gap-5">
           <ProgressRing
@@ -131,7 +143,7 @@ function OverviewBody({
         <PageTitle
           eyebrow="Kilit açıldı"
           title={`${data.completed} meseleyi birlikte tamamladınız.`}
-          lead="Bu, ilişkinize verdiğiniz emeğin kendisi. Şimdi aranızdaki dansın bütününe birlikte bakabilirsiniz."
+          lead="Bu, ilişkinize verdiğiniz emeğin kendisi. Şimdi aranızdaki döngünün bütününe birlikte bakabilirsiniz."
         />
         {error ? <Notice tone="error">{error}</Notice> : null}
         <Button size="lg" full onClick={onGenerate} loading={generating}>
@@ -147,15 +159,26 @@ function OverviewBody({
       <PageTitle
         eyebrow={`Genel Görüş · ${data.basedOn ?? data.completed} meseleye dayanarak`}
         title={data.report.headline}
-        lead={data.generatedAt ? `${formatDate(data.generatedAt)} tarihinde hazırlandı.` : undefined}
+        lead={
+          data.generatedAt
+            ? `${formatDate(data.generatedAt)} tarihinde ${(data.basedOn ?? 0) > data.threshold ? 'güncellendi' : 'hazırlandı'}. Her 5 yeni mesele sonra kendiliğinden güncellenir.`
+            : undefined
+        }
       />
+      {generating ? (
+        <Notice tone="info">Yeni meselelerinizle Genel Görüş güncelleniyor…</Notice>
+      ) : (data.basedOn ?? 0) > data.threshold ? (
+        <p className="-mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-sage-soft px-3 py-1 text-[13px] font-semibold text-ink">
+          <IconCheck size={14} className="text-sage" /> Güncellendi · {data.basedOn} mesele
+        </p>
+      ) : null}
       <SafetyNote safety={data.report.safety} />
       <ReportSections report={data.report} />
       <Stats data={data} names={names} />
       {data.canRefresh ? (
         <Card className="space-y-3">
           <p className="text-sm text-ink-soft">
-            Son rapordan bu yana yeni meseleler tamamladınız. Genel Görüşü güncelleyebilirsiniz.
+            Son rapordan bu yana 5 yeni mesele tamamladınız. Genel Görüş güncelleniyor; olmazsa buradan deneyin.
           </p>
           {error ? <Notice tone="error">{error}</Notice> : null}
           <Button variant="secondary" full onClick={onGenerate} loading={generating}>

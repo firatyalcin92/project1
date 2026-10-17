@@ -69,7 +69,7 @@ export const STATUS_LABEL: Record<DisputeStatus, string> = {
 }
 
 /** Genel Görüş raporunun açılması için gereken tamamlanmış mesele sayısı. */
-export const OVERVIEW_THRESHOLD = 10
+export const OVERVIEW_THRESHOLD = 5
 /** Genel Görüş, en az bu kadar yeni mesele tamamlandığında yenilenebilir. */
 export const OVERVIEW_REFRESH_EVERY = 5
 /** Üretim kilidi bu süreden eskiyse bayat sayılır (SQL'deki 4 dakikayla aynı). */

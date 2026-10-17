@@ -10,7 +10,10 @@ function pollInterval(v: DisputeView | undefined): number | false {
   if (!v) return false
   if (v.generation.active || v.status === 'both_answers_completed' || v.status === 'reconsideration_completed')
     return 3500
-  if (v.status === 'draft' || v.status === 'answers_in_progress') return v.progress.meSubmitted ? 5000 : false
+  if (v.status === 'draft' || v.status === 'answers_in_progress') {
+    const waitingForFirst = v.answerOrder === 'second' && !v.progress.partnerSubmitted && !v.mine.whatHappened
+    return v.progress.meSubmitted || waitingForFirst ? 5000 : false
+  }
   if (v.status === 'perspectives_ready' || v.status === 'reconsideration_in_progress')
     return v.progress.meReconsidered ? 5000 : 15000
   if (v.status === 'completed' && v.report?.shared && !v.report.shared.unlocked && v.report.shared.approvedByMe)

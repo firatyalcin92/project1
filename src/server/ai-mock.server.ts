@@ -36,7 +36,6 @@ function mockPerspective(narrator: string, reader: string): Perspective {
     story: `${narrator} o akşamı, içinde biriken yorgunluğu paylaşmak isteyerek başlattığını anlatıyor. Söyledikleri karşılık bulmadığında, sözlerinin havada asılı kaldığını hissetmiş.\n\nSonra ses tonları yükseldikçe ${narrator} kendini korumaya çalışmış; ama içinde asıl istediği şey kavga değil, yanında birinin olduğunu bilmekmiş.`,
     beneath: `Yükselen sesin altında belki de yalnız kalma korkusu vardı.`,
     need: `${narrator} en çok, "Seni duyuyorum, buradayım" cümlesine ihtiyaç duymuş.`,
-    readingNote: `${reader}, bunu okurken savunmaya geçmek çok doğal; bir an durup sadece merak etmeyi deneyin.`,
   }
 }
 
@@ -76,7 +75,7 @@ function mockShared(a: string, b: string): SharedReport {
           reaction: 'Ortamı terk etmek',
         },
       ],
-      enemy: `Düşmanınız birbiriniz değil; "kapanan kapı ve çalan zil" dansı. Bu dansın adını koyduğunuzda, ona karşı birlikte durabilirsiniz.`,
+      enemy: `Düşmanınız birbiriniz değil; "kapanan kapı ve çalan zil" döngüsü. Bu döngünün adını koyduğunuzda, ona karşı birlikte durabilirsiniz.`,
     },
     breakCycle: {
       explain: `Bu döngüyü kırmak hiç tartışmamak demek değil; tartışmanın gidişini değiştirmek demek. İkinizden biri "yine başladık" diye fark edip adını koyduğunda bile döngü biraz gevşer.`,
@@ -145,7 +144,7 @@ function mockMine(owner: string, partner: string, solo: boolean): MyReport {
       match: solo ? 'tahmin' : 'kısmen',
       text: `Siz ${dative(partner)} biraz yalnız kalmak istediğini düşünmüşsünüz. Bu kısmen doğru; ama ${partner} aynı zamanda geri dönüleceğini, konunun yarım bırakılmayacağını bilmek istiyordu.`,
     },
-    yourPlace: `Bu dansta siz daha çok geri çekilen taraftasınız. Sessizliğiniz sizin için mola, ${genitive(partner)} içinse kapanan bir kapı.`,
+    yourPlace: `Bu döngüde siz daha çok geri çekilen taraftasınız. Sessizliğiniz sizin için mola, ${genitive(partner)} içinse kapanan bir kapı.`,
     patterns: [
       {
         name: 'Genelleme',
@@ -190,7 +189,7 @@ function mockRelationship(a: string, b: string): RelationshipReport {
       ['Konular değişiyor, döngü benziyor', 'Masaya oturma isteği güçlü'],
     ),
     coreCycle: {
-      ...section(`${a} çekildikçe ${b} yaklaşıyor; ${b} yaklaştıkça ${a} çekiliyor.`, ['Takip – geri çekilme dansı']),
+      ...section(`${a} çekildikçe ${b} yaklaşıyor; ${b} yaklaştıkça ${a} çekiliyor.`, ['Takip – geri çekilme döngüsü']),
       cycleName: 'Kapanan Kapı ve Çalan Zil',
     },
     triggers: section('En sık tetikleyiciler yorgun akşamlar ve yarım kalan konuşmalar.', [
@@ -246,7 +245,7 @@ function mockRelationship(a: string, b: string): RelationshipReport {
         },
       ],
       professionalNote:
-        'Aynı döngü sık tekrar ediyor ve sizi yoruyorsa, bir aile ya da çift danışmanıyla birkaç seans çalışmak bu dansı çok daha hızlı değiştirebilir.',
+        'Aynı döngü sık tekrar ediyor ve sizi yoruyorsa, bir aile ya da çift danışmanıyla birkaç seans çalışmak bu döngüyü çok daha hızlı değiştirebilir.',
     },
     safety: { concern: false, message: '' },
   }

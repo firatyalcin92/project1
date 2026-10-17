@@ -44,9 +44,8 @@ export function ReconsiderForm({
       chain.current = run
       return run
     },
-    onSuccess: (v, submit) => {
-      if (submit) onView(v)
-    },
+    // Taslak kaydında da görünüm güncellenir: geri dönüp gelince yazılanlar kaybolmaz.
+    onSuccess: (v) => onView(v),
   })
 
   const set = (id: ReflectionId, patch: Partial<Items[ReflectionId]>) =>
@@ -64,6 +63,9 @@ export function ReconsiderForm({
         <p className="leading-relaxed text-ink-soft">
           Haklı ya da haksız aramadan, sadece fark ettiklerinizi yazın. Yazdıklarınız {dative(partner)} olduğu gibi
           gösterilmez; danışman bunları çözüm raporunuzda ihtiyaç diliyle kullanır.
+        </p>
+        <p className="rounded-2xl bg-sunken px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-soft">
+          Geriye dönüp {genitive(partner)} gözünden metne tekrar bakabilirsiniz; bu ekranda yazdıklarınız silinmez.
         </p>
       </div>
 
@@ -162,7 +164,14 @@ export function ReconsiderForm({
           </div>
         ) : (
           <div className="flex gap-2">
-            <Button variant="secondary" aria-label={`${genitive(partner)} gözünden metne dön`} onClick={onBack}>
+            <Button
+              variant="secondary"
+              aria-label={`${genitive(partner)} gözünden metne dön`}
+              onClick={() => {
+                save.mutate(false)
+                onBack()
+              }}
+            >
               <IconArrowLeft size={18} />
             </Button>
             <Button full size="lg" disabled={!complete} onClick={() => setConfirming(true)}>
