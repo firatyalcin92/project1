@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { FREE_DISPUTES, PLAN_PERIODS, addPeriod, type PaymentMode, type PlanPeriod } from '~/lib/plans'
+import { FREE_DISPUTES, PLAN_PERIODS, addPeriod, type PaymentMode, type SalePeriod } from '~/lib/plans'
 import type { DeletionView, MembershipView } from '~/lib/views'
 import type { AuthedMember } from './auth.server'
 import { CODE_ALPHABET, hashMemberToken } from './crypto.server'
@@ -21,10 +21,9 @@ export function paymentMode(env: NodeJS.ProcessEnv = process.env): PaymentMode {
   return env.MESELE_PAYMENTS?.trim().toLowerCase() === 'test' ? 'test' : 'none'
 }
 
-function prices(env: NodeJS.ProcessEnv = process.env): Record<PlanPeriod, string | null> {
+function prices(env: NodeJS.ProcessEnv = process.env): Record<SalePeriod, string | null> {
   const read = (v: string | undefined) => (v && v.trim() ? v.trim().slice(0, 40) : null)
   return {
-    weekly: read(env.MESELE_PRICE_WEEKLY),
     monthly: read(env.MESELE_PRICE_MONTHLY),
     yearly: read(env.MESELE_PRICE_YEARLY),
   }
@@ -73,7 +72,7 @@ export async function assertCanCreateDispute(member: AuthedMember) {
 
 export async function purchase(
   member: AuthedMember,
-  input: { period: PlanPeriod; keyBackedUp: boolean; codeSaved: boolean },
+  input: { period: SalePeriod; keyBackedUp: boolean; codeSaved: boolean },
 ): Promise<MembershipView> {
   if (!PLAN_PERIODS.includes(input.period)) fail('VALIDATION', 'Geçersiz üyelik süresi.')
   const store = await getStore()

@@ -584,11 +584,15 @@ describe('üyelik: bir mesele ücretsiz, sonrası çift düzeyinde üyelik', () 
     vi.stubEnv('MESELE_PAYMENTS', 'test')
     const a = await createCouple({ mode: 'couple', displayName: 'Fırat', partnerName: 'Ayşe' })
     const ma = await authenticateMember(a.token)
-    await expect(purchase(ma, { period: 'weekly', keyBackedUp: true, codeSaved: false })).rejects.toThrow(
+    await expect(purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: false })).rejects.toThrow(
       /Çift kodunuzu/,
     )
-    const m = await purchase(ma, { period: 'weekly', keyBackedUp: true, codeSaved: true })
-    expect(m.period).toBe('weekly')
+    // Haftalık plan artık satılmıyor
+    await expect(
+      purchase(ma, { period: 'weekly' as never, keyBackedUp: true, codeSaved: true }),
+    ).rejects.toThrow(/Geçersiz üyelik süresi/)
+    const m = await purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: true })
+    expect(m.period).toBe('monthly')
     // Uzatma: süre üstüne eklenir
     const longer = await purchase(ma, { period: 'yearly', keyBackedUp: true, codeSaved: true })
     expect(Date.parse(longer.expiresAt!) - Date.parse(m.expiresAt!)).toBeGreaterThan(364 * 86_400_000)

@@ -1,14 +1,18 @@
 /**
- * Üyelik planları. Bir mesele ücretsizdir; sonrası için haftalık, aylık ya da yıllık
- * üyelik gerekir. Üyelik ÇİFT düzeyindedir: çiftlerden birinin alması ikisine de yeter.
- * Fiyatlar sunucu ortam değişkenlerinden gelir (MESELE_PRICE_WEEKLY vb.).
+ * Üyelik planları. Bir mesele ücretsizdir; sonrası için aylık ya da yıllık üyelik gerekir.
+ * Üyelik ÇİFT düzeyindedir: çiftlerden birinin alması ikisine de yeter.
+ * Fiyatlar sunucu ortam değişkenlerinden gelir (MESELE_PRICE_MONTHLY, MESELE_PRICE_YEARLY).
  */
 
 export const FREE_DISPUTES = 1
 
+/** Kayıtlı üyeliklerin süresi. 'weekly' artık satılmıyor; eski kayıtlar için tutulur. */
 export type PlanPeriod = 'weekly' | 'monthly' | 'yearly'
 
-export const PLAN_PERIODS: readonly PlanPeriod[] = ['weekly', 'monthly', 'yearly']
+/** Satın alınabilen süreler */
+export type SalePeriod = 'monthly' | 'yearly'
+
+export const PLAN_PERIODS: readonly SalePeriod[] = ['monthly', 'yearly']
 
 export const PLAN_LABEL: Record<PlanPeriod, string> = {
   weekly: 'Haftalık',

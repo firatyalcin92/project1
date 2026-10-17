@@ -12,7 +12,7 @@ import { getPanelFn } from '~/functions/couple'
 import { useBackedUp } from '~/lib/backup'
 import { parseError } from '~/lib/errors'
 import { requireMember } from '~/lib/guard'
-import { PLAN_LABEL, PLAN_PERIODS, type PlanPeriod } from '~/lib/plans'
+import { PLAN_LABEL, PLAN_PERIODS, type SalePeriod } from '~/lib/plans'
 import type { PanelView } from '~/lib/views'
 
 export const Route = createFileRoute('/uyelik')({
@@ -22,8 +22,7 @@ export const Route = createFileRoute('/uyelik')({
   component: Membership,
 })
 
-const PLAN_NOTE: Record<PlanPeriod, string> = {
-  weekly: 'Bir meseleyi derinlemesine çalışmak için',
+const PLAN_NOTE: Record<SalePeriod, string> = {
   monthly: 'Düzenli olarak birlikte bakmak için',
   yearly: 'İlişkinizi uzun soluklu tanımak için',
 }
@@ -48,7 +47,7 @@ function MembershipBody({ data }: { data: PanelView }) {
   const solo = data.couple.mode === 'solo'
   const qc = useQueryClient()
   const backedUp = useBackedUp()
-  const [period, setPeriod] = useState<PlanPeriod>('monthly')
+  const [period, setPeriod] = useState<SalePeriod>('monthly')
   const [codeSaved, setCodeSaved] = useState(false)
   const [showBackup, setShowBackup] = useState(false)
   const partnerJoined = Boolean(data.partner)
@@ -155,7 +154,7 @@ function MembershipBody({ data }: { data: PanelView }) {
         </Button>
       ) : (
         <Notice tone="info" title="Ödeme altyapısı çok yakında">
-          Üyelik satın alma henüz açılmadı. Açıldığında buradan haftalık, aylık ya da yıllık üyelik başlatabileceksiniz.
+          Üyelik satın alma henüz açılmadı. Açıldığında buradan aylık ya da yıllık üyelik başlatabileceksiniz.
         </Notice>
       )}
       {m.payments === 'test' ? (

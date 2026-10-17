@@ -232,7 +232,7 @@ function NewDisputeCard({ hasPartner, freeNote }: { hasPartner: boolean; freeNot
         ) : null}
         {freeNote ? (
           <p className="text-[13px] text-ink-faint">
-            İlk meseleniz ücretsiz. Sonrası için haftalık, aylık ya da yıllık üyelik.
+            İlk meseleniz ücretsiz. Sonrası için aylık ya da yıllık üyelik.
           </p>
         ) : null}
       </Card>

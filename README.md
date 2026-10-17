@@ -238,7 +238,7 @@ dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı ayna
 
 ## Üyelik, cihaz kurtarma ve silme
 
-- **Bir mesele ücretsiz**, sonrası haftalık / aylık / yıllık üyelik. Üyelik **çift düzeyindedir**: birinin alması
+- **Bir mesele ücretsiz**, sonrası aylık ya da yıllık üyelik. Üyelik **çift düzeyindedir**: birinin alması
   ikisine yeter (`subscriptions` tablosu). Bu bilgi ana sayfada, çift oluştururken ve panelde baştan söylenir.
 - **Satın almadan önce** cihaz anahtarı yedeklenmiş olmalı; partner katılmadıysa çift kodunun paylaşıldığı ya da
   saklandığı onaylanmalı. Böylece satın alan kimse kayıtlarını kaybetmez.

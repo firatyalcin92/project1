@@ -173,7 +173,7 @@ function Landing() {
             İlk mesele ücretsiz.
           </h2>
           <p className="mt-2 leading-relaxed text-ink-soft">
-            Sonrası için haftalık, aylık ya da yıllık üyelik. Çiftlerden birinin alması ikiniz için de yeterli.
+            Sonrası için aylık ya da yıllık üyelik. Çiftlerden birinin alması ikiniz için de yeterli.
           </p>
         </section>
 

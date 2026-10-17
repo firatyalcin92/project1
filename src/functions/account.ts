@@ -12,7 +12,7 @@ export const purchaseFn = createServerFn({ method: 'POST' })
   .middleware([memberAuth])
   .validator(
     z.object({
-      period: z.enum(PLAN_PERIODS as unknown as ['weekly', 'monthly', 'yearly']),
+      period: z.enum(PLAN_PERIODS as unknown as ['monthly', 'yearly']),
       keyBackedUp: z.boolean(),
       codeSaved: z.boolean(),
     }),

@@ -13,7 +13,7 @@ export function membershipLine(m: MembershipView, partnerName: string | null) {
   }
   const left = Math.max(0, m.freeLimit - m.disputesUsed)
   return left > 0
-    ? `İlk meseleniz ücretsiz. Sonrası için haftalık, aylık ya da yıllık üyelik.`
+    ? `İlk meseleniz ücretsiz. Sonrası için aylık ya da yıllık üyelik.`
     : 'Ücretsiz meselenizi kullandınız. Yeni meseleler için üyelik gerekiyor.'
 }
 

@@ -1,6 +1,6 @@
 import type { AnswerQuestionId, ReflectionId } from './questions'
 import type { MyReport, Perspective, RelationshipReport, SharedReport } from './report-schemas'
-import type { PaymentMode, PlanPeriod } from './plans'
+import type { PaymentMode, PlanPeriod, SalePeriod } from './plans'
 import type { DisputeStatus, Step } from './status'
 
 /** Sunucu fonksiyonlarının istemciye döndürdüğü görünüm modelleri. Ham satırlar asla dönmez. */
@@ -46,7 +46,7 @@ export type MembershipView = {
   disputesUsed: number
   canCreateDispute: boolean
   payments: PaymentMode
-  prices: Record<PlanPeriod, string | null>
+  prices: Record<SalePeriod, string | null>
 }
 
 /** Bekleyen "tüm verileri sil" talebi (yoksa null) */

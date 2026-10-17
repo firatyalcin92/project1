@@ -135,7 +135,7 @@ function CreateCouple() {
               Gizlilik
             </Link>
             <br />
-            İlk mesele ücretsiz; sonrası için haftalık, aylık ya da yıllık üyelik.
+            İlk mesele ücretsiz; sonrası için aylık ya da yıllık üyelik.
             {solo ? '' : ' Birinizin alması ikiniz için de yeterli.'}
           </p>
         </div>
