@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Tartışma Döngüsü Reel</title>
+<link rel="stylesheet" href="sahne.css">
+<style>
+#stage { background: #efe3d3; }
+.scene { transform-origin: 50% 45%; }
+.room { position: absolute; inset: 0; transform-origin: 540px 700px; transform: scale(1.2); }
+.full { position: absolute; inset: 0; }
+
+.sb { position: absolute; max-width: 520px; padding: 24px 32px; border-radius: 34px; background: #fff; color: var(--ink);
+  font: 600 38px/1.28 var(--sans); box-shadow: 0 14px 34px rgba(80,50,30,.16); transform-origin: 20% 110%; opacity: 0; }
+.sb::after { content: ""; position: absolute; width: 30px; height: 30px; background: inherit; bottom: -11px; left: 54px; transform: rotate(45deg); border-radius: 5px; }
+.sb.r { transform-origin: 80% 110%; }
+.sb.r::after { left: auto; right: 54px; }
+.sb.up::after { bottom: auto; top: -11px; }
+.sb.g { background: #e9e2da; color: var(--ink-soft); }
+.sb.wn { background: var(--wine); color: var(--cream); }
+.sb.hot { background: #8e2430; color: #fff; font-weight: 800; }
+.sb.th { border-radius: 60px; }
+.sb.th::after { display: none; }
+.sb.calm { background: #eef1e8; border: 3px solid #7f8c70; }
+.tag { position: absolute; left: 0; right: 60px; text-align: center; opacity: 0; }
+.tag span { display: inline-block; padding: 14px 30px; border-radius: 40px; background: var(--wine); color: var(--cream); font: 700 30px var(--sans); letter-spacing: 1px; }
+.tag.lt span { background: #fffaf3; color: var(--wine); border: 2px solid #e6d8c6; }
+.tag.sg span { background: #7f8c70; color: #fff; }
+.ttl { position: absolute; left: 70px; right: 130px; text-align: center; font: italic 600 64px/1.15 var(--serif); color: var(--wine); opacity: 0; }
+.gl { position: absolute; left: 70px; right: 130px; text-align: center; font: 500 36px/1.3 var(--sans); color: var(--ink-soft); opacity: 0; }
+.chip { position: absolute; padding: 18px 34px; border-radius: 50px; background: #fffaf3; border: 2px solid #e2d3c0; font: 700 40px var(--sans); color: var(--ink); opacity: 0; white-space: nowrap; }
+.pills { position: absolute; left: 70px; right: 130px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+.pills span { padding: 12px 24px; border-radius: 40px; background: #fffaf3; border: 2px solid #e2d3c0; font: 700 30px var(--sans); color: var(--ink); opacity: 0; }
+.node { position: absolute; width: 330px; margin-left: -165px; padding: 22px 20px; border-radius: 30px; text-align: center; font: 700 34px/1.2 var(--sans);
+  color: #fff; opacity: 0; box-shadow: 0 16px 36px rgba(60,30,20,.18); }
+.node small { display: block; font: 600 22px var(--sans); letter-spacing: 2px; opacity: .8; margin-bottom: 6px; text-transform: uppercase; }
+.node.m { background: #6c785e; }
+.node.w { background: #9c525c; }
+.node.ok { background: #fffaf3 !important; color: #4f5a43; border: 3px solid #7f8c70; }
+.gph { position: absolute; left: 50%; top: 360px; width: 440px; height: 440px; margin-left: -250px; border-radius: 50%; overflow: hidden;
+  border: 10px solid #fffaf3; box-shadow: 0 24px 60px rgba(80,50,30,.22); opacity: 0; }
+.gph img { width: 100%; height: 100%; object-fit: cover; filter: sepia(.08); }
+.gname { position: absolute; left: 70px; right: 130px; top: 860px; text-align: center; font: 700 88px var(--serif); opacity: 0; }
+.ice { position: absolute; left: 70px; right: 130px; text-align: center; font: 700 34px/1.2 var(--sans); opacity: 0; }
+
+/* mini follow toast (mid video) */
+#toast { position: absolute; left: 50%; top: 1400px; width: 700px; margin-left: -380px; display: flex; align-items: center; gap: 22px; padding: 18px 20px 18px 18px;
+  border-radius: 80px; background: rgba(255,255,255,.97); box-shadow: 0 20px 50px rgba(40,25,15,.22); opacity: 0; z-index: 5; }
+#toast .av { flex: none; width: 92px; height: 92px; border-radius: 50%; padding: 4px; background: conic-gradient(from 200deg, #f9ce34, #ee2a7b, #6228d7, #f9ce34); }
+#toast .av div { width: 100%; height: 100%; border-radius: 50%; border: 4px solid #fff; background: linear-gradient(150deg, #8f3441, #5e1f29);
+  display: flex; align-items: center; justify-content: center; font: italic 700 34px var(--serif); color: #f6e8d8; }
+#toast .tx { flex: 1; font: 700 32px var(--sans); color: #111; }
+#toast .tx small { display: block; font: 500 24px var(--sans); color: #6b6b6b; margin-top: 4px; }
+#toast .bt { flex: none; padding: 20px 30px; border-radius: 40px; background: #4a5df9; color: #fff; font: 700 28px var(--sans); }
+#toast .bt.done { background: #efefef; color: #111; }
+#tfing { position: absolute; width: 80px; height: 80px; margin: -40px 0 0 -40px; border-radius: 50%; background: rgba(43,35,32,.18); border: 5px solid #fff; box-shadow: 0 8px 20px rgba(0,0,0,.25); opacity: 0; z-index: 6; }
+
+/* instagram profile (end) */
+.ig { position: absolute; left: 60px; right: 120px; top: 470px; padding: 44px 40px 40px; border-radius: 40px; background: #fff; box-shadow: 0 30px 80px rgba(60,35,20,.18); opacity: 0;
+  font-family: var(--sans); color: #111; }
+.ig .top { display: flex; gap: 34px; align-items: center; }
+.ig .av { flex: none; width: 190px; height: 190px; border-radius: 50%; padding: 7px; background: conic-gradient(from 200deg, #f9ce34, #ee2a7b, #6228d7, #f9ce34); }
+.ig .av div { width: 100%; height: 100%; border-radius: 50%; border: 6px solid #fff; background: linear-gradient(150deg, #8f3441, #5e1f29);
+  display: flex; align-items: center; justify-content: center; font: italic 700 70px var(--serif); color: #f6e8d8; }
+.ig .un { font: 700 42px var(--sans); }
+.ig .un span { font-weight: 400; color: #555; margin-left: 10px; }
+.ig .ti { font: 400 25px/1.35 var(--sans); margin-top: 8px; }
+.ig .st { display: flex; gap: 30px; margin-top: 16px; font: 400 27px var(--sans); }
+.ig .st b { font-weight: 700; }
+.ig .bio { margin-top: 26px; font: 400 27px/1.5 var(--sans); }
+.ig .bio .c { color: #737373; }
+.ig .bio .lnk { color: #3b54c9; font-weight: 600; }
+.ig .btns { display: flex; gap: 16px; margin-top: 30px; }
+.ig .btns div { flex: 1; height: 82px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font: 700 30px var(--sans); }
+.ig .fol { background: #4a5df9; color: #fff; position: relative; overflow: hidden; }
+.ig .fol.done { background: #efefef; color: #111; }
+.ig .msg { background: #efefef; }
+.ripple { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: rgba(255,255,255,.55); }
+.finger { position: absolute; width: 92px; height: 92px; margin: -46px 0 0 -46px; border-radius: 50%; background: rgba(43,35,32,.18); border: 5px solid rgba(255,255,255,.95);
+  box-shadow: 0 8px 20px rgba(0,0,0,.25); opacity: 0; }
+.hrt { position: absolute; font-size: 54px; opacity: 0; }
+.endn { position: absolute; left: 60px; right: 120px; text-align: center; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <div id="voice">
+    <div class="glow" id="gl1" style="background:radial-gradient(circle, rgba(243,199,166,.16), transparent 65%)"></div>
+    <div class="glow" id="gl2" style="background:radial-gradient(circle, rgba(125,42,53,.32), transparent 65%)"></div>
+    <div class="glow" id="gl3" style="background:radial-gradient(circle, rgba(243,199,166,.10), transparent 62%)"></div>
+    <div class="wave" id="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <!-- 1 topics change, the argument stays the same -->
+  <section class="scene b" id="s-topics">
+    <div class="label" id="tp-l" style="top:300px">Tartışmanın konusu</div>
+    <div class="chip" id="tc0" style="left:300px;top:390px">💸 Para</div>
+    <div class="chip" id="tc1" style="left:300px;top:390px">🍽️ Bulaşık</div>
+    <div class="chip" id="tc2" style="left:300px;top:390px">👵 Ailen</div>
+    <div class="chip" id="tc3" style="left:300px;top:390px">📱 Telefon</div>
+    <div class="label" id="tp-l2" style="top:640px">Tartışmanın kendisi</div>
+    <svg class="full" id="r-topics" width="1080" height="1920"></svg>
+  </section>
+
+  <!-- 2 the pattern -->
+  <section class="scene" id="s-pattern">
+    <svg class="room" id="r-pattern" width="1080" height="1920"></svg>
+    <div class="sb r hot" id="pt1" style="left:560px;top:300px;font-size:58px;padding:18px 34px">!!!</div>
+  </section>
+
+  <!-- 3 the dialogue -->
+  <section class="scene" id="s-dialog">
+    <svg class="room" id="r-dialog" width="1080" height="1920"></svg>
+    <div class="sb r" id="dg1" style="left:470px;top:260px">“Seninle bir şey konuşmak istiyorum.”</div>
+    <div class="sb g" id="dg2" style="left:70px;top:330px">“Yine ne oldu?”</div>
+    <div class="sb r" id="dg3" style="left:380px;top:230px;max-width:600px">“Bak, daha ne söyleyeceğimi bile dinlemeden savunmaya geçiyorsun.”</div>
+    <div class="sb g up" id="dg4" style="left:60px;top:1180px;max-width:600px">“E ne yapsam yaranamıyorum zaten.”</div>
+    <div class="tag" id="dg5" style="top:240px"><span>Tanıdık geldi mi?</span></div>
+  </section>
+
+  <!-- 4 how does the cycle form -->
+  <section class="scene b" id="s-how">
+    <svg class="full" id="r-how" width="1080" height="1920"></svg>
+    <div class="big" id="hw1" style="top:900px;font:600 92px/1.12 var(--serif)">Peki bu döngü <i style="color:var(--wine)">nasıl</i> oluşuyor?</div>
+    <div class="gl" id="hw2" style="top:1150px">Bir örnek üzerinden bakalım.</div>
+  </section>
+
+  <!-- 5 late home -->
+  <section class="scene" id="s-late">
+    <svg class="room" id="r-late" width="1080" height="1920"></svg>
+    <div class="sb r wn" id="lt1" style="left:60px;top:1170px;max-width:640px" >“Madem gecikeceksin, neden haber vermiyorsun? Kaç saattir seni bekliyorum!”</div>
+    <div class="sb g" id="lt2" style="left:60px;top:200px;max-width:600px">“Ya işim vardı, bir saat geciktim. Neden her şeyi bu kadar büyütüyorsun yine?”</div>
+  </section>
+
+  <!-- 6 inner voice -->
+  <section class="scene b" id="s-inner">
+    <svg class="full" id="r-inner" width="1080" height="1920"></svg>
+    <div class="label" id="in-l" style="top:290px">İç ses</div>
+    <div class="sb th wn" id="in1" style="left:120px;top:380px;max-width:760px;font:italic 600 50px/1.25 var(--serif);padding:30px 44px">“Benim ne hissettiğim umurunda bile değil.”</div>
+  </section>
+
+  <!-- 7 explosion -->
+  <section class="scene" id="s-boom">
+    <svg class="room" id="r-boom" width="1080" height="1920"></svg>
+    <div class="sb r hot" id="bm1" style="left:330px;top:210px;max-width:640px;font-size:40px">“Sen zaten hiçbir şeyi ciddiye almıyorsun! Benim ne düşündüğüm hiç umurunda değil, lanet olsun ya!”</div>
+  </section>
+
+  <!-- 8 withdrawal -->
+  <section class="scene" id="s-withdraw">
+    <svg class="room" id="r-withdraw" width="1080" height="1920"></svg>
+    <div class="pills" id="wd-p" style="top:250px"><span>🛡️ Savunma</span><span>🤐 Susma</span><span>📱 Telefon</span><span>🚪 Başka oda</span></div>
+  </section>
+
+  <!-- 9 chase -->
+  <section class="scene" id="s-chase">
+    <svg class="room" id="r-chase" width="1080" height="1920"></svg>
+    <div class="sb r wn" id="ch1" style="left:420px;top:220px;max-width:560px">“Bak, yine kaçıyor. Hem gecik hem kaç, olmaz öyle!”</div>
+    <div class="tag" id="ch2" style="top:250px;left:-210px"><span>← geri çekilir</span></div>
+    <div class="tag sg" id="ch3" style="top:250px;left:230px"><span>üstüne gider ←</span></div>
+  </section>
+
+  <!-- 10 topic shift -->
+  <section class="scene b" id="s-shift">
+    <svg class="full" id="r-shift" width="1080" height="1920"></svg>
+    <div class="label" id="sh-l" style="top:300px">Konu</div>
+    <div class="big" id="sh1" style="top:400px;font:600 72px/1.15 var(--serif)">“Neden haber vermedin?”</div>
+    <div class="big" id="sh2" style="top:560px;font:italic 700 92px/1.1 var(--serif);color:var(--wine)">Kim daha haksız?</div>
+  </section>
+
+  <!-- 11 iceberg -->
+  <section class="scene" id="s-ice" style="background:linear-gradient(#f4ede3 0 49%, #b9cfd6 49%, #8fb0bd 100%)">
+    <svg class="full" id="r-ice" width="1080" height="1920"></svg>
+    <div class="ice" id="ic1" style="top:575px;left:40px;right:560px;color:var(--ink)">Öfke</div>
+    <div class="ice" id="ic2" style="top:575px;left:560px;right:60px;color:var(--ink)">Savunma · Susma</div>
+    <div class="ice" id="ic3" style="top:1100px;left:60px;right:580px;color:#1f3a48;font-size:36px">Beklerken yaşadığı rahatsızlığı anlatmak istiyordu</div>
+    <div class="ice" id="ic4" style="top:1100px;left:560px;right:80px;color:#1f3a48;font-size:36px">Yargılandığını hissetti</div>
+    <div class="label" id="ic-l" style="top:300px">Görünen</div>
+    <div class="label" id="ic-l2" style="top:990px;color:#1f3a48">Aslında</div>
+  </section>
+
+  <!-- 12 the cycle -->
+  <section class="scene b" id="s-cycle">
+    <svg class="full" id="r-cycle" width="1080" height="1920"></svg>
+    <div class="node m" id="nA" style="left:540px;top:330px"><small>Siz</small>“Beni önemsemiyor”</div>
+    <div class="node m" id="nB" style="left:800px;top:700px;width:300px;margin-left:-150px"><small>Siz</small>Sesinizi yükseltirsiniz</div>
+    <div class="node w" id="nC" style="left:540px;top:1060px"><small>Partneriniz</small>Eleştirilmiş hisseder</div>
+    <div class="node w" id="nD" style="left:280px;top:700px;width:300px;margin-left:-150px"><small>Partneriniz</small>Geri çekilir</div>
+    <div class="big" id="cy-c" style="top:700px;left:390px;right:390px;font:italic 700 56px var(--serif);color:var(--wine);opacity:0">döngü</div>
+  </section>
+
+  <!-- 13 Sue Johnson -->
+  <section class="scene b" id="s-sue">
+    <div class="label" id="su-l" style="top:270px">Duygu Odaklı Çift Terapisi</div>
+    <div class="gph" id="gph"><img src="johnson_kare.jpg" alt=""></div>
+    <div class="gname" id="snm">Sue Johnson</div>
+    <div class="gl" id="sg1" style="top:990px">Duygu Odaklı Çift Terapisi'nin (EFT)<br>kurucularından</div>
+  </section>
+
+  <!-- 14 tango -->
+  <section class="scene b" id="s-tango">
+    <div class="ttl" id="tg-t" style="top:290px">İlişki bir tango gibi</div>
+    <svg class="full" id="r-tango" width="1080" height="1920"></svg>
+    <div class="tag lt" id="tg1" style="top:380px"><span>Sadece kendi adımlarınız değil…</span></div>
+    <div class="tag" id="tg2" style="top:380px"><span>…onun nasıl karşılık verdiği de</span></div>
+    <div class="tag" id="tg3" style="top:380px"><span>Uyum bozulunca dans zorlaşır</span></div>
+  </section>
+
+  <!-- 15 what can we do -->
+  <section class="scene b" id="s-what">
+    <svg class="full" id="r-what" width="1080" height="1920"></svg>
+    <div class="big" id="wt1" style="top:860px;font:600 88px/1.12 var(--serif)">Bu kısır döngüyü değiştirmek için <i style="color:var(--wine)">ne yapabiliriz?</i></div>
+  </section>
+
+  <!-- 16 blame -> own role -->
+  <section class="scene" id="s-blame">
+    <svg class="room" id="r-blame" width="1080" height="1920"></svg>
+    <div class="sb r hot" id="bl1" style="left:600px;top:300px">O değişmeli!</div>
+    <div class="sb hot" id="bl2" style="left:80px;top:330px">O değişsin!</div>
+    <div class="tag sg" id="bl3" style="top:240px"><span>Önce: benim tepkim döngüde ne rol oynuyor?</span></div>
+  </section>
+
+  <!-- 17 one change ripples -->
+  <section class="scene b" id="s-ripple">
+    <svg class="full" id="r-ripple" width="1080" height="1920"></svg>
+    <div class="node m" id="rA" style="left:540px;top:330px"><small>Siz</small>“Beni önemsemiyor”</div>
+    <div class="node m" id="rB" style="left:800px;top:700px;width:300px;margin-left:-150px"><small>Siz</small>Sesinizi yükseltirsiniz</div>
+    <div class="node w" id="rC" style="left:540px;top:1060px"><small>Partneriniz</small>Eleştirilmiş hisseder</div>
+    <div class="node w" id="rD" style="left:280px;top:700px;width:300px;margin-left:-150px"><small>Partneriniz</small>Geri çekilir</div>
+    <div class="tag sg" id="rp-t" style="top:250px"><span>Birinin değişmesi bile yeterli olabilir</span></div>
+  </section>
+
+  <!-- 18 calm sentences -->
+  <section class="scene" id="s-calm">
+    <svg class="room" id="r-calm" width="1080" height="1920"></svg>
+    <div class="tag sg" id="cl0" style="top:240px"><span>Suçlamak yerine, hissettiğinizi söyleyin</span></div>
+    <div class="sb r calm" id="cl1" style="left:340px;top:250px;max-width:640px;font-size:36px">“Sen sustukça benimle konuşmak istemediğini düşünüyorum ve bu durum beni daha fazla öfkelendiriyor.”</div>
+    <div class="sb calm up" id="cl2" style="left:60px;top:1170px;max-width:680px;font-size:36px">“Sesin yükseldiğinde kendimi eleştiriliyor, yargılanıyor gibi hissediyorum ve konuşmayı o saniyede bırakasım geliyor.”</div>
+  </section>
+
+  <!-- 19 talk about the cycle together -->
+  <section class="scene" id="s-together">
+    <svg class="room" id="r-together" width="1080" height="1920"></svg>
+    <div class="tag sg" id="to1" style="top:1400px"><span>Birbirinizi değil, döngüyü konuşmak</span></div>
+  </section>
+
+  <!-- 20 the aim -->
+  <section class="scene b" id="s-aim">
+    <div class="label" id="am-l" style="top:300px">Amaç</div>
+    <div class="big" id="am1" style="top:400px;font:600 64px/1.2 var(--serif);color:var(--ink-soft)">Kim daha hatalı? <span id="am1x" style="color:var(--wine);opacity:0">✕</span></div>
+    <div class="big" id="am2" style="top:560px;font:italic 700 74px/1.15 var(--serif);color:#4f5a43">Neyin neyi tetiklediğini anlamak ✓</div>
+    <svg class="full" id="r-aim" width="1080" height="1920"></svg>
+  </section>
+
+  <!-- 21 get help -->
+  <section class="scene b" id="s-help">
+    <svg class="full" id="r-help" width="1080" height="1920"></svg>
+    <div class="ttl" id="hp-t" style="top:290px">Tek başına çıkamıyorsanız</div>
+    <div class="tag lt" id="hp1" style="top:840px;left:-330px"><span>Siz</span></div>
+    <div class="tag lt" id="hp2" style="top:840px;left:330px"><span>Partneriniz</span></div>
+    <div class="tag" id="hp3" style="top:1190px"><span>Çift / Aile Danışmanı</span></div>
+  </section>
+
+  <!-- 22 same fight again -->
+  <section class="scene" id="s-again">
+    <svg class="room" id="r-again" width="1080" height="1920"></svg>
+    <div class="tag" id="ag1" style="top:230px"><span>Aynı tartışma · <b id="agn">1</b>. kez</span></div>
+  </section>
+
+  <!-- 23 follow -->
+  <section class="scene b" id="s-follow">
+    <div class="ttl" id="fl-t" style="top:300px">Daha fazlası için</div>
+    <div class="ig" id="ig">
+      <div class="top">
+        <div class="av"><div>FY</div></div>
+        <div>
+          <div class="un">firatyalcin.pd<span>···</span></div>
+          <div class="ti">Aile Danışmanı Fırat YALÇIN | Psikolojik Danışman</div>
+          <div class="st"><span><b>51</b> gönderi</span><span><b id="igf">1.417</b> takipçi</span><span><b>72</b> takip</span></div>
+        </div>
+      </div>
+      <div class="bio">
+        <div class="c">Danışman</div>
+        <div>📝 Dokuz Eylül PDR'14</div>
+        <div>📝 Marmara Üniv. Aile Danışmanlığı'24</div>
+        <div>👫 Aile &amp; Çift ve İlişkiler Üzerine Paylaşımlarım</div>
+        <div class="lnk">🔗 firatyalcin.blog</div>
+      </div>
+      <div class="btns"><div class="fol" id="fol"><span id="folt">Takip Et</span><i class="ripple" id="rip" style="opacity:0"></i></div><div class="msg">Mesaj Gönder</div></div>
+    </div>
+    <div class="finger" id="fing"></div>
+    <div class="hrt" id="ht1">🤍</div><div class="hrt" id="ht2">❤️</div><div class="hrt" id="ht3">🤍</div>
+  </section>
+
+  <!-- 24 end card -->
+  <section class="scene" id="s-end" style="background:radial-gradient(ellipse at 50% 45%, #3a2a26 0%, #241b19 60%, #191312 100%)">
+    <svg width="1080" height="1920" style="position:absolute;inset:0">
+      <circle id="ring1" cx="500" cy="700" r="70" fill="none" stroke="#f3c7a6" stroke-width="5" pathLength="1" stroke-dasharray="1 1"/>
+      <circle id="ring2" cx="580" cy="700" r="70" fill="none" stroke="#f3c7a6" stroke-width="5" pathLength="1" stroke-dasharray="1 1"/>
+    </svg>
+    <div class="endn" id="en1" style="top:840px;font:600 82px/1.1 var(--serif);color:var(--cream)">Psk. Dan. Fırat YALÇIN</div>
+    <div class="endn" id="en2" style="top:960px;font:700 32px var(--sans);letter-spacing:9px;color:var(--peach)">AİLE/ÇİFT DANIŞMANLIĞI</div>
+    <div class="endn" id="en3" style="top:1060px;font:500 32px var(--sans);color:rgba(244,237,227,.7)">@firatyalcin.pd</div>
+  </section>
+
+  <!-- mid-video minimal follow toast -->
+  <div id="toast"><div class="av"><div>FY</div></div><div class="tx">firatyalcin.pd<small>Aile / Çift Danışmanı</small></div><div class="bt" id="tbt">Takip Et</div></div>
+  <div id="tfing"></div>
+
+  <div id="cap"></div>
+</div>
+
+<script src="veri/captions.js"></script>
+<script src="veri/zarf.js"></script>
+<script src="karakter.js"></script>
+<script>
+const NOCAPS = location.search.includes('nocap');
+window.DURATION = 262;
+
+const SEG = [
+  ['topics', 0, 6.95], ['pattern', 6.95, 16.4], ['dialog', 16.4, 27.0], ['how', 27.0, 30.75], ['late', 30.75, 47.6],
+  ['inner', 47.6, 55.3], ['boom', 55.3, 66.9], ['withdraw', 66.9, 76.7], ['chase', 76.7, 89.0], ['shift', 89.0, 96.5],
+  ['ice', 96.5, 107.6], ['cycle', 107.6, 125.5], ['sue', 125.5, 132.6], ['tango', 132.6, 152.6], ['what', 152.6, 156.4],
+  ['blame', 156.4, 169.6], ['ripple', 169.6, 177.7], ['calm', 177.7, 200.1], ['together', 200.1, 207.5], ['aim', 207.5, 217.6],
+  ['help', 217.6, 228.8], ['again', 228.8, 243.4], ['A', 243.4, 253.4], ['follow', 253.4, 257.9], ['end', 257.9, 262],
+];
+const NOCAP = new Set(['dialog', 'how', 'shift', 'what', 'aim', 'follow', 'end']);
+const NOCAP_T = [[35.2, 40.4], [42.0, 47.6], [51.3, 54.4], [60.1, 65.3], [79.1, 82.5], [181.4, 187.9], [191.4, 199.9], [207.9, 217]];
+
+const SFX = [];
+const cue = (t, k, g = 0) => SFX.push([t, k, g]);
+SEG.slice(1).forEach(([k, a]) => cue(a - .18, 'whoosh', k === 'A' || k === 'end' ? -3 : 0));
+[[1.6, 'pop', -4], [2.3, 'pop', -6], [3.0, 'pop', -6], [3.7, 'pop', -6], [10.4, 'pop'],
+ [16.7, 'pop'], [18.4, 'pop'], [19.8, 'pop'], [22.9, 'pop'], [25.4, 'tick'],
+ [29.3, 'tick'], [31.0, 'type', -6], [32.2, 'tap', -2], [35.2, 'pop'], [42.0, 'pop'],
+ [51.3, 'rise'], [60.1, 'pop', 2], [60.3, 'tap'],
+ [70.6, 'pop', -4], [72.4, 'pop', -4], [73.8, 'pop', -4], [75.0, 'pop', -4], [75.4, 'tap', -4],
+ [79.1, 'pop'], [93.6, 'tick'], [91.9, 'tick', -4],
+ [97.5, 'pop', -4], [102.5, 'pop', -4],
+ [108.4, 'pop'], [113.7, 'pop'], [115.7, 'pop'], [117.2, 'pop'], [118.4, 'rise'], [122.6, 'ding', -4],
+ [125.9, 'pop'], [128.0, 'tick'], [135.2, 'tick'], [139.7, 'tick'], [144.3, 'tap', -2], [148.2, 'tap', -2],
+ [149.0, 'pop', -6], [150.9, 'tap', 2], [151.0, 'ding', -6],
+ [159.0, 'pop'], [160.0, 'pop'], [162.6, 'rise'], [171.9, 'ding', -6], [174.8, 'rise'],
+ [178.0, 'tick'], [181.4, 'pop'], [191.4, 'pop'], [200.5, 'pop', -4], [208.2, 'tap'], [212.7, 'ding', -6],
+ [213.7, 'tick'], [214.0, 'tick'], [214.3, 'tick'], [214.6, 'tick'],
+ [218.3, 'pop', -4], [222.5, 'rise'], [230.6, 'tick'], [231.9, 'tick'], [232.6, 'tick'], [239.6, 'rise'],
+ [253.6, 'pop', -4], [255.3, 'tap', 2], [255.45, 'ding', -2], [258.2, 'chime'],
+].forEach(c => cue(...c));
+window.SFX = SFX.sort((a, b) => a[0] - b[0]);
+
+const $ = id => document.getElementById(id);
+const cl = x => Math.max(0, Math.min(1, x));
+const ease = x => 1 - Math.pow(1 - cl(x), 3);
+const back = x => { x = cl(x); const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const io = (t, a, d = .5) => ease((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const win = (t, a, b) => t >= a && t < b;
+function st(el, o, y = 0, s = 1, extra = '') { el.style.opacity = o; el.style.transform = `translateY(${y}px) scale(${s}) ${extra}`; }
+function rise(el, t, a, d = .55, dist = 40) { const p = io(t, a, d); st(el, p, (1 - p) * dist); return p; }
+function pop(el, t, a, out = 1e9, d = .4) {
+  const p = back((t - a) / d), q = 1 - io(t, out, .3);
+  el.style.opacity = cl((t - a) / .15) * q; el.style.transform = `scale(${(.55 + .45 * p) * (.7 + .3 * q)})`;
+}
+const talk = (t, ranges) => ranges.some(([a, b]) => win(t, a, b)) ? talkAt(t) : 0;
+const W = (t, o) => ({ blink: blinkAt(t, 0), ...o });
+const M = (t, o) => ({ blink: blinkAt(t, 1.7), ...o });
+const heart = (x, y, s, o) => `<path transform="translate(${x} ${y}) scale(${s})" d="M0 18 C -30 -6 -22 -34 0 -18 C 22 -34 30 -6 0 18 Z" fill="#c4505c" opacity="${o}"/>`;
+const shake = (t, a, b, amp = 6) => win(t, a, b) ? `translate(${Math.sin(t * 61) * amp}px, ${Math.cos(t * 47) * amp * .6}px)` : '';
+// mini head-in-circle avatar
+function avatar(kind, x, y, scale, t, o = {}) {
+  const id = 'av' + kind + Math.round(x) + Math.round(y);
+  const p = kind === 'w' ? W(t, { x: 540, look: [0, 0], arms: 'lap', ...o }) : M(t, { x: 540, look: [0, 0], arms: 'lap', ...o });
+  return `<g transform="translate(${x} ${y}) scale(${scale}) translate(-540 -640)"><clipPath id="${id}"><circle cx="540" cy="640" r="200"/></clipPath>
+    <circle cx="540" cy="640" r="200" fill="#fffaf3" stroke="#e6d8c6" stroke-width="8"/>
+    <g clip-path="url(#${id})"><g transform="translate(0 110)">${person({ kind, t, ...p })}</g></g></g>`;
+}
+// circular cycle diagram (svg), k = how many arrows are drawn (0..4), spin = rotation speed, calm 0..1 turns it green
+function cycleSvg(t, k, spin, calm = 0) {
+  const cx = 540, cy = 760, R = 330;
+  const col = calm > .5 ? '#7f8c70' : '#7d2a35';
+  let g = '';
+  const arcs = [[-80, -10], [10, 80], [100, 170], [190, 260]];
+  arcs.forEach(([a0, a1], i) => {
+    const p = cl(k - i); if (p <= 0) return;
+    const a = a0 + (a1 - a0) * p, r0 = a0 * Math.PI / 180, r1 = a * Math.PI / 180;
+    const x0 = cx + R * Math.cos(r0), y0 = cy + R * Math.sin(r0), x1 = cx + R * Math.cos(r1), y1 = cy + R * Math.sin(r1);
+    g += `<path d="M${x0} ${y0} A${R} ${R} 0 0 1 ${x1} ${y1}" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round" opacity=".8"/>`;
+    if (p > .95) { const tx = -Math.sin(r1), ty = Math.cos(r1);
+      g += `<path d="M${x1 - tx * 30 + ty * 16} ${y1 - ty * 30 - tx * 16} L${x1} ${y1} L${x1 - tx * 30 - ty * 16} ${y1 - ty * 30 + tx * 16}" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`; }
+  });
+  if (spin > 0) for (let j = 0; j < 3; j++) { const a = (t * spin + j * 120) * Math.PI / 180;
+    g += `<circle cx="${cx + R * Math.cos(a)}" cy="${cy + R * Math.sin(a)}" r="16" fill="${col}"/>`; }
+  return g;
+}
+function nodes(ids, t, times) { ids.forEach((id, i) => pop($(id), t, times[i])); }
+
+const S = {};
+S.topics = t => {
+  rise($('tp-l'), t, .2);
+  const ts = [1.4, 2.2, 2.9, 3.6];
+  ts.forEach((a, i) => { const el = $('tc' + i); const out = i < 3 ? ts[i + 1] : 1e9;
+    const p = back((t - a) / .35), q = 1 - io(t, out, .2);
+    el.style.opacity = cl((t - a) / .12) * q; el.style.transform = `translateY(${(1 - q) * -40}px) scale(${.6 + .4 * p})`;
+    el.style.left = (540 - el.offsetWidth / 2 - 30) + 'px'; });
+  rise($('tp-l2'), t, 4.0);
+  // same zig-zag every time, redrawn
+  const d = 'M140 900 L260 820 L360 980 L460 760 L560 1020 L660 740 L760 1040 L860 720 L940 1060';
+  const p = io(t, 4.2, 2.2);
+  $('r-topics').innerHTML = `<path d="${d}" fill="none" stroke="#7d2a35" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="${1 - p}"/>
+    <path d="${d}" transform="translate(0 30)" fill="none" stroke="#7d2a35" stroke-opacity=".18" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${d}" transform="translate(0 60)" fill="none" stroke="#7d2a35" stroke-opacity=".08" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>`;
+};
+S.pattern = t => {
+  const loud = win(t, 10.3, 13.0), lean = io(t, 13.2, 1.8) * 50;
+  $('r-pattern').innerHTML = room({ t,
+    m: M(t, { x: 730 - lean, arms: t < 10.3 ? 'gesture' : 'point', gest: .5 + .5 * Math.sin(t * 3.4), look: [-1, 0], tilt: -6, lean: -lean * .4,
+      talk: talk(t, [[7.1, 8.7], [10.3, 12.4], [13.3, 15.5]]), red: io(t, 10.3, .6) * .9, brows: t > 10.3 ? 'a' : 'u' }),
+    w: W(t, { x: 360, arms: t > 8.7 ? 'cross' : 'lap', look: t > 11.7 ? [-1, .4] : [1, 0], tilt: t > 11.7 ? -6 : 3, brows: t > 8.7 ? 'a' : 'n',
+      mood: t > 11.7 ? 's' : 'n' }) });
+  pop($('pt1'), t, 10.4, 12.6);
+  $('s-pattern').style.transform = shake(t, 10.4, 11.4, 5);
+};
+S.dialog = t => {
+  $('r-dialog').innerHTML = room({ t, noframe: 1,
+    m: M(t, { x: 720, arms: win(t, 19.8, 22.8) ? 'point' : 'gesture', gest: .4 + .4 * Math.sin(t * 3), look: [-1, 0], tilt: -5,
+      talk: talk(t, [[16.76, 18.3], [19.88, 22.7]]), brows: t > 19.8 ? 'a' : 'u', red: win(t, 19.8, 23) ? .5 : 0 }),
+    w: W(t, { x: 360, arms: t > 18.4 ? 'cross' : 'lap', look: t > 22.9 ? [-1, .3] : [1, 0], tilt: 3, talk: talk(t, [[18.48, 19.3], [22.94, 24.5]]),
+      brows: t > 18.4 ? 'a' : 'n', mood: t > 22.9 ? 's' : 'n' }) });
+  pop($('dg1'), t, 16.7, 19.7); pop($('dg2'), t, 18.4, 19.75); pop($('dg3'), t, 19.8, 25.3, .45); pop($('dg4'), t, 22.9);
+  const p = io(t, 25.4, .35); st($('dg5'), p, (1 - p) * -20);
+  if (t > 25.3) { $('dg1').style.opacity = 0; }
+};
+S.how = t => {
+  const p = io(t, 27.05, .5);
+  $('r-how').innerHTML = `<g opacity="${p}" transform="rotate(${(t - 27) * 70} 540 620)">
+    <path d="M540 470 A150 150 0 1 1 390 620" fill="none" stroke="#7d2a35" stroke-width="16" stroke-linecap="round"/>
+    <path d="M390 620 l-30 -36 m30 36 l34 -30" stroke="#7d2a35" stroke-width="16" stroke-linecap="round"/></g>`;
+  rise($('hw1'), t, 27.2, .6); rise($('hw2'), t, 29.3);
+};
+S.late = t => {
+  const hour = lerp(20, 23.2, io(t, 30.8, 3.0));
+  const enter = io(t, 32.0, 2.2);
+  const atHome = t > 34.2;
+  $('r-late').innerHTML = room({ t, clock: hour, dim: .15,
+    m: M(t, { x: 690, arms: t < 34.3 ? 'phone' : (win(t, 35.3, 39.4) ? 'gesture' : 'cross'), glow: t < 34.3 ? 1 : 0, gest: .5 + .5 * Math.sin(t * 3.4),
+      look: t < 32.5 ? [0, 1] : [-1, 0], down: t < 32.5 ? 6 : 0, tilt: -4, talk: talk(t, [[35.34, 39.4]]), brows: t > 34.3 ? 'a' : 's', red: io(t, 35.3, .6) * .5 }),
+    w: W(t, { x: lerp(1250, 330, enter), stand: 1, walk: !atHome, arms: t > 41 ? 'open' : 'lap', gest: .5 + .5 * Math.sin(t * 3),
+      look: [1, 0], tilt: 3, talk: talk(t, [[42.08, 46.0]]), brows: t > 42 ? 'a' : 'n' }) });
+  pop($('lt1'), t, 35.2, 41.6, .45); pop($('lt2'), t, 42.0, 1e9, .45);
+};
+S.inner = t => {
+  const p = io(t, 47.7, .6);
+  $('r-inner').innerHTML = `<g opacity="${p}"><g transform="translate(540 960) scale(2.2) translate(-540 -700)"><clipPath id="cpi"><rect x="0" y="0" width="1080" height="800"/></clipPath>
+    <g clip-path="url(#cpi)">${person({ kind: 'm', t, ...M(t, { x: 540, arms: 'lap', look: t > 51.3 ? [-.6, .5] : [0, 0], mood: t > 51.3 ? 's' : 'n', brows: t > 51.3 ? 's' : 'n', red: io(t, 52.5, 2) * .35 }) })}</g></g></g>
+    <rect width="1080" height="1920" fill="#2a1d24" opacity="${.18 * io(t, 51, 1)}"/>`;
+  rise($('in-l'), t, 49.8); pop($('in1'), t, 51.3, 1e9, .6);
+};
+S.boom = t => {
+  const gas = io(t, 56.4, 3.4);
+  $('r-boom').innerHTML = room({ t, noframe: 1,
+    m: M(t, { x: 720, arms: t > 60.1 ? 'point' : 'cross', gest: 1, look: [-1, 0], tilt: -5, red: .4 + .6 * gas,
+      talk: talk(t, [[60.22, 65.4]]), brows: 'a' }),
+    w: W(t, { x: 340, stand: 1, arms: 'cross', look: t > 62 ? [-1, .2] : [1, 0], tilt: t > 62 ? -4 : 3, brows: 'a', mood: 's' }) })
+    + `<g transform="translate(905 1000)"><rect x="-20" y="-380" width="40" height="380" rx="20" fill="#e7dccd"/>
+       <rect x="-20" y="${-380 * gas}" width="40" height="${380 * gas}" rx="20" fill="#c4434f"/>
+       <text x="0" y="50" text-anchor="middle" font-family="Inter" font-weight="700" font-size="28" fill="#7d2a35">öfke</text></g>`;
+  pop($('bm1'), t, 60.1, 1e9, .4);
+  $('s-boom').style.transform = shake(t, 60.2, 65.3, 4);
+};
+S.withdraw = t => {
+  const leave = io(t, 75.0, 1.6);
+  $('r-withdraw').innerHTML = room({ t, noframe: 1,
+    m: M(t, { x: 720, arms: 'cross', look: [-1, 0], tilt: -5, brows: 'a', red: .5 }),
+    w: W(t, { x: lerp(360, -250, leave), stand: t > 74.9 ? 1 : 0, walk: t > 74.9, arms: win(t, 70.6, 72.4) ? 'open' : (win(t, 73.8, 75) ? 'phone' : 'cross'), glow: win(t, 73.8, 75) ? 1 : 0,
+      gest: .5 + .5 * Math.sin(t * 4), look: t < 72.4 ? [1, 0] : [-1, .5], down: win(t, 73.8, 75) ? 6 : 0, tilt: t < 72.4 ? 3 : -5,
+      talk: talk(t, [[70.7, 72.2]]), brows: t < 70.6 ? 's' : 'a', mood: 's' }) });
+  [70.6, 72.4, 73.8, 75.0].forEach((a, i) => { const sp = $('wd-p').children[i]; const p = back((t - a) / .35); sp.style.opacity = cl((t - a) / .12); sp.style.display = 'inline-block'; sp.style.transform = `scale(${.6 + .4 * p})`; });
+};
+S.chase = t => {
+  const go = io(t, 83.8, 3.4), run = io(t, 87.4, 1.2);
+  $('r-chase').innerHTML = room({ t, noframe: 1,
+    m: M(t, { x: lerp(760, 470, go), stand: 1, walk: win(t, 83.8, 87.2), arms: t < 83 ? 'point' : 'gesture', gest: .6 + .4 * Math.sin(t * 4), look: [-1, 0], tilt: -5,
+      talk: talk(t, [[79.12, 82.5], [84.0, 87.0]]), brows: 'a', red: .6 }),
+    w: W(t, { x: lerp(lerp(230, 140, go), -260, run), stand: 1, walk: t > 83.8, arms: 'cross', look: [1, .2], tilt: -4, brows: 's', mood: 's' }) });
+  pop($('ch1'), t, 79.1, 83.5);
+  if (t < 83.6) { $('ch2').style.opacity = 0; $('ch3').style.opacity = 0; }
+  rise($('ch2'), t, 84.2); rise($('ch3'), t, 85.4);
+};
+S.shift = t => {
+  rise($('sh-l'), t, 89.2); rise($('sh1'), t, 90.6);
+  const x = io(t, 93.2, .4);
+  $('sh1').style.opacity = 1 - .55 * x; $('sh1').style.textDecoration = x > .5 ? 'line-through' : 'none';
+  const p = io(t, 93.6, .5); st($('sh2'), p, 0, .7 + .3 * back((t - 93.6) / .5));
+  const a = Math.sin(t * 2.6) * 12 * io(t, 94.2, .5);
+  $('r-shift').innerHTML = `<g opacity="${io(t, 94.0, .5)}"><rect x="526" y="820" width="28" height="420" rx="10" fill="#8a6a50"/><ellipse cx="540" cy="1245" rx="160" ry="24" fill="#7a5b44"/>
+    <g transform="rotate(${a} 540 820)"><rect x="250" y="810" width="580" height="18" rx="9" fill="#2b2320"/>
+    ${[290, 790].map((x, i) => `<path d="M${x} 820 L${x - 80} 1000 M${x} 820 L${x + 80} 1000" stroke="#5b4d46" stroke-width="4"/><path d="M${x - 100} 1000 Q${x} 1070 ${x + 100} 1000 Z" fill="${i ? '#7f8c70' : '#b4646e'}"/>`).join('')}
+    </g><circle cx="540" cy="820" r="20" fill="#2b2320"/></g>`;
+};
+S.ice = t => {
+  const bob = Math.sin(t * 1.4) * 8;
+  const berg = (x, col) => `<g transform="translate(${x} ${bob})"><path d="M-150 940 L-60 700 L0 760 L70 660 L160 940 Z" fill="${col}"/>
+    <path d="M-150 940 L160 940 L240 1180 L130 1440 L-120 1460 L-240 1200 Z" fill="#e3eef1" opacity=".9"/></g>`;
+  $('r-ice').innerHTML = `<g opacity="${io(t, 96.6, .5)}">${berg(300, '#f8fbfc')}${berg(780, '#f8fbfc')}</g>`
+    + `<g opacity="${io(t, 96.7, .5)}">${avatar('m', 300, 480, .3, t, { brows: 'a', red: .5 })}${avatar('w', 780, 480, .3, t, { brows: 'a' })}</g>`;
+  rise($('ic-l'), t, 96.7); rise($('ic1'), t, 97.0); rise($('ic2'), t, 97.3); rise($('ic-l2'), t, 97.5);
+  rise($('ic3'), t, 98.6); rise($('ic4'), t, 103.6);
+};
+S.cycle = t => {
+  const k = cl((t - 108.6) / 1.2) * 1 + cl((t - 113.9) / 1) + cl((t - 115.9) / 1) + cl((t - 118.5) / 1.2);
+  const spin = t > 119.8 ? 60 + 60 * io(t, 122.4, 2) : 0;
+  $('r-cycle').innerHTML = cycleSvg(t, k, spin);
+  nodes(['nA', 'nB', 'nC', 'nD'], t, [108.4, 113.7, 115.7, 117.2]);
+  rise($('cy-c'), t, 122.5);
+  $('r-cycle').style.transform = `rotate(${0}deg)`;
+};
+S.sue = t => { rise($('su-l'), t, 125.6); const p = io(t, 125.9, .6); st($('gph'), p, 0, .85 + .15 * back((t - 125.9) / .6));
+  rise($('snm'), t, 127.9); rise($('sg1'), t, 126.4); };
+S.tango = t => {
+  rise($('tg-t'), t, 132.8);
+  const sync = 1 - io(t, 144.2, .8) * (1 - io(t, 151.0, .8));
+  let spot = '';
+  if (win(t, 135.2, 139.4)) spot = `<ellipse cx="${400 + Math.sin(t * 2.4) * 50}" cy="1000" rx="170" ry="560" fill="#fff6e2" opacity=".55"/>`;
+  if (win(t, 139.7, 144.0)) spot = `<ellipse cx="${680 + Math.sin(t * 2.4) * 50}" cy="1000" rx="170" ry="560" fill="#fff6e2" opacity=".55"/>`;
+  $('r-tango').innerHTML = spot + `<g transform="translate(0 60)">${tango({ x: 540, t, sync, sep: (1 - sync) * 40 })}</g>`;
+  [['tg1', 135.2, 139.5], ['tg2', 139.7, 144.0], ['tg3', 146.4, 151.8]].forEach(([id, a, b]) => { const p = io(t, a, .35) * (1 - io(t, b, .3)); st($(id), p, (1 - p) * -16); });
+};
+S.what = t => {
+  const p = io(t, 152.7, .5);
+  $('r-what').innerHTML = `<g opacity="${p}">${cycleSvg(t, 4, 50)}</g>`;
+  $('r-what').style.transform = `translateY(-200px) scale(.55)`; $('r-what').style.transformOrigin = '540px 760px';
+  rise($('wt1'), t, 153.0, .6);
+};
+S.blame = t => {
+  const self = io(t, 162.6, .6);
+  $('r-blame').innerHTML = room({ t, noframe: 1, dim: .4 * (1 - self) * 0,
+    m: M(t, { x: 720, arms: t < 162.5 ? 'point' : 'lap', gest: 1, look: t < 162.5 ? [-1, 0] : [0, .3], tilt: t < 162.5 ? -5 : 0, talk: talk(t, [[159.06, 159.9]]),
+      brows: t < 162.5 ? 'a' : 'u', red: t < 162.5 ? .5 : 0, mood: t > 166 ? 'n' : 'n' }),
+    w: W(t, { x: 360, arms: t < 162.5 ? 'point' : 'lap', gest: 1, look: t < 162.5 ? [1, 0] : [0, .3], tilt: t < 162.5 ? 5 : 0, talk: talk(t, [[160.02, 160.9]]),
+      brows: t < 162.5 ? 'a' : 'u', red: t < 162.5 ? .3 : 0 }) })
+    + `<rect width="1080" height="1920" fill="#2a1d24" opacity="${.25 * self}"/>`
+    + (self > 0 ? `<ellipse cx="720" cy="820" rx="${230 * self}" ry="${520 * self}" fill="#fff6e2" opacity="${.32 * self}"/><ellipse cx="360" cy="820" rx="${230 * self}" ry="${520 * self}" fill="#fff6e2" opacity="${.32 * self}"/>` : '');
+  pop($('bl1'), t, 159.0, 162.4); pop($('bl2'), t, 160.0, 162.4);
+  const p = io(t, 163.4, .45); st($('bl3'), p, (1 - p) * -20);
+};
+S.ripple = t => {
+  const calmAt = [172.0, 174.9, 175.6, 176.3];   // B first (the one who changes), then it travels round: C, D, A
+  const order = ['rB', 'rC', 'rD', 'rA'];
+  ['rA', 'rB', 'rC', 'rD'].forEach(id => { $(id).style.opacity = 1; $(id).style.transform = ''; });
+  order.forEach((id, i) => { $(id).classList.toggle('ok', t >= calmAt[i]);
+    if (win(t, calmAt[i], calmAt[i] + .4)) $(id).style.transform = `scale(${1 + .12 * Math.sin((t - calmAt[i]) / .4 * Math.PI)})`; });
+  const calm = io(t, 176.3, .5), spin = lerp(90, 25, io(t, 172, 5));
+  let ring = '';
+  if (t > 172) { const q = cl((t - 172) / 1.2); ring = `<circle cx="800" cy="750" r="${60 + 240 * q}" fill="none" stroke="#7f8c70" stroke-width="6" opacity="${1 - q}"/>`; }
+  $('r-ripple').innerHTML = cycleSvg(t, 4, spin, calm) + ring;
+  ['rB', 'rC', 'rD', 'rA'].forEach(id => { if (t < calmAt[0] && t < 169.8) $(id).style.opacity = io(t, 169.7, .3); });
+  const p = io(t, 174.8, .45); st($('rp-t'), p, (1 - p) * -20);
+};
+S.calm = t => {
+  const p0 = io(t, 177.9, .4) * (1 - io(t, 181.2, .3)); st($('cl0'), p0, (1 - p0) * -20);
+  $('r-calm').innerHTML = room({ t, noframe: 1,
+    m: M(t, { x: 710, arms: win(t, 181.5, 187.9) ? 'open' : 'lap', gest: .5 + .5 * Math.sin(t * 2), look: [-1, 0], tilt: -5, talk: talk(t, [[181.52, 186.3]]), brows: 'n', mood: t > 196 ? 'h' : 'n' }),
+    w: W(t, { x: 370, arms: win(t, 191.4, 199) ? 'open' : 'lap', gest: .5 + .5 * Math.sin(t * 2), look: [1, 0], tilt: 5, talk: talk(t, [[191.5, 198.5]]), brows: t < 191 ? 'n' : 's', mood: t > 199 ? 'h' : 'n' }) })
+    + (t > 198.9 ? heart(540, 520 - 30 * io(t, 198.9, 1.2), 1.3 * back((t - 198.9) / .45), 1 - io(t, 199.8, .3)) : '');
+  pop($('cl1'), t, 181.4, 188.4, .45); pop($('cl2'), t, 191.4, 199.9, .45);
+};
+S.together = t => {
+  const p = io(t, 200.3, .6);
+  $('r-together').innerHTML = room({ t, noframe: 1,
+    m: M(t, { x: 690, arms: 'lap', look: [-.5, -.8], tilt: -3, mood: 'n', brows: 'u' }),
+    w: W(t, { x: 390, arms: 'lap', look: [.5, -.8], tilt: 3, mood: 'n', brows: 'u' }) })
+    + `<g transform="translate(540 330) scale(.36) translate(-540 -760)" opacity="${p}"><circle cx="540" cy="760" r="420" fill="#fffaf3" opacity=".85"/>${cycleSvg(t, 4, 45)}</g>`;
+  rise($('to1'), t, 201.8);
+};
+S.aim = t => {
+  rise($('am-l'), t, 207.7); rise($('am1'), t, 208.0);
+  $('am1x').style.opacity = io(t, 211.2, .3); $('am1').style.opacity = Math.min($('am1').style.opacity, 1 - .5 * io(t, 211.6, .4));
+  const p = io(t, 212.7, .5); st($('am2'), p, 0, .85 + .15 * back((t - 212.7) / .5));
+  // domino chain: one tile tips the next
+  let g = '';
+  for (let i = 0; i < 6; i++) { const a = 213.6 + i * .3; const f = io(t, a, .3) * 62;
+    const x = 230 + i * 120; g += `<g transform="rotate(${f} ${x + 30} 1180)"><rect x="${x}" y="960" width="44" height="220" rx="10" fill="${i % 2 ? '#7d2a35' : '#b4646e'}"/>
+      <circle cx="${x + 22}" cy="1010" r="7" fill="#fff"/><circle cx="${x + 22}" cy="1110" r="7" fill="#fff"/></g>`; }
+  $('r-aim').innerHTML = `<g opacity="${io(t, 213.0, .4)}"><rect x="160" y="1180" width="800" height="12" rx="6" fill="#c9b39a"/>${g}</g>`;
+};
+S.help = t => {
+  rise($('hp-t'), t, 218.0);
+  const p3 = io(t, 222.5, .6);
+  let g = `<g opacity="${io(t, 218.2, .5)}">${avatar('m', 760, 700, .55, t, { look: [-1, 0], brows: 'a' })}${avatar('w', 320, 700, .55, t, { look: [1, 0], brows: 'a' })}</g>`;
+  if (p3 > 0) g += `<g opacity="${p3}"><path d="M320 700 L540 1030 L760 700" fill="none" stroke="#7f8c70" stroke-width="8" stroke-dasharray="20 14"/>
+    <circle cx="540" cy="1030" r="${100 * (.7 + .3 * back((t - 222.5) / .6))}" fill="#7f8c70"/>
+    <g transform="translate(540 1030)"><circle cx="0" cy="-30" r="26" fill="#fff"/><path d="M-46 46 Q0 -10 46 46 Z" fill="#fff"/></g></g>`;
+  $('r-help').innerHTML = g;
+  rise($('hp1'), t, 218.4); rise($('hp2'), t, 218.6); rise($('hp3'), t, 222.8);
+};
+S.again = t => {
+  const n = Math.min(12, 1 + Math.floor(Math.max(0, t - 229.6) * 3.2));
+  $('agn').textContent = n;
+  const look = io(t, 237.2, .6);
+  $('r-again').innerHTML = room({ t, noframe: 1, dim: .2,
+    m: M(t, { x: 720, arms: t < 237 ? 'point' : 'lap', gest: 1, look: t < 237 ? [-1, 0] : [0, -.8], tilt: -5, talk: t < 236.5 ? talkAt(t) * .8 : 0, brows: t < 237 ? 'a' : 'u', red: t < 237 ? .5 : 0 }),
+    w: W(t, { x: 360, arms: t < 237 ? 'point' : 'lap', gest: 1, look: t < 237 ? [1, 0] : [0, -.8], tilt: 5, talk: t < 236.5 ? talkAt(t + .4) * .8 : 0, brows: t < 237 ? 'a' : 'u', red: t < 237 ? .4 : 0 }) })
+    + (look > 0 ? `<g transform="translate(540 380) scale(.4) translate(-540 -760)" opacity="${look}"><circle cx="540" cy="760" r="420" fill="#fffaf3" opacity=".9"/>${cycleSvg(t, 4, 70)}
+       <text x="540" y="780" text-anchor="middle" font-family="Playfair Display" font-style="italic" font-weight="700" font-size="90" fill="#7d2a35">döngü</text></g>` : '');
+  const p = io(t, 229.6, .4) * (1 - io(t, 236.9, .3)); st($('ag1'), p, (1 - p) * -20);
+};
+S.follow = t => {
+  rise($('fl-t'), t, 253.5);
+  const p = io(t, 253.55, .6); st($('ig'), p, (1 - p) * 120);
+  const F = $('fing'), mv = io(t, 254.4, .8);
+  F.style.left = lerp(860, 300, mv) + 'px'; F.style.top = lerp(1560, 1305, mv) + 'px';
+  F.style.opacity = io(t, 254.3, .2) * (1 - io(t, 256.3, .3)); F.style.transform = `scale(${win(t, 255.25, 255.45) ? .85 : 1})`;
+  const done = t >= 255.32;
+  $('fol').classList.toggle('done', done); $('folt').textContent = done ? 'Takip Ediliyor ✓' : 'Takip Et';
+  $('igf').textContent = done ? '1.418' : '1.417'; $('igf').style.color = done ? '#4a5df9' : '';
+  const r = cl((t - 255.3) / .5); $('rip').style.opacity = r > 0 && r < 1 ? .8 * (1 - r) : 0;
+  $('rip').style.left = '50%'; $('rip').style.top = '50%'; $('rip').style.transform = `scale(${1 + 8 * r})`;
+  [['ht1', 250, 0], ['ht2', 330, .2], ['ht3', 410, .4]].forEach(([id, x, d]) => { const q = cl((t - 255.5 - d) / 1.6);
+    const h = $(id); h.style.left = (x + Math.sin(q * 6 + d * 9) * 26) + 'px'; h.style.top = (1230 - q * 260) + 'px'; h.style.opacity = q > 0 ? Math.sin(q * Math.PI) : 0; });
+};
+S.end = t => {
+  $('ring1').style.strokeDashoffset = 1 - io(t, 258.1, .9); $('ring2').style.strokeDashoffset = 1 - io(t, 258.4, .9);
+  rise($('en1'), t, 258.7, .7); rise($('en2'), t, 259.3, .6); rise($('en3'), t, 259.9, .6);
+  $('s-end').style.opacity = 1 - io(t, 261.6, .4);
+};
+
+// mid-video minimal follow toast (over the tango scene)
+function toast(t) {
+  const T = $('toast'), F = $('tfing');
+  const a = 148.9, tap = 150.95, out = 153.4;
+  const p = io(t, a, .45) * (1 - io(t, out, .35));
+  T.style.opacity = p; T.style.transform = `translateY(${(1 - p) * 60}px)`;
+  const done = t >= tap; $('tbt').classList.toggle('done', done); $('tbt').textContent = done ? 'Takip ediliyor ✓' : 'Takip Et';
+  const mv = io(t, 149.9, .8);
+  F.style.left = lerp(900, 830, mv) + 'px'; F.style.top = lerp(1700, 1475, mv) + 'px';
+  F.style.opacity = io(t, 149.8, .2) * (1 - io(t, 151.6, .3)); F.style.transform = `scale(${win(t, tap - .1, tap + .1) ? .85 : 1})`;
+}
+
+const BARS = [.45, .7, .9, 1, .9, .7, .45];
+function voice(t) {
+  [[480, 700, .11, .07, 0], [300, 1150, .08, .1, 2], [820, 1350, .09, .06, 4]].forEach(([x, y, fx, fy, ph], i) => {
+    const g = $('gl' + (i + 1)); g.style.left = (x + Math.sin(t * fx + ph) * 160) + 'px'; g.style.top = (y + Math.cos(t * fy + ph) * 140) + 'px'; });
+  const f = Math.round(t * ZARF_FPS);
+  $('wave').querySelectorAll('i').forEach((b, k) => { const e = ZARF[Math.max(0, f - Math.abs(k - 3))] || 0; b.style.height = (10 + e * 86 * BARS[k]) + 'px'; });
+}
+
+const capEl = $('cap'); let capIdx = -1;
+function captions(t, seg) {
+  const type = seg[0];
+  const hide = NOCAPS || NOCAP.has(type) || NOCAP_T.some(([a, b]) => win(t, a, b));
+  const list = type === 'A' ? CAPTIONS_BIG : CAPTIONS;
+  const i = hide ? -1 : list.findIndex(c => t >= c.s && t < c.e);
+  const key = i < 0 ? -1 : (type === 'A' ? 'b' : 's') + i;
+  if (key !== capIdx) { capIdx = key; capEl.innerHTML = i < 0 ? '' : list[i].w.map(([w]) => `<span class="w">${w}</span>`).join(' '); }
+  capEl.className = type === 'A' ? 'voice' : (type === 'ice' ? 'onb' : 'onb');
+  capEl.style.top = type === 'ice' ? '1400px' : '';
+  if (i < 0) return;
+  const spans = capEl.querySelectorAll('.w'), ws = list[i].w;
+  spans.forEach((sp, k) => { const seen = t >= ws[k][1] - .06, next = k + 1 < ws.length ? ws[k + 1][1] : list[i].e;
+    sp.classList.toggle('seen', seen); sp.classList.toggle('now', seen && t < next - .02); });
+}
+
+function transition(el, t, seg, idx) {
+  const lt = t - seg[1];
+  if (idx === 0 || lt >= .38) { el.style.filter = ''; el.style.opacity = ''; return; }
+  const p = ease(lt / .38), k = idx % 3;
+  el.style.opacity = p;
+  if (k === 0) el.style.transform = `translateX(${(1 - p) * 160}px)`;
+  if (k === 1) { el.style.transform = `scale(${1.08 - .08 * p})`; el.style.filter = `blur(${(1 - p) * 10}px)`; }
+  if (k === 2) el.style.transform = `translateY(${(1 - p) * 140}px)`;
+}
+
+window.seek = t => {
+  let idx = SEG.findIndex(s => t >= s[1] && t < s[2]); if (idx < 0) idx = SEG.length - 1;
+  const seg = SEG[idx], type = seg[0];
+  $('voice').classList.toggle('on', type === 'A');
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('on'));
+  let el;
+  if (type === 'A') { voice(t); el = $('voice'); }
+  else { el = $('s-' + type); el.classList.add('on'); el.style.transform = ''; S[type](t); }
+  transition(el, t, seg, idx);
+  toast(t);
+  captions(t, seg);
+};
+window.seek(0);
+</script>
+</body>
+</html>
