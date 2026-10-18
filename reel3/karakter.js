@@ -127,9 +127,11 @@ function room(r) {
     <rect x="150" y="868" width="780" height="100" rx="32" fill="#bb977c"/>
     <rect x="170" y="960" width="18" height="70" rx="6" fill="#6b4a3a"/><rect x="892" y="960" width="18" height="70" rx="6" fill="#6b4a3a"/>`;
   if (r.tv) g += `<rect width="1080" height="1920" fill="#4a6fa5" opacity="${.12 * r.tv * (.85 + .15 * Math.sin((r.t || 0) * 7))}"/>`;
-  if (r.w) g += person({ kind: 'w', t: r.t, ...r.w });
-  if (r.m) g += person({ kind: 'm', t: r.t, ...r.m });
+  // seated people sit between the couch back and its arms; standing people are in front of the couch
+  const ppl = [['w', r.w], ['m', r.m]].filter(([, o]) => o);
+  ppl.filter(([, o]) => !o.stand).forEach(([k, o]) => g += person({ kind: k, t: r.t, ...o }));
   g += `<rect x="96" y="800" width="112" height="210" rx="52" fill="#9a7660"/><rect x="872" y="800" width="112" height="210" rx="52" fill="#9a7660"/>`;
+  ppl.filter(([, o]) => o.stand).forEach(([k, o]) => g += person({ kind: k, t: r.t, ...o }));
   if (r.crack) g += `<path d="M540 ${640 - 20} l-14 70 l22 50 l-20 70 l18 60 l-12 70" fill="none" stroke="#7d2a35" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="${1 - r.crack}"/>`;
   if (r.dim) g += `<rect width="1080" height="1920" fill="#2a1d24" opacity="${.38 * r.dim}"/>`;
   return g;

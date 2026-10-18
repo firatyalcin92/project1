@@ -14,6 +14,8 @@
   font: 600 38px/1.28 var(--sans); box-shadow: 0 14px 34px rgba(80,50,30,.16); transform-origin: 20% 110%; opacity: 0; }
 .sb::after { content: ""; position: absolute; width: 30px; height: 30px; background: inherit; bottom: -11px; left: 54px; transform: rotate(45deg); border-radius: 5px; }
 .sb.r { transform-origin: 80% 110%; }
+.sb.up { transform-origin: 30% -10%; }
+.sb.r.up { transform-origin: 70% -10%; }
 .sb.r::after { left: auto; right: 54px; }
 .sb.up::after { bottom: auto; top: -11px; }
 .sb.g { background: #e9e2da; color: var(--ink-soft); }
@@ -129,8 +131,8 @@
   <!-- 5 late home -->
   <section class="scene" id="s-late">
     <svg class="room" id="r-late" width="1080" height="1920"></svg>
-    <div class="sb r wn" id="lt1" style="left:60px;top:1170px;max-width:640px" >“Madem gecikeceksin, neden haber vermiyorsun? Kaç saattir seni bekliyorum!”</div>
-    <div class="sb g" id="lt2" style="left:60px;top:200px;max-width:600px">“Ya işim vardı, bir saat geciktim. Neden her şeyi bu kadar büyütüyorsun yine?”</div>
+    <div class="sb r wn up" id="lt1" style="left:330px;top:1200px;max-width:640px">“Madem gecikeceksin, neden haber vermiyorsun? Kaç saattir seni bekliyorum!”</div>
+    <div class="sb g" id="lt2" style="left:400px;top:215px;max-width:560px">“Ya işim vardı, bir saat geciktim. Neden her şeyi bu kadar büyütüyorsun yine?”</div>
   </section>
 
   <!-- 6 inner voice -->
@@ -143,7 +145,7 @@
   <!-- 7 explosion -->
   <section class="scene" id="s-boom">
     <svg class="room" id="r-boom" width="1080" height="1920"></svg>
-    <div class="sb r hot" id="bm1" style="left:330px;top:210px;max-width:640px;font-size:40px">“Sen zaten hiçbir şeyi ciddiye almıyorsun! Benim ne düşündüğüm hiç umurunda değil, lanet olsun ya!”</div>
+    <div class="sb r hot up" id="bm1" style="left:330px;top:1200px;max-width:640px;font-size:40px">“Sen zaten hiçbir şeyi ciddiye almıyorsun! Benim ne düşündüğüm hiç umurunda değil, lanet olsun ya!”</div>
   </section>
 
   <!-- 8 withdrawal -->
@@ -155,9 +157,9 @@
   <!-- 9 chase -->
   <section class="scene" id="s-chase">
     <svg class="room" id="r-chase" width="1080" height="1920"></svg>
-    <div class="sb r wn" id="ch1" style="left:420px;top:220px;max-width:560px">“Bak, yine kaçıyor. Hem gecik hem kaç, olmaz öyle!”</div>
-    <div class="tag" id="ch2" style="top:250px;left:-210px"><span>← geri çekilir</span></div>
-    <div class="tag sg" id="ch3" style="top:250px;left:230px"><span>üstüne gider ←</span></div>
+    <div class="sb r wn up" id="ch1" style="left:420px;top:1200px;max-width:560px">“Bak, yine kaçıyor. Hem gecik hem kaç, olmaz öyle!”</div>
+    <div class="tag" id="ch2" style="top:225px;left:-560px"><span>← geri çekilir</span></div>
+    <div class="tag sg" id="ch3" style="top:225px;left:560px"><span>üstüne gider ←</span></div>
   </section>
 
   <!-- 10 topic shift -->
@@ -234,7 +236,7 @@
   <section class="scene" id="s-calm">
     <svg class="room" id="r-calm" width="1080" height="1920"></svg>
     <div class="tag sg" id="cl0" style="top:240px"><span>Suçlamak yerine, hissettiğinizi söyleyin</span></div>
-    <div class="sb r calm" id="cl1" style="left:340px;top:250px;max-width:640px;font-size:36px">“Sen sustukça benimle konuşmak istemediğini düşünüyorum ve bu durum beni daha fazla öfkelendiriyor.”</div>
+    <div class="sb r calm" id="cl1" style="left:340px;top:205px;max-width:640px;font-size:34px">“Sen sustukça benimle konuşmak istemediğini düşünüyorum ve bu durum beni daha fazla öfkelendiriyor.”</div>
     <div class="sb calm up" id="cl2" style="left:60px;top:1170px;max-width:680px;font-size:36px">“Sesin yükseldiğinde kendimi eleştiriliyor, yargılanıyor gibi hissediyorum ve konuşmayı o saniyede bırakasım geliyor.”</div>
   </section>
 
@@ -256,9 +258,9 @@
   <section class="scene b" id="s-help">
     <svg class="full" id="r-help" width="1080" height="1920"></svg>
     <div class="ttl" id="hp-t" style="top:290px">Tek başına çıkamıyorsanız</div>
-    <div class="tag lt" id="hp1" style="top:840px;left:-330px"><span>Siz</span></div>
-    <div class="tag lt" id="hp2" style="top:840px;left:330px"><span>Partneriniz</span></div>
-    <div class="tag" id="hp3" style="top:1190px"><span>Çift / Aile Danışmanı</span></div>
+    <div class="tag lt" id="hp1" style="top:830px;left:-440px"><span>Siz</span></div>
+    <div class="tag lt" id="hp2" style="top:830px;left:440px"><span>Partneriniz</span></div>
+    <div class="tag" id="hp3" style="top:1080px"><span>Çift / Aile Danışmanı</span></div>
   </section>
 
   <!-- 22 same fight again -->
@@ -586,10 +588,11 @@ S.aim = t => {
 S.help = t => {
   rise($('hp-t'), t, 218.0);
   const p3 = io(t, 222.5, .6);
-  let g = `<g opacity="${io(t, 218.2, .5)}">${avatar('m', 760, 700, .55, t, { look: [-1, 0], brows: 'a' })}${avatar('w', 320, 700, .55, t, { look: [1, 0], brows: 'a' })}</g>`;
-  if (p3 > 0) g += `<g opacity="${p3}"><path d="M320 700 L540 1030 L760 700" fill="none" stroke="#7f8c70" stroke-width="8" stroke-dasharray="20 14"/>
-    <circle cx="540" cy="1030" r="${100 * (.7 + .3 * back((t - 222.5) / .6))}" fill="#7f8c70"/>
-    <g transform="translate(540 1030)"><circle cx="0" cy="-30" r="26" fill="#fff"/><path d="M-46 46 Q0 -10 46 46 Z" fill="#fff"/></g></g>`;
+  let g = '';
+  if (p3 > 0) g += `<g opacity="${p3}"><path d="M320 700 L540 960 L760 700" fill="none" stroke="#7f8c70" stroke-width="8" stroke-dasharray="20 14"/></g>`;
+  g += `<g opacity="${io(t, 218.2, .5)}">${avatar('m', 760, 700, .55, t, { look: [-1, 0], brows: 'a' })}${avatar('w', 320, 700, .55, t, { look: [1, 0], brows: 'a' })}</g>`;
+  if (p3 > 0) g += `<g opacity="${p3}"><circle cx="540" cy="960" r="${95 * (.7 + .3 * back((t - 222.5) / .6))}" fill="#7f8c70"/>
+    <g transform="translate(540 960)"><circle cx="0" cy="-26" r="24" fill="#fff"/><path d="M-42 42 Q0 -8 42 42 Z" fill="#fff"/></g></g>`;
   $('r-help').innerHTML = g;
   rise($('hp1'), t, 218.4); rise($('hp2'), t, 218.6); rise($('hp3'), t, 222.8);
 };
