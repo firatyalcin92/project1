@@ -8,11 +8,12 @@ const args = process.argv.slice(2);
 const out = args[0] || 'out.mp4';
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? Number(args[i + 1]) : d; };
 const fps = opt('--fps', 30);
-const audio = path.resolve('ses_final.m4a');
+const sarg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
+const audio = path.resolve(sarg('--audio', 'ses_final.m4a'));
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
-await page.goto('file://' + path.resolve('reel.html') + (args.includes('--nocap') ? '?nocap' : ''));
+await page.goto('file://' + path.resolve(sarg('--page', 'reel.html')) + (args.includes('--nocap') ? '?nocap' : ''));
 await page.evaluate(() => document.fonts.ready);
 const total = await page.evaluate(() => window.DURATION);
 const from = opt('--from', 0), to = Math.min(opt('--to', total), total);

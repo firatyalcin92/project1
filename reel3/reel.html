@@ -341,7 +341,7 @@ SEG.slice(1).forEach(([k, a]) => cue(a - .18, 'whoosh', k === 'A' || k === 'end'
  [97.5, 'pop', -4], [102.5, 'pop', -4],
  [108.4, 'pop'], [113.7, 'pop'], [115.7, 'pop'], [117.2, 'pop'], [118.4, 'rise'], [122.6, 'ding', -4],
  [125.9, 'pop'], [128.0, 'tick'], [135.2, 'tick'], [139.7, 'tick'], [144.3, 'tap', -2], [148.2, 'tap', -2],
- [149.0, 'pop', -6], [150.9, 'tap', 2], [151.0, 'ding', -6],
+ [139.7, 'pop', -6], [141.6, 'tap', 2], [141.7, 'ding', -6],
  [159.0, 'pop'], [160.0, 'pop'], [162.6, 'rise'], [171.9, 'ding', -6], [174.8, 'rise'],
  [178.0, 'tick'], [181.4, 'pop'], [191.4, 'pop'], [200.5, 'pop', -4], [208.2, 'tap'], [212.7, 'ding', -6],
  [213.7, 'tick'], [214.0, 'tick'], [214.3, 'tick'], [214.6, 'tick'],
@@ -448,7 +448,7 @@ S.late = t => {
       look: t < 32.5 ? [0, 1] : [-1, 0], down: t < 32.5 ? 6 : 0, tilt: -4, talk: talk(t, [[35.34, 39.4]]), brows: t > 34.3 ? 'a' : 's', red: io(t, 35.3, .6) * .5 }),
     w: W(t, { x: lerp(1250, 330, enter), stand: 1, walk: !atHome, arms: t > 41 ? 'open' : 'lap', gest: .5 + .5 * Math.sin(t * 3),
       look: [1, 0], tilt: 3, talk: talk(t, [[42.08, 46.0]]), brows: t > 42 ? 'a' : 'n' }) });
-  pop($('lt1'), t, 35.2, 41.6, .45); pop($('lt2'), t, 42.0, 1e9, .45);
+  pop($('lt1'), t, 35.2, 40.3, .45); pop($('lt2'), t, 42.0, 1e9, .45);
 };
 S.inner = t => {
   const p = io(t, 47.7, .6);
@@ -466,7 +466,7 @@ S.boom = t => {
     + `<g transform="translate(905 1000)"><rect x="-20" y="-380" width="40" height="380" rx="20" fill="#e7dccd"/>
        <rect x="-20" y="${-380 * gas}" width="40" height="${380 * gas}" rx="20" fill="#c4434f"/>
        <text x="0" y="50" text-anchor="middle" font-family="Inter" font-weight="700" font-size="28" fill="#7d2a35">öfke</text></g>`;
-  pop($('bm1'), t, 60.1, 1e9, .4);
+  pop($('bm1'), t, 60.1, 65.15, .4);
   $('s-boom').style.transform = shake(t, 60.2, 65.3, 4);
 };
 S.withdraw = t => {
@@ -484,7 +484,7 @@ S.chase = t => {
     m: M(t, { x: lerp(760, 470, go), stand: 1, walk: win(t, 83.8, 87.2), arms: t < 83 ? 'point' : 'gesture', gest: .6 + .4 * Math.sin(t * 4), look: [-1, 0], tilt: -5,
       talk: talk(t, [[79.12, 82.5], [84.0, 87.0]]), brows: 'a', red: .6 }),
     w: W(t, { x: lerp(lerp(230, 140, go), -260, run), stand: 1, walk: t > 83.8, arms: 'cross', look: [1, .2], tilt: -4, brows: 's', mood: 's' }) });
-  pop($('ch1'), t, 79.1, 83.5);
+  pop($('ch1'), t, 79.1, 82.35);
   if (t < 83.6) { $('ch2').style.opacity = 0; $('ch3').style.opacity = 0; }
   rise($('ch2'), t, 84.2); rise($('ch3'), t, 85.4);
 };
@@ -630,13 +630,13 @@ S.end = t => {
 // mid-video minimal follow toast (over the tango scene)
 function toast(t) {
   const T = $('toast'), F = $('tfing');
-  const a = 148.9, tap = 150.95, out = 153.4;
+  const a = 139.6, tap = 141.65, out = 144.1;
   const p = io(t, a, .45) * (1 - io(t, out, .35));
   T.style.opacity = p; T.style.transform = `translateY(${(1 - p) * 60}px)`;
   const done = t >= tap; $('tbt').classList.toggle('done', done); $('tbt').textContent = done ? 'Takip ediliyor ✓' : 'Takip Et';
-  const mv = io(t, 149.9, .8);
+  const mv = io(t, 140.6, .8);
   F.style.left = lerp(900, 830, mv) + 'px'; F.style.top = lerp(1700, 1475, mv) + 'px';
-  F.style.opacity = io(t, 149.8, .2) * (1 - io(t, 151.6, .3)); F.style.transform = `scale(${win(t, tap - .1, tap + .1) ? .85 : 1})`;
+  F.style.opacity = io(t, 140.5, .2) * (1 - io(t, 142.3, .3)); F.style.transform = `scale(${win(t, tap - .1, tap + .1) ? .85 : 1})`;
 }
 
 const BARS = [.45, .7, .9, 1, .9, .7, .45];
