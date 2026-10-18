@@ -1,0 +1,17 @@
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Reel Kapak</title><link rel="stylesheet" href="sahne.css">
+<style>
+svg{position:absolute;inset:0;transform-origin:540px 700px;transform:translateY(130px) scale(1.2)}
+.box{position:absolute;left:70px;right:130px;top:230px;text-align:center}
+.box .k{font:700 28px var(--sans);letter-spacing:8px;color:var(--wine);margin-bottom:22px}
+.box h1{font:700 92px/1.06 var(--serif);color:var(--ink)}
+.box h1 em{color:var(--wine);font-style:italic;font-weight:600}
+.sb{position:absolute;padding:22px 30px;border-radius:30px;background:#fff;font:600 38px var(--sans);color:#5b4d46;box-shadow:0 14px 34px rgba(80,50,30,.16)}
+</style></head><body>
+<svg id="s" width="1080" height="1920"></svg>
+<div class="box"><div class="k">AİLE &amp; ÇİFT İLİŞKİLERİ</div><h1>İletişimsizlik bazen<br><em>sessizce</em> başlar</h1></div>
+<div class="sb" style="left:740px;top:560px">hı hı…</div>
+<script src="karakter.js"></script><script>
+document.getElementById('s').innerHTML = room({t:0, noframe:1,
+  w:{kind:'w',x:370,arms:'gesture',gest:.6,look:[1,0],tilt:5,talk:.6,brows:'u'},
+  m:{kind:'m',x:720,arms:'phone',glow:1,look:[0,1],down:6,tilt:-2}});
+</script></body></html>

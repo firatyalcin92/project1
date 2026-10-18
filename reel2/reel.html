@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Dinlenmemek Reel</title>
+<link rel="stylesheet" href="sahne.css">
+<style>
+#stage { background: #efe3d3; }
+.scene { transform-origin: 50% 45%; }
+.room { position: absolute; inset: 0; transform-origin: 540px 700px; transform: scale(1.2); }
+.c2 { background: var(--cream); }
+
+/* speech / thought bubbles */
+.sb { position: absolute; max-width: 500px; padding: 24px 32px; border-radius: 34px; background: #fff; color: var(--ink);
+  font: 600 38px/1.28 var(--sans); box-shadow: 0 14px 34px rgba(80,50,30,.16); transform-origin: 20% 110%; opacity: 0; }
+.sb::after { content: ""; position: absolute; width: 30px; height: 30px; background: inherit; bottom: -11px; left: 54px; transform: rotate(45deg); border-radius: 5px; }
+.sb.r { transform-origin: 80% 110%; }
+.sb.r::after { left: auto; right: 54px; }
+.sb.g { background: #e9e2da; color: var(--ink-soft); font-weight: 500; }
+.sb.wn { background: var(--wine); color: var(--cream); }
+.sb.th::after { display: none; }
+.sb.th { border-radius: 60px; }
+.sb .dot { position: absolute; border-radius: 50%; background: inherit; }
+.qcard { position: absolute; left: 70px; right: 130px; padding: 34px 40px; border-radius: 30px; background: rgba(43,35,32,.92); color: var(--cream);
+  font: italic 600 50px/1.25 var(--serif); text-align: center; opacity: 0; }
+.tag { position: absolute; left: 0; right: 60px; text-align: center; opacity: 0; }
+.tag span { display: inline-block; padding: 14px 30px; border-radius: 40px; background: var(--wine); color: var(--cream); font: 700 30px var(--sans); letter-spacing: 1px; }
+.tag.lt span { background: #fffaf3; color: var(--wine); border: 2px solid #e6d8c6; }
+.ttl { position: absolute; left: 70px; right: 130px; text-align: center; font: italic 600 64px/1.15 var(--serif); color: var(--wine); opacity: 0; }
+
+/* fade stack */
+.fb { position: absolute; left: 90px; padding: 22px 30px; border-radius: 30px 30px 30px 8px; background: var(--wine); color: var(--cream); font: 600 40px/1.25 var(--sans); opacity: 0; }
+.fb small { display: block; font: 600 22px var(--sans); letter-spacing: 2px; opacity: .7; margin-bottom: 6px; text-transform: uppercase; }
+
+/* pills / cards */
+.pl { position: absolute; left: 70px; right: 130px; text-align: center; opacity: 0; }
+.pl span { display: inline-flex; align-items: center; gap: 22px; padding: 26px 44px; border-radius: 70px; background: #fffaf3; border: 2px solid #e2d3c0;
+  font: 600 48px var(--sans); color: var(--ink); box-shadow: 0 14px 30px rgba(80,50,30,.08); }
+.pl span em { font-style: normal; font-size: 54px; }
+.stepc { position: absolute; left: 70px; right: 130px; display: flex; gap: 30px; align-items: center; padding: 36px 40px; border-radius: 34px;
+  background: #fffaf3; border: 2px solid #e6d8c6; opacity: 0; box-shadow: 0 16px 40px rgba(80,50,30,.08); }
+.stepc b { flex: none; width: 86px; height: 86px; border-radius: 50%; background: var(--wine); color: #fff; font: 700 44px/86px var(--serif); text-align: center; }
+.stepc p { font: 600 50px/1.2 var(--serif); }
+
+/* calendar */
+.cal { position: absolute; left: 110px; top: 470px; width: 800px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
+.cal div { height: 96px; border-radius: 18px; background: #fffaf3; border: 2px solid #e6d8c6; position: relative; font: 600 24px var(--sans); color: #b5a493; padding: 8px 12px; }
+.cal i { position: absolute; inset: 22px 30px 14px 30px; border-radius: 50%; background: var(--wine); opacity: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font: 700 30px var(--sans); font-style: normal; }
+.calh { position: absolute; left: 110px; width: 800px; top: 420px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; text-align: center; font: 700 24px var(--sans); color: var(--wine); letter-spacing: 2px; }
+
+/* meter */
+.meter { position: absolute; left: 110px; width: 800px; top: 860px; height: 70px; border-radius: 40px; background: #e7dccd; overflow: hidden; }
+.meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 40px; background: linear-gradient(90deg, var(--wine), #c26f78); }
+.mpct { position: absolute; left: 0; right: 60px; top: 960px; text-align: center; font: 700 64px var(--serif); color: var(--wine); }
+
+/* toggle */
+.tog { position: absolute; left: 50%; top: 1110px; margin-left: -230px; width: 400px; display: flex; align-items: center; gap: 26px; font: 700 40px var(--sans); color: var(--ink); opacity: 0; }
+.tog .sw { width: 130px; height: 72px; border-radius: 40px; background: #7f8c70; position: relative; transition: none; }
+.tog .sw i { position: absolute; top: 8px; left: 66px; width: 56px; height: 56px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.2); }
+
+/* gottman */
+.gph { position: absolute; left: 50%; top: 360px; width: 440px; height: 440px; margin-left: -250px; border-radius: 50%; overflow: hidden;
+  border: 10px solid #fffaf3; box-shadow: 0 24px 60px rgba(80,50,30,.22); opacity: 0; }
+.gph img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; filter: sepia(.12) saturate(.95); }
+.gname { position: absolute; left: 70px; right: 130px; top: 860px; text-align: center; font: 700 88px var(--serif); opacity: 0; }
+.gl { position: absolute; left: 70px; right: 130px; text-align: center; font: 500 36px/1.3 var(--sans); color: var(--ink-soft); opacity: 0; }
+
+/* next-episode card */
+.nxt { position: absolute; right: 150px; top: 300px; width: 400px; padding: 24px 28px; border-radius: 22px; background: rgba(20,18,24,.92); color: #fff; opacity: 0; }
+.nxt small { display: block; font: 600 22px var(--sans); letter-spacing: 2px; opacity: .7; text-transform: uppercase; }
+.nxt b { display: block; font: 700 34px var(--sans); margin: 6px 0 14px; }
+.nxt .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.25); overflow: hidden; }
+.nxt .bar i { display: block; height: 100%; background: #fff; }
+
+/* instagram profile */
+.ig { position: absolute; left: 60px; right: 120px; top: 470px; padding: 44px 40px 40px; border-radius: 40px; background: #fff; box-shadow: 0 30px 80px rgba(60,35,20,.18); opacity: 0;
+  font-family: var(--sans); color: #111; }
+.ig .top { display: flex; gap: 34px; align-items: center; }
+.ig .av { flex: none; width: 190px; height: 190px; border-radius: 50%; padding: 7px; background: conic-gradient(from 200deg, #f9ce34, #ee2a7b, #6228d7, #f9ce34); }
+.ig .av div { width: 100%; height: 100%; border-radius: 50%; border: 6px solid #fff; background: linear-gradient(150deg, #8f3441, #5e1f29);
+  display: flex; align-items: center; justify-content: center; font: italic 700 70px var(--serif); color: #f6e8d8; }
+.ig .un { font: 700 42px var(--sans); }
+.ig .un span { font-weight: 400; color: #555; margin-left: 10px; }
+.ig .ti { font: 400 25px/1.35 var(--sans); margin-top: 8px; }
+.ig .st { display: flex; gap: 30px; margin-top: 16px; font: 400 27px var(--sans); }
+.ig .st b { font-weight: 700; }
+.ig .bio { margin-top: 26px; font: 400 27px/1.5 var(--sans); }
+.ig .bio .c { color: #737373; }
+.ig .bio .lnk { color: #3b54c9; font-weight: 600; }
+.ig .btns { display: flex; gap: 16px; margin-top: 30px; }
+.ig .btns div { flex: 1; height: 82px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font: 700 30px var(--sans); }
+.ig .fol { background: #4a5df9; color: #fff; position: relative; overflow: hidden; }
+.ig .fol.done { background: #efefef; color: #111; }
+.ig .msg { background: #efefef; }
+.ripple { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: rgba(255,255,255,.55); }
+.finger { position: absolute; width: 92px; height: 92px; margin: -46px 0 0 -46px; border-radius: 50%; background: rgba(43,35,32,.18); border: 5px solid rgba(255,255,255,.95);
+  box-shadow: 0 8px 20px rgba(0,0,0,.25); opacity: 0; }
+.hrt { position: absolute; font-size: 54px; opacity: 0; }
+
+/* end card */
+.endn { position: absolute; left: 60px; right: 120px; text-align: center; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- narration scene -->
+  <div id="voice">
+    <div class="glow" id="gl1" style="background:radial-gradient(circle, rgba(243,199,166,.16), transparent 65%)"></div>
+    <div class="glow" id="gl2" style="background:radial-gradient(circle, rgba(125,42,53,.32), transparent 65%)"></div>
+    <div class="glow" id="gl3" style="background:radial-gradient(circle, rgba(243,199,166,.10), transparent 62%)"></div>
+    <div class="wave" id="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <!-- 1 quotes -->
+  <section class="scene" id="s-quotes">
+    <svg class="room" id="r-quotes" width="1080" height="1920"></svg>
+    <div class="sb r" id="q1" style="left:470px;top:300px">“Sende bir durgunluk var bu aralar.”</div>
+    <div class="sb" id="q2" style="left:70px;top:330px">“Sen bir sessizleştin birkaç gündür.”</div>
+    <div class="qcard" id="q3" style="top:1190px">“Evde telefonda takılan, birbiriyle paylaşımda bulunmayan iki yabancı olduk resmen.”</div>
+  </section>
+
+  <!-- 2 ask -->
+  <section class="scene b" id="s-ask">
+    <svg width="1080" height="1920" style="position:absolute;inset:0">
+      <g id="askic" opacity="0"><rect x="390" y="430" width="190" height="130" rx="40" fill="#b4646e"/><path d="M430 555 l-10 40 l48 -40 z" fill="#b4646e"/>
+      <rect x="500" y="500" width="190" height="130" rx="40" fill="#7f8c70"/><path d="M650 625 l14 40 l-48 -40 z" fill="#7f8c70"/>
+      <circle cx="560" cy="565" r="9" fill="#fff"/><circle cx="595" cy="565" r="9" fill="#fff"/><circle cx="630" cy="565" r="9" fill="#fff"/></g>
+    </svg>
+    <div class="big" id="askt" style="top:760px;font:600 96px/1.12 var(--serif)"><span class="wd">Bu</span> <span class="wd">cümleler</span> <span class="wd">size</span> <span class="wd" style="color:var(--wine);font-style:italic">tanıdık</span> <span class="wd">geliyor</span> <span class="wd">mu?</span></div>
+  </section>
+
+  <!-- 3 fading stack -->
+  <section class="scene b" id="s-fade">
+    <div class="label" id="fd-l" style="top:290px">Yavaş yavaş…</div>
+    <div class="fb" id="fb1" style="top:400px;font-size:42px;max-width:760px"><small>Mart</small>Bugün işte inanılmaz bir şey oldu, anlatmam lazım! 😄</div>
+    <div class="fb" id="fb2" style="top:640px;font-size:38px;max-width:640px"><small>Nisan</small>Annemle konuştum, biraz moralim bozuk…</div>
+    <div class="fb" id="fb3" style="top:830px;font-size:34px"><small>Mayıs</small>Bugün yorucuydu.</div>
+    <div class="fb" id="fb4" style="top:980px;font-size:32px"><small>Haziran</small>İyiydi.</div>
+    <div class="fb" id="fb5" style="top:1110px;font-size:30px"><small>Temmuz</small>…</div>
+  </section>
+
+  <!-- 4 cycle -->
+  <section class="scene b" id="s-cycle">
+    <svg id="r-cycle" width="1080" height="1920" style="position:absolute;inset:0"></svg>
+    <div class="tag lt" id="cy1" style="top:1000px;left:-385px"><span>Siz</span></div>
+    <div class="tag lt" id="cy2" style="top:1000px;left:385px"><span>Partneriniz</span></div>
+    <div class="ttl" id="cy3" style="top:300px">Karşılıklı bir döngü</div>
+  </section>
+
+  <!-- 5 home -->
+  <section class="scene" id="s-home">
+    <svg class="room" id="r-home" width="1080" height="1920"></svg>
+    <div class="sb" id="h1" style="left:60px;top:270px">Bugün başıma ne geldi biliyor musun! 😄</div>
+    <div class="sb r g" id="h2" style="left:690px;top:420px">hı hı…</div>
+    <div class="sb r g" id="h3" style="left:700px;top:420px">hmm, evet…</div>
+    <div class="tag lt" id="h4" style="top:470px"><span>Göz teması yok</span></div>
+  </section>
+
+  <!-- 6 once -->
+  <section class="scene b" id="s-once">
+    <div class="big" id="o1" style="top:360px;font:700 200px/1 var(--serif);color:var(--wine)">1 kez</div>
+    <div class="big" id="o2" style="top:600px;font:500 52px/1.3 var(--serif);color:var(--ink-soft)">olduğunda çok da önemli değil.</div>
+    <div class="pl" id="o3" style="top:800px"><span><em>🔋</em>Yorgunluk</span></div>
+    <div class="pl" id="o4" style="top:960px"><span><em>💭</em>Kafanın dolu olması</span></div>
+  </section>
+
+  <!-- 7 often -->
+  <section class="scene b" id="s-often">
+    <div class="ttl" id="of-t" style="top:280px">Sık sık…</div>
+    <div class="calh"><span>PZT</span><span>SAL</span><span>ÇAR</span><span>PER</span><span>CUM</span><span>CMT</span><span>PAZ</span></div>
+    <div class="cal" id="cal"></div>
+  </section>
+
+  <!-- 8 unsaid -->
+  <section class="scene" id="s-unsaid">
+    <svg class="room" id="r-unsaid" width="1080" height="1920"></svg>
+    <div class="sb th" id="u1" style="left:60px;top:220px;font-size:34px">☀️ Günüm nasıl geçti</div>
+    <div class="sb th" id="u2" style="left:100px;top:315px;font-size:34px">🌧️ Neye üzüldüm</div>
+    <div class="sb th" id="u3" style="left:60px;top:410px;font-size:34px">🌼 Neye sevindim</div>
+  </section>
+
+  <!-- 9 apart -->
+  <section class="scene" id="s-apart">
+    <svg class="room" id="r-apart" width="1080" height="1920"></svg>
+    <div class="nxt" id="nx"><small>Sonraki bölüm</small><b>Bölüm 7 · <span id="nxn">5</span> sn</b><div class="bar"><i id="nxb"></i></div></div>
+  </section>
+
+  <!-- 10 brain -->
+  <section class="scene b" id="s-brain">
+    <svg id="r-brain" width="1080" height="1920" style="position:absolute;inset:0"></svg>
+    <div class="sb g" id="br1" style="left:90px;top:560px;font-size:32px">hı hı</div>
+    <div class="sb r g" id="br2" style="left:640px;top:520px;font-size:32px">sonra anlatırsın</div>
+    <div class="sb g" id="br3" style="left:150px;top:760px;font-size:32px">hmm…</div>
+    <div class="sb th wn" id="br4" style="left:250px;top:440px;font:italic 600 56px var(--serif);padding:30px 46px">önemsenmiyorum</div>
+    <div class="tog" id="tg"><div class="sw" id="tgs"><i id="tgk"></i></div><span>Paylaşmak</span></div>
+  </section>
+
+  <!-- 11 gottman -->
+  <section class="scene b" id="s-gott">
+    <div class="label" id="gt-l" style="top:270px">Araştırmacı</div>
+    <div class="gph" id="gph"><img src="gottman.jpg" alt=""></div>
+    <div class="gname" id="gnm">John Gottman</div>
+    <div class="gl" id="gl-a" style="top:990px">Amerikalı psikolog</div>
+    <div class="gl" id="gl-b" style="top:1040px">Washington Üniversitesi · Psikoloji Profesörü</div>
+  </section>
+
+  <!-- 12 bids -->
+  <section class="scene b" id="s-bids">
+    <div class="ttl" id="bd-t" style="top:280px">Küçük temaslar</div>
+    <div class="gl" id="bd-s" style="top:370px;font-size:32px">Gottman bunlara <b style="color:var(--wine)">“bağlantı teklifleri”</b> (bids) der.</div>
+    <svg id="r-bids" width="1080" height="1920" style="position:absolute;inset:0"></svg>
+    <div class="pl" id="bd1" style="top:760px"><span><em>💬</em>Bir şey anlatmak</span></div>
+    <div class="pl" id="bd2" style="top:900px"><span><em>❓</em>Bir soru sormak</span></div>
+    <div class="pl" id="bd3" style="top:1040px"><span><em>👀</em>Bir şey göstermek</span></div>
+  </section>
+
+  <!-- 13 respond -->
+  <section class="scene" id="s-resp">
+    <svg class="room" id="r-resp" width="1080" height="1920"></svg>
+    <div class="sb" id="rp1" style="left:60px;top:300px">Bak şuna! 😄</div>
+    <div class="tag" id="rp2" style="top:250px"><span>Asıl mesele: nasıl karşılık verdiğimiz</span></div>
+  </section>
+
+  <!-- 14 meter -->
+  <section class="scene b" id="s-meter">
+    <svg id="r-meter" width="1080" height="1920" style="position:absolute;inset:0"></svg>
+    <div class="label" id="mt-l" style="top:800px">Paylaşma isteği</div>
+    <div class="meter"><i id="mtb"></i></div>
+    <div class="mpct" id="mtp">100%</div>
+  </section>
+
+  <!-- 15 puzzled -->
+  <section class="scene" id="s-puz">
+    <svg class="room" id="r-puz" width="1080" height="1920"></svg>
+  </section>
+
+  <!-- 16 again -->
+  <section class="scene" id="s-again">
+    <svg class="room" id="r-again" width="1080" height="1920"></svg>
+    <div class="tag lt" id="ag0" style="top:250px"><span>Tanıdık cümleler…</span></div>
+    <div class="sb r" id="ag1" style="left:450px;top:330px">“Son zamanlarda sende bir durgunluk var.”</div>
+    <div class="sb" id="ag2" style="left:60px;top:1180px;max-width:640px">“Birbirimizden biraz uzaklaşıyoruz sanki.”</div>
+  </section>
+
+  <!-- 17 drift -->
+  <section class="scene" id="s-drift">
+    <svg class="room" id="r-drift" width="1080" height="1920"></svg>
+    <div class="ttl" id="dr-t" style="top:280px">Sinsi bir uzaklaşma</div>
+  </section>
+
+  <!-- 18 tips -->
+  <section class="scene b" id="s-tips">
+    <div class="big" id="tp0" style="top:300px;font:600 60px/1.2 var(--serif)">Her zaman dinleyecek durumda <i style="color:var(--wine)">olmayabiliriz.</i></div>
+    <div class="label" id="tp-l" style="top:600px">Önemli olan</div>
+    <div class="stepc" id="tp1" style="top:680px"><b>1</b><p>Dinleyemiyorsanız bunu <i style="color:var(--wine)">söylemek</i></p></div>
+    <div class="stepc" id="tp2" style="top:900px"><b>2</b><p>Sonra gerçekten dinlemek için <i style="color:var(--wine)">zaman ayırmak</i></p></div>
+  </section>
+
+  <!-- 19 tea -->
+  <section class="scene" id="s-tea">
+    <svg class="room" id="r-tea" width="1080" height="1920"></svg>
+    <div class="sb" id="te0" style="left:60px;top:330px;font-size:34px">Bugün toplantıda…</div>
+    <div class="sb r" id="te1" style="left:300px;top:240px;max-width:640px;font-size:36px">“Bu söylediklerini daha dikkatli dinlemek istiyorum ama şu anda bilgisayarda bir işim var.”</div>
+    <div class="sb r" id="te2" style="left:420px;top:1180px;max-width:520px;font-size:36px">“Bitireyim, bir çay eşliğinde konuşalım, olur mu?”</div>
+    <div class="sb" id="te3" style="left:100px;top:380px;font-size:36px">Olur 🙂</div>
+  </section>
+
+  <!-- 20 follow -->
+  <section class="scene b" id="s-follow">
+    <div class="ttl" id="fl-t" style="top:300px">Daha fazlası için</div>
+    <div class="ig" id="ig">
+      <div class="top">
+        <div class="av"><div>FY</div></div>
+        <div>
+          <div class="un">firatyalcin.pd<span>···</span></div>
+          <div class="ti">Aile Danışmanı Fırat YALÇIN | Psikolojik Danışman</div>
+          <div class="st"><span><b>51</b> gönderi</span><span><b id="igf">1.417</b> takipçi</span><span><b>72</b> takip</span></div>
+        </div>
+      </div>
+      <div class="bio">
+        <div class="c">Danışman</div>
+        <div>📝 Dokuz Eylül PDR'14</div>
+        <div>📝 Marmara Üniv. Aile Danışmanlığı'24</div>
+        <div>👫 Aile &amp; Çift ve İlişkiler Üzerine Paylaşımlarım</div>
+        <div class="lnk">🔗 firatyalcin.blog</div>
+      </div>
+      <div class="btns"><div class="fol" id="fol"><span id="folt">Takip Et</span><i class="ripple" id="rip" style="opacity:0"></i></div><div class="msg">Mesaj Gönder</div></div>
+    </div>
+    <div class="finger" id="fing"></div>
+    <div class="hrt" id="ht1">🤍</div><div class="hrt" id="ht2">❤️</div><div class="hrt" id="ht3">🤍</div>
+  </section>
+
+  <!-- 21 end card -->
+  <section class="scene" id="s-end" style="background:radial-gradient(ellipse at 50% 45%, #3a2a26 0%, #241b19 60%, #191312 100%)">
+    <svg width="1080" height="1920" style="position:absolute;inset:0">
+      <circle id="ring1" cx="500" cy="700" r="70" fill="none" stroke="#f3c7a6" stroke-width="5" pathLength="1" stroke-dasharray="1 1"/>
+      <circle id="ring2" cx="580" cy="700" r="70" fill="none" stroke="#f3c7a6" stroke-width="5" pathLength="1" stroke-dasharray="1 1"/>
+    </svg>
+    <div class="endn" id="en1" style="top:840px;font:600 82px/1.1 var(--serif);color:var(--cream)">Psk. Dan. Fırat YALÇIN</div>
+    <div class="endn" id="en2" style="top:960px;font:700 32px var(--sans);letter-spacing:9px;color:var(--peach)">AİLE/ÇİFT DANIŞMANLIĞI</div>
+    <div class="endn" id="en3" style="top:1060px;font:500 32px var(--sans);color:rgba(244,237,227,.7)">@firatyalcin.pd</div>
+  </section>
+
+  <div id="cap"></div>
+</div>
+
+<script src="veri/captions.js"></script>
+<script src="veri/zarf.js"></script>
+<script src="karakter.js"></script>
+<script>
+const NOCAPS = location.search.includes('nocap');
+window.DURATION = 197.5;
+
+const SEG = [
+  ['quotes', 0, 11.9], ['ask', 11.9, 14.75], ['fade', 14.75, 25.7], ['cycle', 25.7, 33.3], ['home', 33.3, 48.1],
+  ['once', 48.1, 54.4], ['often', 54.4, 62.2], ['unsaid', 62.2, 69.2], ['apart', 69.2, 76.4], ['brain', 76.4, 88.2],
+  ['gott', 88.2, 98.0], ['bids', 98.0, 108.2], ['resp', 108.2, 116.6], ['meter', 116.6, 125.7], ['puz', 125.7, 132.9],
+  ['again', 132.9, 142.9], ['drift', 142.9, 151.3], ['tips', 151.3, 163.6], ['tea', 163.6, 174.5], ['A', 174.5, 188.7],
+  ['follow', 188.7, 193.2], ['end', 193.2, 197.5],
+];
+const NOCAP = new Set(['quotes', 'ask', 'again', 'tips', 'tea', 'follow', 'end']);
+
+// ---- sound-effect cues (exported for sfx.py) ----
+const SFX = [];
+const cue = (t, k, g = 0) => SFX.push([t, k, g]);
+SEG.slice(1).forEach(([k, a]) => cue(a - .18, 'whoosh', k === 'A' || k === 'end' ? -3 : 0));
+[[1.1, 'pop'], [3.8, 'pop'], [6.6, 'pop'],
+ [15.1, 'pop', -4], [16.1, 'pop', -6], [17.1, 'pop', -8], [18.1, 'pop', -10], [18.9, 'pop', -12],
+ [26.5, 'tick'], [28.1, 'tick'], [30.3, 'rise'],
+ [37.2, 'pop'], [40.3, 'ding', -4], [41.5, 'pop', -4], [44.5, 'pop', -4],
+ [48.3, 'pop'], [51.3, 'pop', -4], [52.4, 'pop', -4],
+ [62.4, 'pop', -6], [64.2, 'pop', -6], [65.9, 'pop', -6],
+ [72.6, 'pop', -4], [73.6, 'tick'], [74.6, 'tick'], [75.6, 'tick'],
+ [77.0, 'pop', -6], [78.2, 'pop', -6], [79.6, 'pop', -6], [82.7, 'rise'], [86.4, 'tap'],
+ [88.5, 'pop'], [92.5, 'tick'], [99.6, 'pop', -4], [104.0, 'pop'], [105.3, 'pop'], [106.6, 'pop'],
+ [108.6, 'pop'], [111.1, 'tick'], [113.4, 'rise'], [113.6, 'ding', -6],
+ [127.5, 'pop', -6], [129.8, 'pop', -6], [131.2, 'pop', -6],
+ [133.3, 'tick'], [135.2, 'pop'], [140.0, 'pop'], [144.6, 'tick'], [148.0, 'tick', -3],
+ [153.6, 'pop', -4], [157.6, 'pop'], [160.6, 'pop'],
+ [163.8, 'pop', -4], [165.3, 'pop'], [169.9, 'pop'], [172.4, 'rise'], [172.7, 'pop', -4],
+ [188.9, 'pop', -4], [190.6, 'tap', 2], [190.75, 'ding', -2], [193.5, 'chime'],
+].forEach(c => cue(...c));
+cue(163.7, 'type', 0);
+window.SFX = SFX.sort((a, b) => a[0] - b[0]);
+
+const $ = id => document.getElementById(id);
+const cl = x => Math.max(0, Math.min(1, x));
+const ease = x => 1 - Math.pow(1 - cl(x), 3);
+const back = x => { x = cl(x); const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const io = (t, a, d = .5) => ease((t - a) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const win = (t, a, b) => t >= a && t < b;
+function st(el, o, y = 0, s = 1, extra = '') { el.style.opacity = o; el.style.transform = `translateY(${y}px) scale(${s}) ${extra}`; }
+function rise(el, t, a, d = .55, dist = 40) { const p = io(t, a, d); st(el, p, (1 - p) * dist); return p; }
+function pop(el, t, a, out = 1e9, d = .4) {  // bubble pop-in with overshoot, optional pop-out
+  const p = back((t - a) / d), q = 1 - io(t, out, .3);
+  el.style.opacity = cl((t - a) / .15) * q; el.style.transform = `scale(${(.55 + .45 * p) * (.7 + .3 * q)})`;
+}
+function words(el, t, times, d = .3) { [...el.querySelectorAll('.wd')].forEach((w, i) => rise(w, t, times[i] - .05, d, 18)); }
+const talk = (t, ranges) => ranges.some(([a, b]) => win(t, a, b)) ? talkAt(t) : 0;
+const W = (t, o) => ({ blink: blinkAt(t, 0), ...o });
+const M = (t, o) => ({ blink: blinkAt(t, 1.7), ...o });
+
+// eye-contact line + heart helpers (svg strings)
+const heart = (x, y, s, o) => `<path transform="translate(${x} ${y}) scale(${s})" d="M0 18 C -30 -6 -22 -34 0 -18 C 22 -34 30 -6 0 18 Z" fill="#c4505c" opacity="${o}"/>`;
+const qmark = (x, y, s, o) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Playfair Display" font-weight="700" font-size="${90 * s}" fill="#7d2a35" opacity="${o}">?</text>`;
+
+const S = {};
+S.quotes = t => {
+  const g = io(t, 6.8, 4) * 40;
+  $('r-quotes').innerHTML = room({ t, dim: .45,
+    w: W(t, { x: 360 - g, arms: 'phone', glow: 1, look: win(t, 3.85, 6.1) ? [1, 0] : [0, 1], down: win(t, 3.85, 6.1) ? 0 : 6,
+      tilt: win(t, 3.85, 6.1) ? 5 : 0, talk: talk(t, [[3.92, 6.0]]), brows: 'n' }),
+    m: M(t, { x: 720 + g, arms: 'phone', glow: 1, look: win(t, 1.15, 3.3) ? [-1, 0] : [0, 1], down: win(t, 1.15, 3.3) ? 0 : 6,
+      tilt: win(t, 1.15, 3.3) ? -5 : 0, talk: talk(t, [[1.22, 3.2]]) }) });
+  pop($('q1'), t, 1.1, 6.4); pop($('q2'), t, 3.8, 6.4); rise($('q3'), t, 6.6, .5, 30);
+};
+S.ask = t => { const p = io(t, 11.95, .5); $('askic').setAttribute('opacity', p); $('askic').setAttribute('transform', `translate(0 ${(1 - p) * 30})`);
+  words($('askt'), t, [12.22, 12.30, 12.78, 13.08, 13.44, 13.72]); };
+S.fade = t => {
+  rise($('fd-l'), t, 14.9);
+  const ap = [15.1, 16.1, 17.1, 18.1, 18.9], op = [1, .82, .64, .5, .42];
+  ap.forEach((a, i) => { const el = $('fb' + (i + 1)); const p = back((t - a) / .45);
+    const fade = i < 4 ? 1 - .55 * io(t, 20.4 + i * .5, 1.2) : 1;
+    el.style.opacity = cl((t - a) / .2) * op[i] * fade; el.style.transform = `scale(${.7 + .3 * p})`; el.style.transformOrigin = '0 100%'; });
+  if (t > 21) $('fb5').style.opacity = .42 + .3 * Math.sin(t * 4);
+};
+S.cycle = t => {
+  const hlW = io(t, 26.5, .3) * (1 - io(t, 27.9, .3)), hlM = io(t, 28.1, .3) * (1 - io(t, 30.2, .3)), both = io(t, 30.3, .5);
+  const head = (kind, x, hl) => {
+    const p = kind === 'w' ? W(t, { x, look: [kind === 'w' ? 1 : -1, 0], tilt: kind === 'w' ? 4 : -4, arms: 'lap' }) : M(t, { x, look: [-1, 0], tilt: -4, arms: 'lap' });
+    return `<circle cx="${x}" cy="700" r="${220 + 8 * hl}" fill="#fffaf3" stroke="${hl > 0 ? '#7d2a35' : '#e6d8c6'}" stroke-width="${3 + 7 * hl}"/>
+      <clipPath id="cp${kind}"><circle cx="${x}" cy="700" r="214"/></clipPath>
+      <g clip-path="url(#cp${kind})"><g transform="translate(0 130)">${person({ kind, t, ...p })}</g></g>`;
+  };
+  const rot = (t - 25.7) * 40;
+  let arrows = '';
+  if (both > 0) arrows = `<g transform="rotate(${rot} 540 700)" opacity="${both}">
+      <path d="M540 380 A320 320 0 0 1 860 700" fill="none" stroke="#7d2a35" stroke-width="9" stroke-linecap="round"/>
+      <path d="M860 700 l-22 -34 m22 34 l26 -30" stroke="#7d2a35" stroke-width="9" stroke-linecap="round"/>
+      <path d="M540 1020 A320 320 0 0 1 220 700" fill="none" stroke="#7d2a35" stroke-width="9" stroke-linecap="round"/>
+      <path d="M220 700 l22 34 m-22 -34 l-26 30" stroke="#7d2a35" stroke-width="9" stroke-linecap="round"/></g>`;
+  const sx = 1 - io(t, 25.75, .5);
+  $('r-cycle').innerHTML = `<g transform="translate(0 ${sx * 60})" opacity="${1 - sx}">${arrows}<g transform="translate(540 700) scale(.8) translate(-540 -700)">${head('w', 300, Math.max(hlW, both * .4))}${head('m', 780, Math.max(hlM, both * .4))}</g></g>`;
+  rise($('cy1'), t, 26.0); rise($('cy2'), t, 27.9); rise($('cy3'), t, 30.3);
+};
+S.home = t => {
+  const enter = io(t, 33.3, 1.4);
+  const sad = t > 46.8;
+  $('r-home').innerHTML = room({ t,
+    w: W(t, { x: lerp(-120, 370, enter), arms: win(t, 36.7, 46.7) ? 'gesture' : 'lap', gest: .5 + .5 * Math.sin(t * 3.4),
+      look: sad ? [.4, .6] : [1, 0], tilt: sad ? 2 : 5, talk: talk(t, [[36.8, 41.2], [42.1, 46.6]]), mood: sad ? 's' : 'h', brows: sad ? 's' : 'u', down: sad ? 4 : 0 }),
+    m: M(t, { x: 720, arms: 'phone', glow: 1, look: [0, 1], down: 6, tilt: -2, talk: talk(t, [[41.6, 42.0], [44.6, 45.0]]) }) })
+    + (win(t, 40.2, 42) ? `<circle cx="745" cy="745" r="${16 * back((t - 40.25) / .3)}" fill="#e0453a"/>` : '')
+    + (t > 43 ? `<g opacity="${io(t, 43, .4) * (1 - io(t, 47.6, .3))}"><path d="M405 605 L660 640" stroke="#7d2a35" stroke-width="5" stroke-dasharray="14 12"/>
+        <circle cx="532" cy="622" r="30" fill="#fffaf3" stroke="#7d2a35" stroke-width="5"/><path d="M520 610 l24 24 m0 -24 l-24 24" stroke="#7d2a35" stroke-width="6" stroke-linecap="round"/></g>` : '');
+  pop($('h1'), t, 37.2, 47.2); pop($('h2'), t, 41.5, 43.8); pop($('h3'), t, 44.5, 47.2);
+  const g = io(t, 43, .4) * (1 - io(t, 47.6, .3)); st($('h4'), g, (1 - g) * -20);
+};
+S.once = t => { const p = io(t, 48.2, .5); st($('o1'), p, 0, .8 + .2 * back((t - 48.2) / .5)); rise($('o2'), t, 49.4);
+  pop($('o3'), t, 51.3); pop($('o4'), t, 52.4); };
+// calendar: marks land one after another while "sık sık" is said
+const CAL_MARK = [3, 9, 1, 15, 12, 20, 6, 24, 17, 27, 10, 22, 4, 29, 13, 31, 25, 8, 19, 33];
+(() => { const c = $('cal'); for (let i = 0; i < 35; i++) { const d = document.createElement('div'); d.innerHTML = `${i + 1 <= 31 ? i + 1 : ''}<i>✕</i>`; c.appendChild(d); } })();
+S.often = t => {
+  rise($('of-t'), t, 54.6);
+  const cells = $('cal').children;
+  CAL_MARK.forEach((k, j) => { const a = 55.1 + j * .17; const p = back((t - a) / .3); const i = cells[k].querySelector('i');
+    i.style.opacity = cl((t - a) / .1) * .9; i.style.transform = `scale(${.4 + .6 * p})`; });
+  $('cal').style.opacity = 1 - .5 * io(t, 59.0, .6);
+  $('cal').style.transform = `scale(${1 - .04 * io(t, 59, 3)})`;
+};
+S.unsaid = t => {
+  $('r-unsaid').innerHTML = room({ t,
+    w: W(t, { x: 370, arms: 'lap', look: t < 66.9 ? [0, -1] : [.2, .7], tilt: 2, mood: t > 67.8 ? 's' : 'n', brows: t > 67.8 ? 's' : 'n', down: t > 67.8 ? 4 : 0 }),
+    m: M(t, { x: 720, arms: 'phone', glow: 1, look: [0, 1], down: 6, tilt: -2 }) })
+    + `<circle cx="300" cy="510" r="${10 * io(t, 62.3, .3) * (1 - io(t, 67.8, .3))}" fill="#fff"/><circle cx="270" cy="470" r="${16 * io(t, 62.35, .3) * (1 - io(t, 67.8, .3))}" fill="#fff"/>`;
+  pop($('u1'), t, 62.4, 67.8); pop($('u2'), t, 64.2, 67.9); pop($('u3'), t, 65.9, 68.0);
+};
+S.apart = t => {
+  const g = io(t, 69.4, 5) * 60, tv = io(t, 72.2, .6);
+  $('r-apart').innerHTML = room({ t, dim: .35, tv,
+    w: W(t, { x: 370 - g, arms: t < 72.2 ? 'phone' : 'lap', glow: t < 72.2 ? io(t, 69.5, .4) : 0, look: t < 72.2 ? [0, 1] : [.3, -.3], down: t < 72.2 ? 6 : 0 }),
+    m: M(t, { x: 720 + g, arms: 'phone', glow: 1, look: [0, 1], down: 6, tilt: -2 }) });
+  const n = $('nx'); const p = io(t, 72.6, .4); st(n, p, (1 - p) * -20);
+  $('nxn').textContent = Math.max(1, 5 - Math.floor((t - 72.6))); $('nxb').style.width = (cl((t - 72.6) / 3.8) * 100) + '%';
+};
+S.brain = t => {
+  const sad = t > 82.6;
+  $('r-brain').innerHTML = `<g transform="translate(540 900) scale(1.5) translate(-540 -700)"><clipPath id="cpb"><rect x="0" y="0" width="1080" height="820"/></clipPath>
+    <g clip-path="url(#cpb)">${person({ kind: 'w', t, ...W(t, { x: 540, arms: 'lap', look: sad ? [0, .6] : [0, 0], mood: sad ? 's' : 'n', brows: sad ? 's' : 'n', down: sad ? 4 : 0 }) })}</g></g>
+    <rect x="0" y="1185" width="1080" height="10" fill="none"/>`;
+  pop($('br1'), t, 77.0, 82.3); pop($('br2'), t, 78.2, 82.3); pop($('br3'), t, 79.6, 82.3);
+  pop($('br4'), t, 82.7, 1e9, .5);
+  const tg = io(t, 85.6, .4); st($('tg'), tg, (1 - tg) * 30);
+  const off = io(t, 86.4, .25);
+  $('tgk').style.left = lerp(66, 8, off) + 'px'; $('tgs').style.background = off > .5 ? '#c9bcae' : '#7f8c70';
+};
+S.gott = t => { rise($('gt-l'), t, 88.3); const p = io(t, 88.5, .6); st($('gph'), p, 0, .85 + .15 * back((t - 88.5) / .6));
+  rise($('gnm'), t, 92.4); rise($('gl-a'), t, 89.0); rise($('gl-b'), t, 90.2); };
+S.bids = t => {
+  rise($('bd-t'), t, 98.6); rise($('bd-s'), t, 99.6);
+  // two little people trading small bubbles
+  let g = '';
+  [[100.4, 1], [101.3, -1], [102.2, 1], [103.0, -1]].forEach(([a, dir]) => {
+    const q = cl((t - a) / .9); if (q <= 0 || q >= 1) return;
+    const x = dir > 0 ? lerp(340, 740, q) : lerp(740, 340, q), y = 560 - Math.sin(q * Math.PI) * 80;
+    g += `<g opacity="${Math.sin(q * Math.PI)}"><rect x="${x - 34}" y="${y - 24}" width="68" height="48" rx="18" fill="${dir > 0 ? '#b4646e' : '#7f8c70'}"/>
+      <circle cx="${x - 14}" cy="${y}" r="5" fill="#fff"/><circle cx="${x}" cy="${y}" r="5" fill="#fff"/><circle cx="${x + 14}" cy="${y}" r="5" fill="#fff"/></g>`;
+  });
+  const fadeTop = 1 - io(t, 103.7, .4);
+  const mini = (kind, x) => `<g transform="translate(${x} 600) scale(.62) translate(${-x} -640)"><clipPath id="cq${kind}"><circle cx="${x}" cy="640" r="200"/></clipPath>
+    <circle cx="${x}" cy="640" r="200" fill="#fffaf3" stroke="#e6d8c6" stroke-width="6"/>
+    <g clip-path="url(#cq${kind})"><g transform="translate(0 120)">${person({ kind, t, ...(kind === 'w' ? W(t, { x, look: [1, 0], tilt: 4, arms: 'lap', mood: 'h' }) : M(t, { x, look: [-1, 0], tilt: -4, arms: 'lap', mood: 'h' })) })}</g></g></g>`;
+  $('r-bids').innerHTML = `<g opacity="${io(t, 99.2, .5) * fadeTop}">${mini('w', 260)}${mini('m', 820)}${g}</g>`;
+  pop($('bd1'), t, 104.0); pop($('bd2'), t, 105.3); pop($('bd3'), t, 106.6);
+  ['bd1', 'bd2', 'bd3'].forEach((id, i) => { $(id).style.top = (760 + i * 140 - 220 * io(t, 103.7, .5)) + 'px'; });
+};
+S.resp = t => {
+  const turn = io(t, 112.6, .5), h = t > 113.4;
+  $('r-resp').innerHTML = room({ t, noframe: 1,
+    w: W(t, { x: 370, arms: t < 112.6 ? 'gesture' : 'lap', gest: .5 + .5 * Math.sin(t * 3), look: [1, 0], tilt: 5, talk: talk(t, [[108.6, 109.6]]), mood: t > 112.8 ? 'h' : 'n', brows: t < 111 ? 'u' : 'n' }),
+    m: M(t, { x: 720, arms: turn < .5 ? 'phone' : 'lap', glow: 1 - turn, look: turn < .5 ? [0, 1] : [-1, 0], down: 6 * (1 - turn), tilt: lerp(-2, -6, turn), mood: t > 113 ? 'h' : 'n' }) })
+    + (h ? heart(545, 520 - 40 * io(t, 113.4, 1.5), 1.6 * back((t - 113.4) / .45), 1 - io(t, 115.6, .6)) : '');
+  pop($('rp1'), t, 108.6, 112.4);
+  const p = io(t, 111.1, .4); st($('rp2'), p, (1 - p) * -20);
+};
+S.meter = t => {
+  const lvl = lerp(100, 15, ease((t - 121.6) / 3.8));
+  $('mtb').style.width = lvl + '%'; $('mtp').textContent = Math.round(lvl) + '%';
+  rise($('mt-l'), t, 116.8);
+  $('r-meter').innerHTML = `<g opacity="${io(t, 116.7, .5)}"><g transform="translate(540 520) scale(.95) translate(-540 -640)"><clipPath id="cpm"><circle cx="540" cy="640" r="200"/></clipPath>
+    <circle cx="540" cy="640" r="200" fill="#fffaf3" stroke="#e6d8c6" stroke-width="6"/>
+    <g clip-path="url(#cpm)"><g transform="translate(0 110)">${person({ kind: 'w', t, ...W(t, { x: 540, arms: 'lap', look: lvl < 60 ? [0, .6] : [0, 0], mood: lvl < 50 ? 's' : 'n', brows: lvl < 50 ? 's' : 'n' }) })}</g></g></g></g>`;
+};
+S.puz = t => {
+  $('r-puz').innerHTML = room({ t,
+    w: W(t, { x: 360, arms: 'lap', look: [-1, .3], tilt: -3, mood: 's', brows: 's' }),
+    m: M(t, { x: 730, arms: t < 126.8 ? 'phone' : 'lap', glow: t < 126.8 ? 1 : 0, look: t < 126.8 ? [0, 1] : [-1, 0], down: t < 126.8 ? 6 : 0, tilt: -5, brows: t > 127 ? 'u' : 'n' }) })
+    + [[127.5, 760, 470], [129.8, 820, 420], [131.2, 700, 400]].map(([a, x, y]) => t > a ? qmark(x, y, back((t - a) / .4), 1) : '').join('');
+};
+S.again = t => {
+  const p = io(t, 133.3, .4); st($('ag0'), p, (1 - p) * -20);
+  $('r-again').innerHTML = room({ t, noframe: 1, dim: .3,
+    w: W(t, { x: 350, arms: 'lap', look: t > 139.9 ? [.6, .2] : [0, .5], tilt: 2, talk: talk(t, [[140.0, 142.3]]), mood: 's', brows: 's' }),
+    m: M(t, { x: 740, arms: 'lap', look: [-1, 0], tilt: -5, talk: talk(t, [[135.2, 137.8]]), brows: 's' }) });
+  pop($('ag1'), t, 135.1); pop($('ag2'), t, 139.9);
+};
+S.drift = t => {
+  const g = io(t, 143.2, 7) * 110;
+  let dots = '';
+  for (let i = 0; i < 5; i++) { const a = 146.6 + i * .36, o = io(t, 143.4, .5) * (1 - io(t, a, .25));
+    dots += `<circle cx="${450 + i * 45}" cy="${620 + Math.sin(t * 3 + i) * 8}" r="13" fill="#7d2a35" opacity="${o}"/>`; }
+  $('r-drift').innerHTML = room({ t, noframe: 1, dim: .2 + .45 * io(t, 146, 4), crack: io(t, 147.9, 1.4),
+    w: W(t, { x: 360 - g, arms: 'phone', glow: 1, look: [0, 1], down: 6 }),
+    m: M(t, { x: 720 + g, arms: 'phone', glow: 1, look: [0, 1], down: 6, tilt: -2 }) }) + dots;
+  rise($('dr-t'), t, 144.5);
+};
+S.tips = t => { rise($('tp0'), t, 153.5); rise($('tp-l'), t, 156.7); pop($('tp1'), t, 157.6); pop($('tp2'), t, 160.6); };
+S.tea = t => {
+  const cozy = io(t, 171.8, .7);
+  if (cozy < .5) $('r-tea').innerHTML = room({ t,
+    w: W(t, { x: 370, arms: 'gesture', gest: .5 + .5 * Math.sin(t * 3), look: [1, 0], tilt: 5, talk: talk(t, [[163.8, 165.0]]), mood: 'n' }),
+    m: M(t, { x: 720, arms: 'laptop', look: t < 165.1 ? [0, 1] : [-1, 0], down: t < 165.1 ? 5 : 0, tilt: t < 165.1 ? 0 : -6,
+      talk: talk(t, [[165.3, 169.8], [169.9, 171.9]]), mood: 'n', brows: 'n' }) })
+    + `<rect width="1080" height="1920" fill="#efe3d3" opacity="${cozy * 2}"/>`;
+  else $('r-tea').innerHTML = room({ t,
+    w: W(t, { x: 400, arms: 'mug', look: [1, 0], tilt: 5, mood: 'h', talk: talk(t, [[172.7, 173.1]]) }),
+    m: M(t, { x: 690, arms: 'mug', look: [-1, 0], tilt: -5, mood: 'h' }) })
+    + heart(545, 500 - 30 * io(t, 172.4, 1.5), 1.4 * back((t - 172.4) / .45), t > 172.4 ? 1 - io(t, 174.0, .5) : 0)
+    + `<rect width="1080" height="1920" fill="#efe3d3" opacity="${Math.max(0, 2 - cozy * 2)}"/>`;
+  pop($('te0'), t, 163.8, 165.1); pop($('te1'), t, 165.3, 171.7, .45); pop($('te2'), t, 169.9, 171.7, .45); pop($('te3'), t, 172.7);
+};
+S.follow = t => {
+  rise($('fl-t'), t, 188.8);
+  const p = io(t, 188.85, .6); st($('ig'), p, (1 - p) * 120);
+  const F = $('fing'), mv = io(t, 189.7, .8);
+  const fx = lerp(860, 300, mv), fy = lerp(1560, 1305, mv);
+  F.style.left = fx + 'px'; F.style.top = fy + 'px';
+  const press = win(t, 190.55, 190.75) ? .85 : 1;
+  F.style.opacity = io(t, 189.6, .2) * (1 - io(t, 191.6, .3)); F.style.transform = `scale(${press})`;
+  const done = t >= 190.62;
+  $('fol').classList.toggle('done', done); $('folt').textContent = done ? 'Takip Ediliyor ✓' : 'Takip Et';
+  $('igf').textContent = done ? '1.418' : '1.417';
+  $('igf').style.color = done ? '#4a5df9' : '';
+  const r = cl((t - 190.6) / .5); $('rip').style.opacity = r > 0 && r < 1 ? .8 * (1 - r) : 0;
+  $('rip').style.left = '50%'; $('rip').style.top = '50%'; $('rip').style.transform = `scale(${1 + 8 * r})`;
+  [['ht1', 250, 0], ['ht2', 330, .2], ['ht3', 410, .4]].forEach(([id, x, d]) => { const q = cl((t - 190.8 - d) / 1.6);
+    const h = $(id); h.style.left = (x + Math.sin(q * 6 + d * 9) * 26) + 'px'; h.style.top = (1230 - q * 260) + 'px';
+    h.style.opacity = q > 0 ? Math.sin(q * Math.PI) : 0; });
+};
+S.end = t => {
+  const r1 = io(t, 193.4, .9), r2 = io(t, 193.7, .9);
+  $('ring1').style.strokeDashoffset = 1 - r1; $('ring2').style.strokeDashoffset = 1 - r2;
+  rise($('en1'), t, 194.0, .7); rise($('en2'), t, 194.6, .6); rise($('en3'), t, 195.2, .6);
+  $('s-end').style.opacity = 1 - io(t, 197.1, .4);
+};
+
+// ---------- narration scene ----------
+const BARS = [.45, .7, .9, 1, .9, .7, .45];
+function voice(t) {
+  [[480, 700, .11, .07, 0], [300, 1150, .08, .1, 2], [820, 1350, .09, .06, 4]].forEach(([x, y, fx, fy, ph], i) => {
+    const g = $('gl' + (i + 1));
+    g.style.left = (x + Math.sin(t * fx + ph) * 160) + 'px'; g.style.top = (y + Math.cos(t * fy + ph) * 140) + 'px';
+  });
+  const f = Math.round(t * ZARF_FPS);
+  $('wave').querySelectorAll('i').forEach((b, k) => {
+    const e = ZARF[Math.max(0, f - Math.abs(k - 3))] || 0;
+    b.style.height = (10 + e * 86 * BARS[k]) + 'px';
+  });
+}
+
+// ---------- captions ----------
+const capEl = $('cap'); let capIdx = -1;
+function captions(t, seg) {
+  const type = seg[0];
+  const hide = NOCAPS || NOCAP.has(type);
+  const list = type === 'A' ? CAPTIONS_BIG : CAPTIONS;
+  const i = hide ? -1 : list.findIndex(c => t >= c.s && t < c.e);
+  const key = i < 0 ? -1 : (type === 'A' ? 'b' : 's') + i;
+  if (key !== capIdx) { capIdx = key; capEl.innerHTML = i < 0 ? '' : list[i].w.map(([w]) => `<span class="w">${w}</span>`).join(' '); }
+  capEl.className = type === 'A' ? 'voice' : 'onb';
+  if (i < 0) return;
+  const spans = capEl.querySelectorAll('.w'), ws = list[i].w;
+  spans.forEach((sp, k) => {
+    const seen = t >= ws[k][1] - .06, next = k + 1 < ws.length ? ws[k + 1][1] : list[i].e;
+    sp.classList.toggle('seen', seen); sp.classList.toggle('now', seen && t < next - .02);
+  });
+}
+
+// scene transitions: alternate slide / zoom-blur / rise for the first 0.38 s of each scene
+function transition(el, t, seg, idx) {
+  const lt = t - seg[1];
+  if (idx === 0 || lt >= .38) { el.style.transform = ''; el.style.filter = ''; el.style.opacity = ''; return; }
+  const p = ease(lt / .38), k = idx % 3;
+  el.style.opacity = p;
+  if (k === 0) el.style.transform = `translateX(${(1 - p) * 160}px)`;
+  if (k === 1) { el.style.transform = `scale(${1.08 - .08 * p})`; el.style.filter = `blur(${(1 - p) * 10}px)`; }
+  if (k === 2) el.style.transform = `translateY(${(1 - p) * 140}px)`;
+}
+
+window.seek = t => {
+  const idx = Math.max(0, SEG.findIndex(s => t >= s[1] && t < s[2]));
+  const seg = SEG.findIndex(s => t >= s[1] && t < s[2]) < 0 ? SEG[SEG.length - 1] : SEG[idx];
+  const type = seg[0];
+  $('voice').classList.toggle('on', type === 'A');
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('on'));
+  let el;
+  if (type === 'A') { voice(t); el = $('voice'); }
+  else { el = $('s-' + type); el.classList.add('on'); S[type](t); }
+  transition(el, t, seg, SEG.indexOf(seg));
+  captions(t, seg);
+};
+window.seek(0);
+</script>
+</body>
+</html>
