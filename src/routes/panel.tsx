@@ -147,6 +147,7 @@ function InviteCard({ code, myName }: { code: string; myName: string }) {
         <p className="font-semibold">Partnerinizi davet edin</p>
         <p className="mt-1 text-sm text-ink-soft">
           Bu kodu partnerinize gönderin. Kendi telefonundan “Partnerimin koduyla katıl” diyerek size katılacak.
+          Dilerseniz önce siz anlatın; bitirdiğinizde paylaşmanızı hatırlatacağız.
         </p>
       </div>
       <CodeTiles code={code} />

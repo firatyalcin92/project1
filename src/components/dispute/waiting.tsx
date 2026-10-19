@@ -2,11 +2,13 @@ import { useMutation } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { requestPerspectivesFn, requestReportsFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
-import { shareOrCopy } from '~/lib/share'
+import { readMember } from '~/lib/member-token'
+import { inviteMessage, shareOrCopy } from '~/lib/share'
 import { genitive } from '~/lib/turkish'
 import type { DisputeView } from '~/lib/views'
 import { LogoMark } from '../brand'
 import { IconLeaf, IconShare } from '../icons'
+import { CodeTiles } from '../code-tiles'
 import { Button, Card, Notice } from '../ui'
 
 const TIPS = [
@@ -45,8 +47,9 @@ export function WaitingForPartner({ view, children }: { view: DisputeView; child
         <p className="mx-auto max-w-sm leading-relaxed text-ink-soft">
           {partner
             ? `Şimdi ${genitive(partner)} ${phase} bekliyoruz. Hazır olduğunda bu ekran kendiliğinden ilerleyecek.`
-            : 'Partneriniz henüz katılmadı. Çift kodunuzu panelden paylaşabilirsiniz.'}
+            : `Sıra ${view.partnerName ? genitive(view.partnerName) : 'partnerinizin'}. Katıldığında kendi tarafını anlatacak; sonra ikinizi birbirinizin gözünden buluşturacağız.`}
         </p>
+        {partner ? null : <ShareCodeNow view={view} />}
         {partner ? (
           <Button
             variant="secondary"
@@ -73,6 +76,34 @@ export function WaitingForPartner({ view, children }: { view: DisputeView; child
         </p>
       </div>
       {children}
+    </div>
+  )
+}
+
+/** Önce tek ilerleyen kişi anlatımını bitirdi: şimdi çift kodunu paylaşma zamanı. */
+function ShareCodeNow({ view }: { view: DisputeView }) {
+  const code = readMember()?.coupleCode ?? ''
+  const [note, setNote] = useState<string | null>(null)
+  if (!code) return null
+  const who = view.partnerName ?? 'eşiniz'
+  return (
+    <div className="space-y-4 rounded-2xl border border-clay/30 bg-clay-soft/40 p-4">
+      <p className="font-semibold text-ink">Şimdi çift kodunuzu {who === 'eşiniz' ? 'eşinizle' : `${who} ile`} paylaşın</p>
+      <CodeTiles code={code} />
+      <Button
+        full
+        onClick={async () => {
+          const r = await shareOrCopy(inviteMessage(code, window.location.origin, view.me.name))
+          setNote(r === 'copied' ? 'Davet panoya kopyalandı.' : r === 'shared' ? 'Davet gönderildi.' : null)
+        }}
+      >
+        <IconShare size={18} /> Kodu paylaş
+      </Button>
+      {note ? <p className="text-sm text-sage">{note}</p> : null}
+      <p className="text-[13px] leading-relaxed text-ink-faint">
+        {who === 'eşiniz' ? 'Eşiniz' : who} kendi telefonundan “Partnerimin koduyla katıl” diyerek katılır. Anlattıklarınız
+        ona gösterilmez; yalnızca 1. soruya yazdığınız olay anlatımını görüp onaylar ya da ekleme yapar.
+      </p>
     </div>
   )
 }

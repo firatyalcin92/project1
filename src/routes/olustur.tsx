@@ -195,10 +195,22 @@ function Created({ session, onNext }: { session: SessionResult; onNext: () => vo
         </Notice>
       </div>
 
+      <div className="mt-4 rounded-2xl border border-line bg-sunken px-4 py-3 text-[14px] leading-relaxed text-ink-soft">
+        <p className="font-semibold text-ink">Önce siz mi anlatmak istersiniz?</p>
+        <p className="mt-1">
+          Kodu şimdi paylaşmak zorunda değilsiniz. İlk meseleyi önce siz anlatın; bitirdiğinizde kodu partnerinizle
+          paylaşmanızı hatırlatacağız. Kod panelde de her zaman duruyor.
+        </p>
+      </div>
+
       <BottomBar>
         <Button size="lg" full onClick={onNext}>
-          Devam: anahtarımı yedekle <IconArrowRight size={18} />
+          {shareState === 'idle' ? 'Önce ben ilerleyeyim' : 'Devam: anahtarımı yedekle'}{' '}
+          <IconArrowRight size={18} />
         </Button>
+        {shareState === 'idle' ? (
+          <p className="mt-2 text-center text-[12px] text-ink-faint">Kodu sonra paylaşırsınız · sıradaki adım: anahtar yedeği</p>
+        ) : null}
       </BottomBar>
     </AppShell>
   )
