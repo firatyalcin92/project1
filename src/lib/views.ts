@@ -74,8 +74,8 @@ export type PanelView = {
   overview: { threshold: number; completed: number; status: OverviewStatus }
   membership: MembershipView
   deletion: DeletionView
-  /** Partneriniz sizin için bir kurtarma kodu ürettiyse (siz istemediyseniz iptal edebilirsiniz) */
-  recoveryPending: { createdByName: string | null; usableAfter: string } | null
+  /** Hesap kaydedildi mi (Apple / Google / e-posta)? Kaydedilmediyse kayıtlar yalnızca bu cihazda. */
+  account: { saved: boolean; email: string | null }
 }
 
 export type AnswerDraft = { text: string; tags: string[] }

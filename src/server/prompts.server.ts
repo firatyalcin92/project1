@@ -360,6 +360,7 @@ export function buildReflectionPrompt(input: {
 - "Siz" diye seslen. Anlattığı olayı ve içinden geçen düşünceyi kendi kelimelerinle kısaca geri yansıt; duyulduğunu hissetsin.
 - Hissettiği olası duyguya nazikçe işaret edebilirsin ama etiketleme, yorum yapma, tavsiye verme, soru sorma.
 - Partner adı: ${input.partnerName || 'eşi'}.
+- Ayrıca meseleye 2-4 kelimelik, suçlamasız bir ad ver (title). Konuyu söylesin, kimseyi suçlamasın.
 
 Ne oldu: ${quote(input.whatHappened)}
 İçinden geçen düşünce: ${quote(input.thought)}`

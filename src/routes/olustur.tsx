@@ -1,95 +1,68 @@
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { CodeTiles } from '~/components/code-tiles'
-import { IconArrowRight, IconCopy, IconShield, IconShare } from '~/components/icons'
-import { KeyBackup } from '~/components/key-backup'
+import { IconArrowRight } from '~/components/icons'
 import { AppShell, BottomBar, PageTitle } from '~/components/layout'
-import { Button, Card, Notice, TextField } from '~/components/ui'
+import { Button, Notice, TextField } from '~/components/ui'
 import { createCoupleFn } from '~/functions/couple'
+import { createDisputeFn } from '~/functions/dispute'
+import { persistSession, readTicket } from '~/lib/auth-client'
 import { parseError } from '~/lib/errors'
 import { useMember } from '~/lib/hooks'
-import { saveMember } from '~/lib/member-token'
-import { copyText } from '~/lib/native'
 import { LIMITS } from '~/lib/questions'
-import { inviteMessage, shareOrCopy } from '~/lib/share'
-import type { SessionResult } from '~/lib/views'
+
+type Search = { mod?: 'bireysel'; hesap?: 'yeni' }
 
 export const Route = createFileRoute('/olustur')({
-  validateSearch: (search: Record<string, unknown>): { mod?: 'bireysel' } =>
-    search.mod === 'bireysel' ? { mod: 'bireysel' } : {},
+  validateSearch: (search: Record<string, unknown>): Search => ({
+    ...(search.mod === 'bireysel' ? { mod: 'bireysel' as const } : {}),
+    ...(search.hesap === 'yeni' ? { hesap: 'yeni' as const } : {}),
+  }),
   head: () => ({ meta: [{ title: 'Başlayalım — MESELE' }] }),
   component: CreateCouple,
 })
 
+/** Yalnızca iki ad; ardından doğrudan ilk meselenin ilk sorusu. */
 function CreateCouple() {
   const member = useMember()
   const navigate = useNavigate()
-  const solo = Route.useSearch().mod === 'bireysel'
+  const search = Route.useSearch()
+  const solo = search.mod === 'bireysel'
   const [displayName, setDisplayName] = useState('')
   const [partnerName, setPartnerName] = useState('')
-  const [created, setCreated] = useState<SessionResult | null>(null)
-  const [backupStep, setBackupStep] = useState(false)
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createCoupleFn({
-        data: { mode: solo ? 'solo' : 'couple', displayName, partnerName },
-      }),
-    onSuccess: (res) => {
-      saveMember({
-        token: res.token,
-        memberId: res.member.id,
-        coupleId: res.couple.id,
-        role: res.member.role,
-        displayName: res.member.name,
-        coupleName: res.couple.name,
-        coupleCode: res.couple.code,
+    mutationFn: async () => {
+      const res = await createCoupleFn({
+        data: { mode: solo ? 'solo' : 'couple', displayName, partnerName, ticket: readTicket() },
       })
-      if (res.couple.mode === 'solo') setBackupStep(true)
-      else setCreated(res)
+      persistSession(res)
+      return createDisputeFn({ data: {} })
     },
+    onSuccess: ({ id }) => navigate({ to: '/mesele/$id', params: { id }, replace: true }),
   })
-
-  if (backupStep) {
-    return (
-      <AppShell>
-        <PageTitle
-          eyebrow={solo ? 'Son adım' : '3 / 3 · Son adım'}
-          title="Cihaz anahtarınızı yedekleyin"
-          lead="Telefonunuzu değiştirirseniz ya da uygulamayı silerseniz kayıtlarınıza bu anahtarla dönersiniz."
-        />
-        <KeyBackup solo={solo} onDone={() => navigate({ to: '/panel' })} />
-      </AppShell>
-    )
-  }
-
-  if (created) return <Created session={created} onNext={() => setBackupStep(true)} />
 
   const ready = displayName.trim().length > 0 && partnerName.trim().length > 0
 
   return (
     <AppShell back="/">
-      {solo ? (
-        <PageTitle
-          eyebrow="Bireysel danışma"
-          title="Tek başınıza da başlayabilirsiniz"
-          lead="Eşiniz uygulamayı kullanmasa da yaşadığınız tartışmayı anlatın; danışman size özel bir yol haritası hazırlasın."
-        />
-      ) : (
-        <PageTitle
-          eyebrow="1 / 3 · Yeni çift"
-          title="Önce kendinizi tanıtın"
-          lead="Partnerinizle eşleşmek için size 6 haneli bir çift kodu vereceğiz. Kod yalnızca sizi buluşturur."
-        />
-      )}
+      <PageTitle
+        title={solo ? 'Tek başınıza da bakabiliriz' : 'Önce adlarınız'}
+        lead={
+          search.hesap === 'yeni'
+            ? 'Bu hesapla henüz bir kaydınız yok. Adlarınızı yazın, hemen başlayalım; hesabınız kendiliğinden bağlanır.'
+            : solo
+              ? 'Eşiniz uygulamayı kullanmasa da yaşadığınızı anlatın; size özel bir yol haritası hazırlayalım.'
+              : 'Sonra hemen ilk soruya geçiyoruz.'
+        }
+      />
 
       {member ? (
         <div className="mb-5">
-          <Notice tone="warn" title="Bu cihazda zaten bir hesabınız var">
-            Yeni bir hesap oluşturursanız bu cihaz yenisine bağlanır.{' '}
+          <Notice tone="warn" title="Bu cihazda zaten kayıtlarınız var">
+            Yeniden başlarsanız bu cihaz yeni kayda geçer.{' '}
             <Link to="/panel" className="font-semibold underline">
-              Mevcut panele dönün
+              Panele dönün
             </Link>
           </Notice>
         </div>
@@ -104,21 +77,16 @@ function CreateCouple() {
       >
         <TextField
           label="Adınız"
-          hint={solo ? 'Danışman size bu adla seslenecek.' : 'Partneriniz sizi bu adla görecek.'}
           value={displayName}
           onChange={setDisplayName}
           maxLength={LIMITS.displayName}
           placeholder="Adınız"
           autoCapitalize="words"
           autoComplete="given-name"
+          autoFocus
         />
         <TextField
-          label={solo ? 'Eşinizin / partnerinizin adı' : 'Partnerinizin adı'}
-          hint={
-            solo
-              ? 'Sorular ve rapor onun adıyla kişiselleşir. Ona hiçbir şey gönderilmez.'
-              : 'Sorular onun adıyla kişiselleşir. Partneriniz katılırken kendi adını yazacak.'
-          }
+          label={solo ? 'Eşinizin adı' : 'Partnerinizin adı'}
           value={partnerName}
           onChange={setPartnerName}
           maxLength={LIMITS.displayName}
@@ -126,92 +94,18 @@ function CreateCouple() {
           autoCapitalize="words"
         />
         {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
-        <div className="flex gap-2.5 rounded-2xl border border-line bg-sunken px-4 py-3 text-[13px] leading-relaxed text-ink-soft">
-          <IconShield size={18} className="mt-0.5 shrink-0" />
-          <p>
-            E-posta, telefon ya da şifre istemiyoruz; takma ad da kullanabilirsiniz. Cevaplarınız size
-            {solo ? '' : ' ve partnerinize'} özeldir, üçüncü kişilerle paylaşılmaz.{' '}
-            <Link to="/gizlilik" className="font-semibold text-clay-strong underline-offset-4 hover:underline">
-              Gizlilik
-            </Link>
-            <br />
-            İlk mesele ücretsiz; sonrası için aylık ya da yıllık üyelik.
-            {solo ? '' : ' Birinizin alması ikiniz için de yeterli.'}
-          </p>
-        </div>
         <BottomBar>
           <Button type="submit" size="lg" full disabled={!ready} loading={mutation.isPending}>
-            {solo ? 'Başlayalım' : 'Çift kodumu oluştur'} <IconArrowRight size={18} />
+            Başlayalım <IconArrowRight size={18} />
           </Button>
+          <p className="mt-2 text-center text-[12px] text-ink-faint">
+            Takma ad da olur.{' '}
+            <Link to="/gizlilik" className="underline underline-offset-2">
+              Gizlilik
+            </Link>
+          </p>
         </BottomBar>
       </form>
-    </AppShell>
-  )
-}
-
-function Created({ session, onNext }: { session: SessionResult; onNext: () => void }) {
-  const [shareState, setShareState] = useState<'idle' | 'copied' | 'shared'>('idle')
-  const code = session.couple.code
-
-  const share = async () => {
-    const msg = inviteMessage(code, window.location.origin, session.member.name)
-    const r = await shareOrCopy(msg)
-    if (r !== 'failed') setShareState(r)
-  }
-
-  return (
-    <AppShell>
-      <PageTitle
-        eyebrow="2 / 3 · Kodunuz hazır"
-        title={`Hoş geldiniz, ${session.member.name}.`}
-        lead="Bu kodu partnerinizle paylaşın. O, kendi telefonundan “Partnerimin koduyla katıl” diyerek size katılacak."
-      />
-      <Card className="animate-rise space-y-5 text-center">
-        <CodeTiles code={code} />
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-          <Button onClick={share} full>
-            <IconShare size={18} /> Partnerime gönder
-          </Button>
-          <Button
-            variant="secondary"
-            full
-            onClick={async () => {
-              if (await copyText(code)) setShareState('copied')
-            }}
-          >
-            <IconCopy size={18} /> Kodu kopyala
-          </Button>
-        </div>
-        {shareState === 'copied' ? (
-          <p className="text-sm text-sage">Kopyalandı. Şimdi partnerinize gönderebilirsiniz.</p>
-        ) : null}
-        {shareState === 'shared' ? <p className="text-sm text-sage">Davet gönderildi.</p> : null}
-      </Card>
-
-      <div className="mt-6 space-y-3">
-        <Notice tone="info" title="Kod bir şifre değildir">
-          Çift kodu yalnızca sizi eşleştirmek içindir ve partneriniz katıldıktan sonra başka kimseye kapı açmaz. Sizin
-          asıl anahtarınız bu cihazda saklanır.
-        </Notice>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-line bg-sunken px-4 py-3 text-[14px] leading-relaxed text-ink-soft">
-        <p className="font-semibold text-ink">Önce siz mi anlatmak istersiniz?</p>
-        <p className="mt-1">
-          Kodu şimdi paylaşmak zorunda değilsiniz. İlk meseleyi önce siz anlatın; bitirdiğinizde kodu partnerinizle
-          paylaşmanızı hatırlatacağız. Kod panelde de her zaman duruyor.
-        </p>
-      </div>
-
-      <BottomBar>
-        <Button size="lg" full onClick={onNext}>
-          {shareState === 'idle' ? 'Önce ben ilerleyeyim' : 'Devam: anahtarımı yedekle'}{' '}
-          <IconArrowRight size={18} />
-        </Button>
-        {shareState === 'idle' ? (
-          <p className="mt-2 text-center text-[12px] text-ink-faint">Kodu sonra paylaşırsınız · sıradaki adım: anahtar yedeği</p>
-        ) : null}
-      </BottomBar>
     </AppShell>
   )
 }

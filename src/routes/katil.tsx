@@ -1,123 +1,65 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
-import { IconArrowRight, IconKey } from '~/components/icons'
-import { KeyBackup } from '~/components/key-backup'
+import { useEffect, useState } from 'react'
+import { IconArrowRight } from '~/components/icons'
 import { AppShell, BottomBar, PageTitle } from '~/components/layout'
-import { Button, Notice, TextField, cx } from '~/components/ui'
-import { redeemRecoveryFn } from '~/functions/account'
-import { joinCoupleFn, restoreSessionFn } from '~/functions/couple'
-import { markBackedUp } from '~/lib/backup'
+import { Button, Notice, TextField } from '~/components/ui'
+import { invitePreviewFn, joinCoupleFn } from '~/functions/couple'
+import { persistSession, readTicket } from '~/lib/auth-client'
 import { parseError } from '~/lib/errors'
-import { saveMember } from '~/lib/member-token'
 import { LIMITS } from '~/lib/questions'
-import type { SessionResult } from '~/lib/views'
 
-type JoinMode = 'kod' | 'anahtar' | 'kurtar'
-type JoinSearch = { kod?: string; mod?: JoinMode }
-
-function parseSearch(search: Record<string, unknown>): JoinSearch {
-  const out: JoinSearch = {}
-  if (typeof search.kod === 'string') out.kod = search.kod.slice(0, 16)
-  if (search.mod === 'kod' || search.mod === 'anahtar' || search.mod === 'kurtar') out.mod = search.mod
-  return out
-}
+type JoinSearch = { kod?: string }
 
 export const Route = createFileRoute('/katil')({
-  validateSearch: parseSearch,
-  head: () => ({ meta: [{ title: 'Çiftine katıl — MESELE' }] }),
+  validateSearch: (search: Record<string, unknown>): JoinSearch =>
+    typeof search.kod === 'string' ? { kod: search.kod.slice(0, 16) } : {},
+  head: () => ({ meta: [{ title: 'Davete katıl — MESELE' }] }),
   component: Join,
 })
 
-function persist(res: SessionResult) {
-  saveMember({
-    token: res.token,
-    memberId: res.member.id,
-    coupleId: res.couple.id,
-    role: res.member.role,
-    displayName: res.member.name,
-    coupleName: res.couple.name,
-    coupleCode: res.couple.code,
-  })
-}
-
+/** Davet linkiyle gelen kişi yalnızca adını onaylar; kod elle yazılmaz. */
 function Join() {
   const search = Route.useSearch()
   const navigate = useNavigate()
-  const mode = search.mod ?? 'kod'
-  // Katıldıktan / kurtarma koduyla döndükten sonra: anahtarı yedekle adımı
-  const [backup, setBackup] = useState(false)
-
-  if (backup) {
-    return (
-      <AppShell>
-        <PageTitle
-          eyebrow="Son adım"
-          title="Cihaz anahtarınızı yedekleyin"
-          lead="Telefonunuzu değiştirirseniz ya da uygulamayı silerseniz kayıtlarınıza bu anahtarla dönersiniz."
-        />
-        <KeyBackup solo={false} onDone={() => navigate({ to: '/panel' })} />
-      </AppShell>
-    )
-  }
-
-  return (
-    <AppShell back="/">
-      <div className="mb-6 flex flex-wrap gap-1 rounded-3xl border border-line bg-sunken p-1 text-sm" role="tablist">
-        {(
-          [
-            ['kod', 'Koduyla katıl'],
-            ['anahtar', 'Anahtarımla dön'],
-            ['kurtar', 'Kurtarma koduyla dön'],
-          ] as const
-        ).map(([m, label]) => (
-          <button
-            key={m}
-            role="tab"
-            type="button"
-            aria-selected={mode === m}
-            onClick={() => navigate({ to: '/katil', search: { ...search, mod: m }, replace: true })}
-            className={cx(
-              'min-h-9 rounded-full px-4 font-medium transition',
-              mode === m ? 'bg-surface text-ink shadow-soft' : 'text-ink-faint hover:text-ink',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {mode === 'kod' ? (
-        <JoinWithCode initialCode={search.kod ?? ''} onJoined={() => setBackup(true)} />
-      ) : mode === 'anahtar' ? (
-        <RestoreWithKey />
-      ) : (
-        <RecoverWithCode initialCode={search.kod ?? ''} onRecovered={() => setBackup(true)} />
-      )}
-    </AppShell>
-  )
-}
-
-function JoinWithCode({ initialCode, onJoined }: { initialCode: string; onJoined: () => void }) {
-  const [code, setCode] = useState(initialCode.toUpperCase())
+  const [code, setCode] = useState((search.kod ?? '').toUpperCase())
   const [displayName, setDisplayName] = useState('')
+  const normalized = code.replace(/[\s-]/g, '')
+
+  const preview = useQuery({
+    queryKey: ['invite', normalized],
+    queryFn: () => invitePreviewFn({ data: { code: normalized } }),
+    enabled: normalized.length === 6,
+    staleTime: 60_000,
+  })
+  const invite = preview.data
+
+  // Davet eden, partnerinin adını zaten yazdı: hazır gelsin.
+  useEffect(() => {
+    if (invite?.suggestedName && !displayName) setDisplayName(invite.suggestedName)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invite?.suggestedName])
 
   const mutation = useMutation({
-    mutationFn: () => joinCoupleFn({ data: { code, displayName } }),
+    mutationFn: () => joinCoupleFn({ data: { code: normalized, displayName, ticket: readTicket() } }),
     onSuccess: (res) => {
-      persist(res)
-      onJoined()
+      persistSession(res)
+      void navigate({ to: '/panel', replace: true })
     },
   })
 
-  const normalized = code.replace(/[\s-]/g, '')
   const ready = normalized.length === 6 && displayName.trim().length > 0
+  const fromLink = Boolean(search.kod)
 
   return (
-    <>
+    <AppShell back="/">
       <PageTitle
-        eyebrow="Partnerine katıl"
-        title="Kodunu gir, adını yaz"
-        lead="Partnerinin sana gönderdiği 6 haneli çift kodunu gir. Ardından ikiniz aynı meseleye, ayrı ayrı bakabileceksiniz."
+        title={invite?.inviter ? `${invite.inviter} sizi davet etti` : 'Davete katılın'}
+        lead={
+          invite?.inviter
+            ? `Aranızdaki meseleye birlikte bakacaksınız. ${invite.inviter} kendi tarafını anlattı ya da anlatıyor; sıra size de gelecek.`
+            : 'Partnerinizin gönderdiği daveti açtığınızda bu ekran kendiliğinden dolar.'
+        }
       />
       <form
         className="space-y-5"
@@ -126,143 +68,49 @@ function JoinWithCode({ initialCode, onJoined }: { initialCode: string; onJoined
           if (ready) mutation.mutate()
         }}
       >
+        {fromLink && invite !== null ? null : (
+          <TextField
+            label="Davet kodu"
+            hint="Davet mesajındaki 6 karakterlik kod"
+            value={code}
+            onChange={(v) => setCode(v.toUpperCase().replace(/[^A-Z0-9\s-]/gi, ''))}
+            maxLength={9}
+            placeholder="WWPX6G"
+            autoCapitalize="characters"
+            inputClassName="text-center font-display text-2xl tracking-[0.4em] uppercase"
+          />
+        )}
+        {preview.data === null && normalized.length === 6 ? (
+          <Notice tone="warn">
+            Bu davet bulunamadı ya da zaten kullanılmış. Daha önce katıldıysanız{' '}
+            <Link to="/giris" className="font-semibold underline">
+              giriş yapın
+            </Link>
+            .
+          </Notice>
+        ) : null}
         <TextField
-          label="Çift kodu"
-          value={code}
-          onChange={(v) => setCode(v.toUpperCase().replace(/[^A-Z0-9\s-]/gi, ''))}
-          maxLength={9}
-          placeholder="WWPX6G"
-          autoCapitalize="characters"
-          inputClassName="text-center font-display text-2xl tracking-[0.4em] uppercase"
-        />
-        <TextField
-          label="Senin adın"
-          hint="Partnerin seni bu adla görecek."
+          label="Adınız"
           value={displayName}
           onChange={setDisplayName}
           maxLength={LIMITS.displayName}
-          placeholder="Adın"
+          placeholder="Adınız"
           autoCapitalize="words"
           autoComplete="given-name"
         />
         {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
-        <p className="text-sm text-ink-faint">
-          Kodun yok mu?{' '}
-          <Link to="/olustur" className="font-semibold text-clay-strong underline-offset-4 hover:underline">
-            Yeni bir çift oluştur
-          </Link>
-        </p>
         <BottomBar>
           <Button type="submit" size="lg" full disabled={!ready} loading={mutation.isPending}>
-            Eşleş <IconArrowRight size={18} />
+            Katıl <IconArrowRight size={18} />
           </Button>
+          <p className="mt-2 text-center text-[12px] text-ink-faint">
+            Daha önce katıldınız mı?{' '}
+            <Link to="/giris" className="underline underline-offset-2">
+              Giriş yapın
+            </Link>
+          </p>
         </BottomBar>
       </form>
-    </>
-  )
-}
-
-function RestoreWithKey() {
-  const navigate = useNavigate()
-  const [token, setToken] = useState('')
-  const mutation = useMutation({
-    mutationFn: () => restoreSessionFn({ data: { token: token.trim() } }),
-    onSuccess: (res) => {
-      persist(res)
-      markBackedUp() // anahtar zaten elinde
-      void navigate({ to: '/panel' })
-    },
-  })
-
-  return (
-    <>
-      <PageTitle
-        eyebrow="Yeni cihaz"
-        title="Cihaz anahtarınla geri dön"
-        lead="Panelinden yedeklediğin cihaz anahtarını buraya yapıştır. Bu anahtar bir şifre gibidir; kimseyle paylaşma."
-      />
-      <form
-        className="space-y-5"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (token.trim().length >= 40) mutation.mutate()
-        }}
-      >
-        <TextField
-          label="Cihaz anahtarı"
-          value={token}
-          onChange={setToken}
-          maxLength={64}
-          placeholder="43 karakterlik anahtar"
-          inputClassName="font-mono text-sm"
-        />
-        {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
-        <Notice tone="info">
-          <span className="inline-flex items-center gap-1.5">
-            <IconKey size={16} /> Çift kodu burada işe yaramaz; o yalnızca eşleştirme içindir.
-          </span>
-        </Notice>
-        <BottomBar>
-          <Button type="submit" size="lg" full disabled={token.trim().length < 40} loading={mutation.isPending}>
-            Geri dön <IconArrowRight size={18} />
-          </Button>
-        </BottomBar>
-      </form>
-    </>
-  )
-}
-
-function RecoverWithCode({ initialCode, onRecovered }: { initialCode: string; onRecovered: () => void }) {
-  const [coupleCode, setCoupleCode] = useState(initialCode.toUpperCase())
-  const [recoveryCode, setRecoveryCode] = useState('')
-  const mutation = useMutation({
-    mutationFn: () => redeemRecoveryFn({ data: { coupleCode, recoveryCode } }),
-    onSuccess: (res) => {
-      persist(res)
-      onRecovered()
-    },
-  })
-  const ready = coupleCode.replace(/[\s-]/g, '').length === 6 && recoveryCode.replace(/[\s-]/g, '').length === 8
-
-  return (
-    <>
-      <PageTitle
-        eyebrow="Cihazımı kaybettim"
-        title="Partnerinizin verdiği kodla dönün"
-        lead="Anahtarınızı yedeklemediyseniz partneriniz kendi Hesap sayfasından size bir yeniden bağlanma kodu üretebilir. Güvenliğiniz için kod 12 saat sonra çalışmaya başlar. Kullanıldığında eski cihazdaki giriş kapanır."
-      />
-      <form
-        className="space-y-5"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (ready) mutation.mutate()
-        }}
-      >
-        <TextField
-          label="Çift kodu"
-          value={coupleCode}
-          onChange={(v) => setCoupleCode(v.toUpperCase().replace(/[^A-Z0-9\s-]/gi, ''))}
-          maxLength={9}
-          placeholder="WWPX6G"
-          autoCapitalize="characters"
-          inputClassName="text-center font-display text-2xl tracking-[0.4em] uppercase"
-        />
-        <TextField
-          label="Yeniden bağlanma kodu"
-          value={recoveryCode}
-          onChange={(v) => setRecoveryCode(v.toUpperCase().replace(/[^A-Z0-9\s-]/gi, ''))}
-          maxLength={12}
-          placeholder="ABCD-EFGH"
-          autoCapitalize="characters"
-          inputClassName="text-center font-mono text-xl tracking-[0.2em] uppercase"
-        />
-        {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
-        <BottomBar>
-          <Button type="submit" size="lg" full disabled={!ready} loading={mutation.isPending}>
-            Geri dön <IconArrowRight size={18} />
-          </Button>
-        </BottomBar>
-      </form>
-    </>
+    </AppShell>
   )
 }

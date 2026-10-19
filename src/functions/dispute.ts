@@ -25,7 +25,14 @@ export const listDisputesFn = createServerFn({ method: 'POST' })
 
 export const createDisputeFn = createServerFn({ method: 'POST' })
   .middleware([memberAuth])
-  .validator(z.object({ title: z.string().max(LIMITS.title * 2) }))
+  .validator(
+    z.object({
+      title: z
+        .string()
+        .max(LIMITS.title * 2)
+        .optional(),
+    }),
+  )
   .handler(async ({ data, context }) => createDispute(context.member, data.title))
 
 export const cancelDisputeFn = createServerFn({ method: 'POST' })

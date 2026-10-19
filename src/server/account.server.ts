@@ -12,9 +12,8 @@ import {
 } from '~/lib/plans'
 import type { DeletionView, MembershipView } from '~/lib/views'
 import type { AuthedMember } from './auth.server'
-import { CODE_ALPHABET, hashMemberToken } from './crypto.server'
 import { fail } from './errors.server'
-import { getStore, type DisputeRow, type SubscriptionRow } from './store.server'
+import { getStore, type DisputeRow } from './store.server'
 
 /**
  * Üyelik (çift düzeyinde), üyelik aktarımı ve "tüm verileri sil" talebi.
@@ -23,8 +22,8 @@ import { getStore, type DisputeRow, type SubscriptionRow } from './store.server'
  *   üyelik gerekir (teklif o noktada gösterilir).
  * - Yıllık üyelik çift başına bir kez 3 gün ücretsiz denenebilir (provider = 'trial').
  * - Çiftlerden birinin satın alması ikisine de yeter.
- * - Veriler silinse bile üyelik satırı kalır; satın alan kişi bir aktarım koduyla
- *   kalan süreyi yeni bir çifte ya da bireysel hesaba taşıyabilir.
+ * - Üyelik satın alanın hesabına bağlıdır (owner_user_id). Veriler silinse bile satır kalır;
+ *   aynı hesapla yeni bir çift ya da bireysel kullanım başlatılınca kendiliğinden bağlanır.
  */
 
 const nowIso = () => new Date().toISOString()
@@ -62,17 +61,6 @@ export async function disputeAccess(d: DisputeRow) {
 export const PAYWALL_MESSAGE =
   'Ücretsiz meselenizi kullandınız. Bu meseleye devam etmek için aylık ya da yıllık üyeliğinizi başlatın; anlattıklarınız kayıtlı.'
 
-/** Okunaklı tek kullanımlık kod: XXXX-XXXX(-XXXX). Karışan karakterler yok. */
-export function generateReadableCode(length: number) {
-  const bytes = crypto.getRandomValues(new Uint8Array(length))
-  const raw = Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('')
-  return raw.match(/.{1,4}/g)!.join('-')
-}
-
-export const normalizeReadableCode = (raw: string) => raw.replace(/[\s-]/g, '').toUpperCase()
-
-export const hashReadableCode = (raw: string) => hashMemberToken(`mesele:${normalizeReadableCode(raw)}`)
-
 export async function membershipFor(coupleId: string, memberId: string): Promise<MembershipView> {
   const store = await getStore()
   const [sub, disputes, everSubscribed] = await Promise.all([
@@ -98,79 +86,50 @@ export async function membershipFor(coupleId: string, memberId: string): Promise
 
 export async function purchase(
   member: AuthedMember,
-  input: { period: SalePeriod; keyBackedUp: boolean; codeSaved: boolean; trial?: boolean },
+  input: { period: SalePeriod; trial?: boolean },
 ): Promise<MembershipView> {
   if (!PLAN_PERIODS.includes(input.period)) fail('VALIDATION', 'Geçersiz üyelik süresi.')
   if (input.trial && input.period !== 'yearly') fail('VALIDATION', 'Ücretsiz deneme yalnızca yıllık üyelikte var.')
   const store = await getStore()
-  const [couple, members] = await Promise.all([store.getCouple(member.coupleId), store.listMembers(member.coupleId)])
-  if (!couple) return fail('UNAUTHORIZED', 'Çift bulunamadı.')
+  const me = (await store.listMembers(member.coupleId)).find((m) => m.id === member.id)
+  if (!me) return fail('UNAUTHORIZED', 'Hesap bulunamadı.')
 
-  // Kayıtlarınızı kaybetmemeniz için: anahtar yedeği ve çift kodu güvende olmalı.
-  if (!input.keyBackedUp) fail('VALIDATION', 'Üyelik almadan önce cihaz anahtarınızı yedekleyin.')
-  const partnerJoined = members.length > 1
-  if (couple.mode === 'couple' && !partnerJoined && !input.codeSaved) {
-    fail('VALIDATION', 'Çift kodunuzu partnerinizle paylaşın ya da güvenli bir yere kaydettiğinizi onaylayın.')
-  }
+  // Üyelik hesaba bağlanır: telefon değişse ya da veriler silinse de kaybolmaz.
+  if (!me.auth_user_id) fail('ACCOUNT_REQUIRED', 'Üyelik almadan önce hesabınızı kaydedin.')
 
   if (paymentMode() !== 'test') {
     fail('CONFIG', 'Ödeme altyapısı henüz bağlanmadı. Üyelik çok yakında açılacak; o zamana kadar bekleriz.')
   }
 
+  const base = { couple_id: member.coupleId, member_id: member.id, provider_ref: null, owner_user_id: me.auth_user_id }
   const active = await store.getActiveSubscription(member.coupleId, nowIso())
   if (input.trial) {
     if (await store.hasAnySubscription(member.coupleId))
       fail('CONFLICT', 'Ücretsiz deneme hakkınızı kullandınız; aylık ya da yıllık üyelik seçebilirsiniz.')
     await store.createSubscription({
-      couple_id: member.coupleId,
-      member_id: member.id,
+      ...base,
       period: 'yearly',
       provider: TRIAL_PROVIDER,
-      provider_ref: null,
       expires_at: addDays(nowIso(), TRIAL_DAYS),
     })
   } else if (active?.provider === TRIAL_PROVIDER) {
     // Deneme sırasında satın alma: kalan deneme günleri korunur, üyelik onun üstüne başlar.
     await store.createSubscription({
-      couple_id: member.coupleId,
-      member_id: member.id,
+      ...base,
       period: input.period,
       provider: 'test',
-      provider_ref: null,
       expires_at: addPeriod(active.expires_at, input.period),
     })
   } else if (active) {
     await store.extendSubscription(active.id, addPeriod(active.expires_at, input.period))
   } else {
     await store.createSubscription({
-      couple_id: member.coupleId,
-      member_id: member.id,
+      ...base,
       period: input.period,
       provider: 'test',
-      provider_ref: null,
       expires_at: addPeriod(nowIso(), input.period),
     })
   }
-  return membershipFor(member.coupleId, member.id)
-}
-
-/** Satın alan kişiye, kalan süreyi taşıyabilmesi için tek seferlik aktarım kodu üretir. */
-async function issueTransferCode(sub: SubscriptionRow | null, memberId: string) {
-  // Ücretsiz deneme aktarılmaz.
-  if (!sub || sub.member_id !== memberId || sub.provider === TRIAL_PROVIDER) return null
-  const code = generateReadableCode(12)
-  const store = await getStore()
-  await store.setSubscriptionTransfer(sub.id, await hashReadableCode(code))
-  return code
-}
-
-/** Silinen bir çiftten kalan üyeliği bu çifte bağlar. */
-export async function claimTransfer(member: AuthedMember, code: string): Promise<MembershipView> {
-  const clean = normalizeReadableCode(code)
-  if (!/^[A-HJ-NP-Z2-9]{12}$/.test(clean)) fail('VALIDATION', 'Aktarım kodu 12 karakterdir (ör. ABCD-EFGH-JKLM).')
-  const store = await getStore()
-  const claimed = await store.claimSubscription(await hashReadableCode(clean), member.coupleId, member.id, nowIso())
-  if (!claimed) fail('NOT_FOUND', 'Bu kodla aktarılabilecek bir üyelik bulunamadı ya da süresi dolmuş.')
   return membershipFor(member.coupleId, member.id)
 }
 
@@ -190,14 +149,20 @@ export async function deletionFor(coupleId: string, memberId: string): Promise<D
   }
 }
 
-export type DeletionResult = { deleted: boolean; transferCode: string | null }
+/** membershipKept: açık üyelik bir hesaba bağlı; aynı hesapla yeniden başlayınca devam eder. */
+export type DeletionResult = { deleted: boolean; membershipKept: boolean }
+
+async function keptMembership(coupleId: string) {
+  const store = await getStore()
+  const sub = await store.getActiveSubscription(coupleId, nowIso())
+  return Boolean(sub && sub.owner_user_id && sub.provider !== TRIAL_PROVIDER)
+}
 
 async function execute(member: AuthedMember): Promise<DeletionResult> {
   const store = await getStore()
-  const sub = await store.getActiveSubscription(member.coupleId, nowIso())
-  const transferCode = await issueTransferCode(sub, member.id)
+  const membershipKept = await keptMembership(member.coupleId)
   await store.deleteCouple(member.coupleId)
-  return { deleted: true, transferCode }
+  return { deleted: true, membershipKept }
 }
 
 /**
@@ -212,9 +177,7 @@ export async function requestDeletion(member: AuthedMember): Promise<DeletionRes
 
   const created = await store.createDeletionRequest(member.coupleId, member.id)
   if (created === 'exists') fail('CONFLICT', 'Zaten bekleyen bir silme talebi var.')
-  // Satın alan talep ediyorsa aktarım kodunu şimdi alır (silme partner onaylayınca olur).
-  const sub = await store.getActiveSubscription(member.coupleId, nowIso())
-  return { deleted: false, transferCode: await issueTransferCode(sub, member.id) }
+  return { deleted: false, membershipKept: await keptMembership(member.coupleId) }
 }
 
 /** Partner onaylarsa tüm veriler silinir. */

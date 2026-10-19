@@ -325,10 +325,29 @@ export async function activeSummary(
   return { ...summarize(active, member.id), meDone, partnerDone, waitingForFirst }
 }
 
-export async function createDispute(member: AuthedMember, title: string): Promise<{ id: string }> {
+/** Başlık sorulmaz: ilk anlatanın 1. sorusundan yapay zekâ kısa bir ad çıkarır. */
+export const DEFAULT_TITLE = 'Yeni mesele'
+
+function cleanTitle(raw: string) {
+  return raw
+    .replace(/["“”«»]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.!]+$/, '')
+    .slice(0, LIMITS.title)
+}
+
+/** Yapay zekâ ad veremediyse: "19 Ekim meselesi" */
+function dateTitle() {
+  const day = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', timeZone: 'Europe/Istanbul' }).format(
+    new Date(),
+  )
+  return `${day} meselesi`
+}
+
+export async function createDispute(member: AuthedMember, title?: string): Promise<{ id: string }> {
   const store = await getStore()
-  const clean = title.replace(/\s+/g, ' ').trim()
-  if (clean.length < 2) fail('VALIDATION', 'Meseleye kısa da olsa bir ad verin.')
+  const clean = cleanTitle(title ?? '') || DEFAULT_TITLE
   const existing = await store.listDisputes(member.coupleId)
   const open = existing.find((d) => d.status !== 'completed')
   if (open) fail('CONFLICT', `Önce açık olan "${open.title}" meselesini tamamlayalım.`)
@@ -336,7 +355,7 @@ export async function createDispute(member: AuthedMember, title: string): Promis
   const d = await store.createDispute({
     couple_id: member.coupleId,
     created_by: member.id,
-    title: clean.slice(0, LIMITS.title),
+    title: clean,
   })
   return { id: d.id }
 }
@@ -453,6 +472,8 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
     if (find(STRONGEST_FEELING)?.tags.length !== 1) fail('VALIDATION', 'Sizi en çok etkileyen hissi seçer misiniz?')
   }
 
+  if (input.submit && d.title === DEFAULT_TITLE) await store.setDisputeTitle(d.id, dateTitle())
+
   await store.upsertEntry({
     dispute_id: d.id,
     member_id: member.id,
@@ -502,7 +523,7 @@ export async function reflectAnswers(
     whatHappened,
     thought,
   })
-  const { reflection } = await generateJson({
+  const { reflection, title } = await generateJson({
     task: 'reflection',
     schema: ReflectionSchema,
     system: prompt.system,
@@ -511,6 +532,10 @@ export async function reflectAnswers(
     mockContext: { owner: member.name },
   })
   const store = await getStore()
+  // Meseleye adı ilk anlatanın yansıtmasıyla birlikte verilir.
+  if (d.title === DEFAULT_TITLE && orderOf(member.id, bundle) !== 'second' && cleanTitle(title).length >= 2) {
+    await store.setDisputeTitle(d.id, cleanTitle(title))
+  }
   await store.upsertAnswers([
     {
       dispute_id: d.id,

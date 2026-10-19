@@ -13,24 +13,24 @@ export function activeLine(
     case 'answers_in_progress':
       if (a.waitingForFirst)
         return {
-          text: `${p} bu meseleyi anlatıyor. Bitirdiğinde sıra size gelecek; başlık girmenize gerek yok, buradan devam edeceksiniz.`,
+          text: `${p} anlatıyor. Bitirdiğinde sıra size gelecek.`,
           cta: 'Meseleyi açın',
           waiting: true,
         }
       if (!a.meDone && a.partnerDone)
         return {
-          text: `${p} anlattı. Sıra sizde: onun olay anlatımını okuyup kendi tarafınızı ekleyin.`,
+          text: `${p} anlattı. Sıra sizde.`,
           cta: 'Anlatmaya başlayın',
           waiting: false,
         }
       if (!a.meDone)
         return {
-          text: 'Sizin anlatmanız bekleniyor. Kimse sözünüzü kesmeyecek.',
+          text: 'Kaldığınız yerden devam edin.',
           cta: 'Anlatmaya devam edin',
           waiting: false,
         }
       if (!partnerName)
-        return { text: 'Anlattınız. Partneriniz katıldığında o da anlatacak.', cta: 'Meseleyi açın', waiting: true }
+        return { text: 'Anlattınız. Şimdi partnerinizi davet edin.', cta: 'Meseleyi açın', waiting: true }
       return { text: `Anlattınız. Şimdi ${genitive(p)} anlatması bekleniyor.`, cta: 'Meseleyi açın', waiting: true }
     case 'both_answers_completed':
     case 'generating_perspectives':

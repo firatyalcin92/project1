@@ -35,7 +35,7 @@ export async function shareOrCopy(opts: {
 export function inviteMessage(code: string, origin: string, inviter: string) {
   return {
     title: 'MESELE daveti',
-    text: `${inviter} seni MESELE’ye davet ediyor. Bir tartışmayı birlikte, daha iyi anlamak için. Çift kodumuz: ${code}`,
+    text: `${inviter} seni MESELE’ye davet ediyor: aramızdaki meseleye birlikte bakalım. Linke dokunman yeterli.`,
     url: `${origin}/katil?kod=${code}`,
   }
 }

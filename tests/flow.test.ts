@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockGenerate } from '~/server/ai-mock.server'
 import { authenticateMember } from '~/server/auth.server'
-import { buildPanel, createCouple, joinCouple, restoreSession } from '~/server/couples.server'
+import { buildPanel, createCouple, invitePreview, joinCouple, signIn } from '~/server/couples.server'
 import {
   approveSharedReport,
   createDispute,
@@ -15,8 +15,8 @@ import {
 import type { AiTask } from '~/server/mesele.server'
 import { ensureOverview, getOverview } from '~/server/overview.server'
 import { createMemoryStore } from '~/server/store-memory.server'
-import { approveDeletion, claimTransfer, dismissDeletion, purchase, requestDeletion } from '~/server/account.server'
-import { cancelMyRecovery, createPartnerRecovery, redeemRecovery } from '~/server/couples.server'
+import { approveDeletion, dismissDeletion, purchase, requestDeletion } from '~/server/account.server'
+import { finishOAuth, issueTicket, readTicket, sendEmailCode, verifyEmailCode } from '~/server/identity.server'
 import { __setStoreForTests, getStore } from '~/server/store.server'
 
 /**
@@ -76,8 +76,15 @@ async function grantMembership(coupleId: string, memberId: string) {
     period: 'monthly',
     provider: 'test',
     provider_ref: null,
+    owner_user_id: null,
     expires_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
   })
+}
+
+/** Üyeyi e-posta koduyla (sahte sağlayıcı) bir hesaba bağlar. */
+async function saveAccount(member: Awaited<ReturnType<typeof authenticateMember>> | null, email: string) {
+  await sendEmailCode(email)
+  return signIn(await verifyEmailCode(email, '123456'), member, issueTicket)
 }
 
 async function pair() {
@@ -135,11 +142,17 @@ describe('kimlik doğrulama ve eşleştirme', () => {
     await expect(authenticateMember(undefined)).rejects.toThrow(/\[UNAUTHORIZED\]/)
   })
 
-  it('token 256-bit base64url ve cihaz anahtarıyla geri dönülebilir', async () => {
+  it("oturum token'ı 256-bit base64url", async () => {
     const { a } = await pair()
     expect(a.token).toMatch(/^[A-Za-z0-9_-]{43}$/)
-    const restored = await restoreSession(a.token)
-    expect(restored.member.id).toBe(a.member.id)
+  })
+
+  it('davet linki: kim davet etti ve önerilen ad; kullanıldıktan sonra boş döner', async () => {
+    const a = await createCouple({ mode: 'couple', displayName: 'Fırat', partnerName: 'Ayşe' })
+    expect(await invitePreview(a.couple.code.toLowerCase())).toEqual({ inviter: 'Fırat', suggestedName: 'Ayşe' })
+    await joinCouple({ code: a.couple.code, displayName: 'Ayşe' })
+    expect(await invitePreview(a.couple.code)).toBeNull()
+    expect(await invitePreview('ZZZZZZ')).toBeNull()
   })
 
   it('başka bir çiftin üyesi meseleyi göremez (IDOR)', async () => {
@@ -586,14 +599,19 @@ describe('üyelik: bir mesele ücretsiz, sonrası çift düzeyinde üyelik', () 
     ).rejects.toThrow(/\[PAYMENT_REQUIRED\]/)
 
     // Ödeme altyapısı yokken satın alma kapalı
-    await expect(purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: true })).rejects.toThrow(/\[CONFIG\]/)
+    await expect(purchase(ma, { period: 'monthly' })).rejects.toThrow(/\[ACCOUNT_REQUIRED\]/)
+    await saveAccount(ma, 'firat@ornek.com')
+    await expect(purchase(ma, { period: 'monthly' })).rejects.toThrow(/\[CONFIG\]/)
 
     vi.stubEnv('MESELE_PAYMENTS', 'test')
-    await expect(purchase(ma, { period: 'monthly', keyBackedUp: false, codeSaved: true })).rejects.toThrow(
-      /anahtarınızı yedekleyin/,
-    )
-    const m = await purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: false })
-    expect(m).toMatchObject({ active: true, trial: false, period: 'monthly', purchasedByMe: true, nextDisputeFree: true })
+    const m = await purchase(ma, { period: 'monthly' })
+    expect(m).toMatchObject({
+      active: true,
+      trial: false,
+      period: 'monthly',
+      purchasedByMe: true,
+      nextDisputeFree: true,
+    })
     expect((await buildPanel(mb)).membership).toMatchObject({ active: true, purchasedByMe: false })
     // Kilit kalktı: aynı meseleye kaldığı yerden devam
     expect(await getDisputeView(mb, id)).toMatchObject({ paywall: false })
@@ -606,112 +624,115 @@ describe('üyelik: bir mesele ücretsiz, sonrası çift düzeyinde üyelik', () 
     vi.stubEnv('MESELE_PRICE_MONTHLY', '299,90 TL')
     vi.stubEnv('MESELE_PRICE_YEARLY', '2.499 ₺')
     const { ma, mb } = await pair()
+    await saveAccount(ma, 'firat@ornek.com')
+    await saveAccount(mb, 'ayse@ornek.com')
     expect((await buildPanel(ma)).membership.prices).toEqual({ monthly: 299.9, yearly: 2499 })
-    await expect(
-      purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: true, trial: true }),
-    ).rejects.toThrow(/yalnızca yıllık/)
+    await expect(purchase(ma, { period: 'monthly', trial: true })).rejects.toThrow(/yalnızca yıllık/)
 
-    const t = await purchase(ma, { period: 'yearly', keyBackedUp: true, codeSaved: true, trial: true })
+    const t = await purchase(ma, { period: 'yearly', trial: true })
     expect(t).toMatchObject({ active: true, trial: true, period: 'yearly', trialAvailable: false })
     const days = (Date.parse(t.expiresAt!) - Date.now()) / 86_400_000
     expect(days).toBeGreaterThan(2.9)
     expect(days).toBeLessThan(3.1)
     // Partner için de açık; ikinci deneme yok
     expect((await buildPanel(mb)).membership).toMatchObject({ active: true, trial: true })
-    await expect(
-      purchase(mb, { period: 'yearly', keyBackedUp: true, codeSaved: true, trial: true }),
-    ).rejects.toThrow(/deneme hakkınızı kullandınız/)
+    await expect(purchase(mb, { period: 'yearly', trial: true })).rejects.toThrow(/deneme hakkınızı kullandınız/)
 
     // Deneme sırasında yıllık alındı: kalan deneme günleri korunur
-    const paid = await purchase(mb, { period: 'yearly', keyBackedUp: true, codeSaved: true })
+    const paid = await purchase(mb, { period: 'yearly' })
     expect(paid).toMatchObject({ active: true, trial: false, period: 'yearly', purchasedByMe: true })
     expect(Date.parse(paid.expiresAt!) - Date.parse(t.expiresAt!)).toBeGreaterThan(364 * 86_400_000)
   })
 
-  it('partner katılmadıysa çift kodunun saklandığı onaylanmalı', async () => {
+  it('haftalık plan satılmaz; uzatma süre üstüne eklenir', async () => {
     vi.stubEnv('MESELE_PAYMENTS', 'test')
     const a = await createCouple({ mode: 'couple', displayName: 'Fırat', partnerName: 'Ayşe' })
     const ma = await authenticateMember(a.token)
-    await expect(purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: false })).rejects.toThrow(
-      /Çift kodunuzu/,
-    )
-    // Haftalık plan artık satılmıyor
-    await expect(
-      purchase(ma, { period: 'weekly' as never, keyBackedUp: true, codeSaved: true }),
-    ).rejects.toThrow(/Geçersiz üyelik süresi/)
-    const m = await purchase(ma, { period: 'monthly', keyBackedUp: true, codeSaved: true })
+    await saveAccount(ma, 'firat@ornek.com')
+    await expect(purchase(ma, { period: 'weekly' as never })).rejects.toThrow(/Geçersiz üyelik süresi/)
+    const m = await purchase(ma, { period: 'monthly' })
     expect(m.period).toBe('monthly')
-    // Uzatma: süre üstüne eklenir
-    const longer = await purchase(ma, { period: 'yearly', keyBackedUp: true, codeSaved: true })
+    const longer = await purchase(ma, { period: 'yearly' })
     expect(Date.parse(longer.expiresAt!) - Date.parse(m.expiresAt!)).toBeGreaterThan(364 * 86_400_000)
   })
 })
 
-describe('cihaz kurtarma: partnerin ürettiği tek kullanımlık kod', () => {
-  it('kod 12 saat bekledikten sonra, çift koduyla birlikte bir kez çalışır; eski anahtar geçersiz olur', async () => {
-    const { a, b, ma, mb } = await pair()
-    const { code, partnerName } = await createPartnerRecovery(ma)
-    expect(partnerName).toBe('Ayşe')
-    expect(code).toMatch(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/)
+describe('hesap: Apple / Google / e-posta kodu', () => {
+  it('hesapsız başlanır; hesap kaydedilince başka cihazdan giriş yapılır, eski oturum kapanır', async () => {
+    const { a, ma } = await pair()
+    expect((await buildPanel(ma)).account).toEqual({ saved: false, email: null })
+    await expect(verifyEmailCode('firat@ornek.com', '000000')).rejects.toThrow(/\[VALIDATION\]/)
+    await expect(sendEmailCode('geçersiz')).rejects.toThrow(/\[VALIDATION\]/)
 
-    // Kötüye kullanıma karşı: hemen çalışmaz; hesap sahibi uyarı görür
-    await expect(redeemRecovery({ coupleCode: a.couple.code, recoveryCode: code })).rejects.toThrow(
-      /çalışmaya başlayacak/,
-    )
-    expect((await buildPanel(mb)).recoveryPending).toMatchObject({ createdByName: 'Fırat' })
-    expect((await buildPanel(ma)).recoveryPending).toBeNull()
+    const linked = await saveAccount(ma, 'Firat@Ornek.com')
+    expect(linked).toEqual({ status: 'linked', email: 'firat@ornek.com' })
+    expect((await buildPanel(ma)).account).toEqual({ saved: true, email: 'firat@ornek.com' })
 
-    vi.useFakeTimers({ toFake: ['Date'] })
-    try {
-      vi.setSystemTime(Date.now() + 13 * 60 * 60 * 1000)
-      // Başka bir çiftin koduyla denenirse kod harcanmaz
-      const other = await createCouple({ mode: 'couple', displayName: 'Mert', partnerName: 'Ece' })
-      await expect(redeemRecovery({ coupleCode: other.couple.code, recoveryCode: code })).rejects.toThrow(
-        /\[NOT_FOUND\]/,
-      )
-      const s = await redeemRecovery({
-        coupleCode: a.couple.code.toLowerCase(),
-        recoveryCode: code.replace('-', ' '),
-      })
-      expect(s.member.id).toBe(b.member.id)
-      expect(s.token).not.toBe(b.token)
-      await expect(authenticateMember(b.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
-      expect((await authenticateMember(s.token)).id).toBe(b.member.id)
-      await expect(redeemRecovery({ coupleCode: a.couple.code, recoveryCode: code })).rejects.toThrow(/\[NOT_FOUND\]/)
-    } finally {
-      vi.useRealTimers()
-    }
+    // Yeni cihaz: oturum yok → hesaba bağlı kayıtlara giriş
+    const r = await saveAccount(null, 'firat@ornek.com')
+    expect(r.status).toBe('signed_in')
+    const session = (r as Extract<typeof r, { status: 'signed_in' }>).session
+    expect(session.member.id).toBe(a.member.id)
+    await expect(authenticateMember(a.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
+    expect((await authenticateMember(session.token)).id).toBe(a.member.id)
   })
 
-  it('hesap sahibi istemediği kodu iptal edebilir', async () => {
-    const { a, ma, mb } = await pair()
-    const { code } = await createPartnerRecovery(ma)
-    await cancelMyRecovery(mb)
-    expect((await buildPanel(mb)).recoveryPending).toBeNull()
-    vi.useFakeTimers({ toFake: ['Date'] })
-    try {
-      vi.setSystemTime(Date.now() + 13 * 60 * 60 * 1000)
-      await expect(redeemRecovery({ coupleCode: a.couple.code, recoveryCode: code })).rejects.toThrow(/\[NOT_FOUND\]/)
-    } finally {
-      vi.useRealTimers()
-    }
+  it('kaydı olmayan hesap: bilet döner; adlar yazılınca hesap yeni üyeye bağlanır', async () => {
+    const r = await saveAccount(null, 'yeni@ornek.com')
+    expect(r.status).toBe('no_account')
+    const ticket = (r as Extract<typeof r, { status: 'no_account' }>).ticket
+    expect(readTicket(ticket)?.email).toBe('yeni@ornek.com')
+    expect(readTicket(ticket + 'x')).toBeNull()
+    const c = await createCouple({
+      mode: 'solo',
+      displayName: 'Deniz',
+      partnerName: 'Can',
+      identity: readTicket(ticket),
+    })
+    const mc = await authenticateMember(c.token)
+    expect((await buildPanel(mc)).account).toEqual({ saved: true, email: 'yeni@ornek.com' })
+    // Aynı hesapla tekrar giriş → bu kayıt
+    const again = await saveAccount(null, 'yeni@ornek.com')
+    expect(again.status).toBe('signed_in')
   })
 
-  it('partner yoksa kod üretilemez', async () => {
-    const solo = await createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: 'Ayşe' })
-    await expect(createPartnerRecovery(await authenticateMember(solo.token))).rejects.toThrow(/\[CONFLICT\]/)
+  it('Apple / Google (sahte sağlayıcı) aynı akışı izler; bir hesap iki kayda bağlanamaz', async () => {
+    const { ma, mb } = await pair()
+    const google = await finishOAuth('mock-google', 'x'.repeat(43))
+    expect(await signIn(google, ma, issueTicket)).toMatchObject({ status: 'linked' })
+    // Aynı Google hesabıyla partnerin cihazında: o hesap zaten Fırat'a bağlı → Fırat'a giriş yapılır
+    const r = await signIn(google, mb, issueTicket)
+    expect(r.status).toBe('signed_in')
+    await expect(finishOAuth('sahte', 'x'.repeat(43))).rejects.toThrow(/\[VALIDATION\]/)
   })
 })
 
-describe('tüm verileri sil: partnerin onayıyla; üyelik aktarılabilir', () => {
-  it('çift modunda partner onaylayınca silinir, satın alana aktarım kodu verilir', async () => {
+describe('mesele başlığı sorulmaz', () => {
+  it('ilk anlatanın yansıtmasıyla birlikte ad verilir; yansıtma yoksa tarihli ad', async () => {
+    const { ma, mb } = await pair()
+    const { id } = await createDispute(ma)
+    expect((await getDisputeView(ma, id)).title).toBe('Yeni mesele')
+    await reflectAnswers(ma, { disputeId: id, whatHappened: RAW_A, thought: 'Yine beni dinlemiyor' })
+    expect((await getDisputeView(mb, id)).title).toBe('Akşamki tartışma')
+
+    const solo = await createCouple({ mode: 'solo', displayName: 'Deniz', partnerName: 'Can' })
+    const ms = await authenticateMember(solo.token)
+    const d2 = await createDispute(ms)
+    await saveAnswers(ms, fullAnswers(d2.id))
+    expect((await getDisputeView(ms, d2.id)).title).toMatch(/^\d{1,2} \p{L}+ meselesi$/u)
+  })
+})
+
+describe('tüm verileri sil: partnerin onayıyla; üyelik hesapta kalır', () => {
+  it('çift modunda partner onaylayınca silinir; üyelik aynı hesapla yeni kayda geçer', async () => {
+    vi.stubEnv('MESELE_PAYMENTS', 'test')
     const { a, b, ma, mb } = await pair()
     await completeDispute(ma, mb, 'Ev işleri')
-    await grantMembership(ma.coupleId, ma.id)
+    await saveAccount(ma, 'firat@ornek.com')
+    await purchase(ma, { period: 'yearly' })
 
     const r = await requestDeletion(ma)
-    expect(r.deleted).toBe(false)
-    expect(r.transferCode).toMatch(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/)
+    expect(r).toEqual({ deleted: false, membershipKept: true })
     expect((await buildPanel(mb)).deletion).toMatchObject({ requestedByMe: false, requesterName: 'Fırat' })
     await expect(approveDeletion(ma)).rejects.toThrow(/\[CONFLICT\]/) // kendi talebini onaylayamaz
     await expect(requestDeletion(mb)).rejects.toThrow(/\[CONFLICT\]/)
@@ -721,24 +742,24 @@ describe('tüm verileri sil: partnerin onayıyla; üyelik aktarılabilir', () =>
     expect((await buildPanel(ma)).deletion).toBeNull()
     expect((await buildPanel(ma)).completedCount).toBe(1)
 
-    const again = await requestDeletion(ma)
-    const done = await approveDeletion(mb)
-    expect(done).toEqual({ deleted: true, transferCode: null }) // onaylayan satın alan değil
+    await requestDeletion(ma)
+    expect(await approveDeletion(mb)).toEqual({ deleted: true, membershipKept: true })
     await expect(authenticateMember(a.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
     await expect(authenticateMember(b.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
 
-    // Kalan süre yeni bir bireysel hesaba taşınır
-    const solo = await createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: 'Ayşe' })
+    // Aynı hesapla yeniden başlayınca üyelik kendiliğinden bağlanır
+    const login = await saveAccount(null, 'firat@ornek.com')
+    expect(login.status).toBe('no_account')
+    const ticket = readTicket((login as Extract<typeof login, { status: 'no_account' }>).ticket)
+    const solo = await createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: 'Ayşe', identity: ticket })
     const ms = await authenticateMember(solo.token)
-    const moved = await claimTransfer(ms, again.transferCode!)
-    expect(moved).toMatchObject({ active: true, purchasedByMe: true })
-    await expect(claimTransfer(ms, again.transferCode!)).rejects.toThrow(/\[NOT_FOUND\]/)
+    expect((await buildPanel(ms)).membership).toMatchObject({ active: true, purchasedByMe: true, period: 'yearly' })
   })
 
   it('bireysel modda ya da partner katılmadıysa hemen silinir', async () => {
     const solo = await createCouple({ mode: 'solo', displayName: 'Fırat', partnerName: 'Ayşe' })
     const ms = await authenticateMember(solo.token)
-    expect(await requestDeletion(ms)).toEqual({ deleted: true, transferCode: null })
+    expect(await requestDeletion(ms)).toEqual({ deleted: true, membershipKept: false })
     await expect(authenticateMember(solo.token)).rejects.toThrow(/\[UNAUTHORIZED\]/)
   })
 })

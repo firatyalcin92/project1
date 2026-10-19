@@ -12,6 +12,8 @@ export type ErrorCode =
   | 'AI_UNAVAILABLE'
   | 'CONFIG'
   | 'INTERNAL'
+  /** Bu işlem için kayıtlı hesap gerekir (ör. üyelik) */
+  | 'ACCOUNT_REQUIRED'
   /** Ücretsiz mesele kullanıldı; devam etmek için üyelik gerekir */
   | 'PAYMENT_REQUIRED'
 

@@ -3,13 +3,12 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { purchaseFn } from '~/functions/account'
 import { getPanelFn } from '~/functions/couple'
-import { useBackedUp } from '~/lib/backup'
 import { parseError } from '~/lib/errors'
 import { PLAN_LABEL, PLAN_PERIODS, formatPrice, yearlyDeal, type SalePeriod } from '~/lib/plans'
 import type { MembershipView, PanelView } from '~/lib/views'
 import { IconCheck, IconSparkle } from './icons'
-import { KeyBackup } from './key-backup'
-import { Button, CopyButton, Notice, Spinner, cx } from './ui'
+import { SignInOptions } from './sign-in'
+import { Button, Notice, Spinner, cx } from './ui'
 
 const PLAN_NOTE: Record<SalePeriod, string> = {
   monthly: 'Düzenli olarak birlikte bakmak için',
@@ -80,97 +79,16 @@ export function PlanPicker({
   )
 }
 
-/**
- * Üyelikten önce kayıtların güvende olduğundan emin ol: anahtar yedeği ve (partner
- * katılmadıysa) çift kodu. `compact` yalnızca eksik olanları gösterir.
- */
-export function PurchaseChecklist({
-  data,
-  codeSaved,
-  setCodeSaved,
-  compact,
-}: {
-  data: PanelView
-  codeSaved: boolean
-  setCodeSaved: (v: boolean) => void
-  compact?: boolean
-}) {
-  const solo = data.couple.mode === 'solo'
-  const backedUp = useBackedUp()
-  const [showBackup, setShowBackup] = useState(false)
-  const partnerJoined = Boolean(data.partner)
-  if (compact && backedUp && (solo || partnerJoined)) return null
-
-  return (
-    <div className="space-y-3">
-      {compact ? null : <p className="font-semibold">Kayıtlarınızı hiçbir koşulda kaybetmemeniz için</p>}
-      {solo ? null : partnerJoined ? (
-        compact ? null : (
-          <p className="flex items-start gap-2 text-[14px] text-ink">
-            <IconCheck size={18} className="mt-0.5 shrink-0 text-sage" /> {data.partner!.name} katıldı; çift kodunuz
-            eşleşti.
-          </p>
-        )
-      ) : (
-        <div className="space-y-2">
-          <p className="text-[14px] leading-relaxed text-ink-soft">
-            Çift kodunuz: <span className="font-mono font-semibold text-ink">{data.couple.code}</span>{' '}
-            <CopyButton text={data.couple.code} label="Kopyala" />
-          </p>
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line-strong p-3">
-            <input
-              type="checkbox"
-              className="mt-1 size-5 accent-[var(--color-clay)]"
-              checked={codeSaved}
-              onChange={(e) => setCodeSaved(e.target.checked)}
-            />
-            <span className="text-[14px] leading-snug text-ink">
-              Çift kodumu partnerimle paylaştım ya da güvenli bir yere kaydettim
-            </span>
-          </label>
-        </div>
-      )}
-      {backedUp ? (
-        compact ? null : (
-          <p className="flex items-start gap-2 text-[14px] text-ink">
-            <IconCheck size={18} className="mt-0.5 shrink-0 text-sage" /> Cihaz anahtarınız yedeklendi.
-          </p>
-        )
-      ) : showBackup ? (
-        <KeyBackup solo={solo} />
-      ) : (
-        <Notice tone="warn" title="Önce cihaz anahtarınızı yedekleyin">
-          Telefon değişirse kayıtlarınıza bu anahtarla dönersiniz.{' '}
-          <button type="button" className="font-semibold underline" onClick={() => setShowBackup(true)}>
-            Şimdi yedekle
-          </button>
-        </Notice>
-      )}
-    </div>
-  )
-}
-
-/** Plan seçimi + ön koşullar + satın alma düğmesi. Üyelik sayfası ve teklif ekranı kullanır. */
-export function PurchasePanel({
-  data,
-  onPurchased,
-  checklist = 'full',
-}: {
-  data: PanelView
-  onPurchased?: (m: MembershipView) => void
-  checklist?: 'full' | 'compact'
-}) {
+/** Plan seçimi + satın alma. Üyelik hesaba bağlanır; hesap kayıtlı değilse önce kaydedilir. */
+export function PurchasePanel({ data, onPurchased }: { data: PanelView; onPurchased?: (m: MembershipView) => void }) {
   const m = data.membership
   const solo = data.couple.mode === 'solo'
   const qc = useQueryClient()
-  const backedUp = useBackedUp()
   const [period, setPeriod] = useState<SalePeriod>('yearly')
-  const [codeSaved, setCodeSaved] = useState(false)
-  const codeOk = solo || Boolean(data.partner) || codeSaved
   const trial = period === 'yearly' && m.trialAvailable
 
   const buy = useMutation({
-    mutationFn: () => purchaseFn({ data: { period, keyBackedUp: backedUp, codeSaved: codeOk, trial } }),
+    mutationFn: () => purchaseFn({ data: { period, trial } }),
     onSuccess: async (next) => {
       await qc.invalidateQueries({ queryKey: ['panel'] })
       await qc.invalidateQueries({ queryKey: ['dispute'] })
@@ -190,23 +108,20 @@ export function PurchasePanel({
       <PlanPicker membership={m} period={period} onChange={setPeriod} />
       {trial && yearlyPrice ? (
         <p className="text-center text-[13px] leading-relaxed text-ink-soft">
-          İlk {m.trialDays} gün ücretsiz, sonrasında yıllık {formatPrice(yearlyPrice)}. Deneme bitmeden iptal
-          ederseniz ücret alınmaz.
+          İlk {m.trialDays} gün ücretsiz, sonrasında yıllık {formatPrice(yearlyPrice)}. Deneme bitmeden iptal ederseniz
+          ücret alınmaz.
         </p>
       ) : null}
 
-      <PurchaseChecklist
-        data={data}
-        codeSaved={codeSaved}
-        setCodeSaved={setCodeSaved}
-        compact={checklist === 'compact'}
-      />
-
       {buy.isError ? <Notice tone="error">{parseError(buy.error).message}</Notice> : null}
 
-      {m.payments === 'test' ? (
+      {m.payments !== 'test' ? (
+        <Notice tone="info" title="Ödeme altyapısı çok yakında">
+          Üyelik satın alma henüz açılmadı. Açıldığında buradan aylık ya da yıllık üyelik başlatabileceksiniz.
+        </Notice>
+      ) : data.account.saved ? (
         <>
-          <Button full size="lg" disabled={!backedUp || !codeOk} loading={buy.isPending} onClick={() => buy.mutate()}>
+          <Button full size="lg" loading={buy.isPending} onClick={() => buy.mutate()}>
             <IconSparkle size={18} /> {cta}
           </Button>
           <p className="text-center text-[12px] text-ink-faint">
@@ -215,9 +130,12 @@ export function PurchasePanel({
           </p>
         </>
       ) : (
-        <Notice tone="info" title="Ödeme altyapısı çok yakında">
-          Üyelik satın alma henüz açılmadı. Açıldığında buradan aylık ya da yıllık üyelik başlatabileceksiniz.
-        </Notice>
+        <div className="space-y-3 rounded-2xl border border-line p-4">
+          <p className="text-center text-sm leading-relaxed text-ink-soft">
+            Üyeliğiniz hesabınıza bağlanır; telefon değişse de kaybolmaz. Önce hesabınızı kaydedin:
+          </p>
+          <SignInOptions onLinked={() => {}} />
+        </div>
       )}
     </div>
   )
@@ -228,11 +146,10 @@ export function PurchasePanel({
 // ---------------------------------------------------------------------------
 
 /**
- * start    → ilk meseleye başlamadan önce (yıllıkta 3 gün ücretsiz deneme)
  * resolved → ilk mesele tamamlandıktan sonra
  * continue → ücretsiz hak bittiyse, yeni meselede 1. sorudan sonra
  */
-export type OfferVariant = 'start' | 'resolved' | 'continue'
+export type OfferVariant = 'resolved' | 'continue'
 
 function offerCopy(variant: OfferVariant, m: MembershipView, solo: boolean) {
   const deal = yearlyDeal(m.prices)
@@ -240,15 +157,6 @@ function offerCopy(variant: OfferVariant, m: MembershipView, solo: boolean) {
   const both = solo ? '' : ' Birinizin alması ikiniz için de yeterli.'
   const trialLine = m.trialAvailable ? ` İlk ${m.trialDays} günü ücretsiz.` : ''
   switch (variant) {
-    case 'start':
-      return {
-        eyebrow: 'Başlamadan önce',
-        title: m.trialAvailable ? `Yıllık üyeliği ${m.trialDays} gün ücretsiz deneyin` : 'Yıllık üyelikle başlayın',
-        lead: `İlk meseleniz zaten ücretsiz. Yıllık üyelikle sonraki meseleleriniz de hazır olur${
-          solo ? '' : '; 5 meseleden sonra ilişkinizin Genel Görüşü açılır'
-        }.${both}`,
-        dismiss: 'Şimdilik ücretsiz ilk meseleyle devam et',
-      }
     case 'resolved':
       return {
         eyebrow: 'Tebrikler',
@@ -295,12 +203,7 @@ export function OfferSheet({
   // Dönüşüm (animasyon) içeren kartların içinde "fixed" bozulmasın diye body'ye taşınır.
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="presentation">
-      <button
-        type="button"
-        aria-label="Kapat"
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
+      <button type="button" aria-label="Kapat" className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
@@ -324,7 +227,7 @@ export function OfferSheet({
               </h2>
               <p className="text-[15px] leading-relaxed text-ink-soft">{copy.lead}</p>
             </div>
-            <PurchasePanel data={data} checklist="compact" onPurchased={onPurchased} />
+            <PurchasePanel data={data} onPurchased={onPurchased} />
             <button
               type="button"
               onClick={onClose}

@@ -2,8 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { PLAN_LABEL, formatPrice } from '~/lib/plans'
 import { formatDate } from '~/lib/turkish'
 import type { MembershipView } from '~/lib/views'
-import { IconCheck } from './icons'
-import { Card, CopyButton, LinkButton, Notice } from './ui'
+import { LinkButton, Notice } from './ui'
 
 /** Üyelik durumu, tek satırlık özet. */
 export function membershipLine(m: MembershipView, partnerName: string | null) {
@@ -26,39 +25,24 @@ export function membershipLine(m: MembershipView, partnerName: string | null) {
     : `Ücretsiz meselenizi kullandınız. Yeni meseleler için ${prices || 'aylık ya da yıllık'} üyelik.`
 }
 
-/** Silme tamamlandıktan sonra: aktarım kodu ve sonraki adımlar. */
-export function DeletionDone({ transferCode }: { transferCode: string | null }) {
+/** Silme tamamlandıktan sonra: sonraki adımlar. */
+export function DeletionDone({ membershipKept }: { membershipKept: boolean }) {
   return (
     <div className="animate-rise space-y-5">
       <div className="space-y-2">
-        <p className="text-[12px] font-semibold tracking-[0.14em] text-clay-strong uppercase">Tamamlandı</p>
         <h1 className="text-[28px] leading-tight font-semibold">Verileriniz silindi</h1>
         <p className="leading-relaxed text-ink-soft">
-          Meseleler, cevaplar ve raporlar kalıcı olarak silindi. Bu cihazdaki giriş de kapatıldı.
+          Meseleler, cevaplar ve raporlar kalıcı olarak silindi. Bu cihazdaki oturum da kapatıldı.
         </p>
       </div>
-      {transferCode ? (
-        <Card className="space-y-3">
-          <p className="flex items-center gap-2 font-semibold">
-            <IconCheck size={18} className="text-sage" /> Üyeliğiniz devam ediyor
-          </p>
-          <p className="text-sm leading-relaxed text-ink-soft">
-            Verilerin silinmesi üyeliğinizi iptal etmez. Kalan süreyi yeni bir çiftte ya da tek başınıza kullanmak için
-            bu aktarım kodunu saklayın; yeni hesabınızda Üyelik sayfasından girebilirsiniz.
-          </p>
-          <code className="block rounded-xl bg-sunken px-3 py-3 text-center font-mono text-xl tracking-[0.2em] text-ink">
-            {transferCode}
-          </code>
-          <CopyButton text={transferCode} label="Kodu kopyala" />
-          <Notice tone="warn">Bu kod bir kez gösterilir. Kaybederseniz kalan süre aktarılamaz.</Notice>
-        </Card>
+      {membershipKept ? (
+        <Notice tone="success" title="Üyeliğiniz hesabınızda duruyor">
+          Aynı hesapla (Apple, Google ya da e-posta) yeniden başladığınızda kalan süre kendiliğinden devam eder.
+        </Notice>
       ) : null}
       <div className="grid gap-2">
         <LinkButton to="/olustur" full>
-          Yeni bir çift oluştur
-        </LinkButton>
-        <LinkButton to="/olustur" search={{ mod: 'bireysel' }} variant="secondary" full>
-          Tek başıma kullanmak istiyorum
+          Yeniden başla
         </LinkButton>
         <Link to="/" className="pt-2 text-center text-sm text-ink-faint">
           Ana sayfa

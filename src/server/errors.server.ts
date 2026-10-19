@@ -15,7 +15,6 @@ export const fail = (code: ErrorCode, message: string): never => {
   throw new MeseleError(code, message)
 }
 
-export const unauthorized = () =>
-  fail('UNAUTHORIZED', 'Bu cihaz tanınmadı. Lütfen çiftinize yeniden katıl ya da cihaz anahtarınla geri dön.')
+export const unauthorized = () => fail('UNAUTHORIZED', 'Oturumunuz kapandı. Hesabınızla yeniden giriş yapabilirsiniz.')
 
 export const notFound = () => fail('NOT_FOUND', 'Aradığın mesele bulunamadı.')

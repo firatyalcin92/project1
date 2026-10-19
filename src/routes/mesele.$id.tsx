@@ -11,6 +11,7 @@ import { Generating, WaitingForPartner } from '~/components/dispute/waiting'
 import { ReadinessCard, readinessFromView } from '~/components/readiness'
 import { IconArrowRight, IconSparkle } from '~/components/icons'
 import { OfferSheet } from '~/components/offer'
+import { SaveAccountCard } from '~/components/save-account'
 import { AppShell, BottomBar } from '~/components/layout'
 import { Disclaimer, SafetyNote } from '~/components/safety'
 import { StepTrack } from '~/components/steps'
@@ -57,7 +58,7 @@ function DisputePage() {
             partnerName={view!.partner?.name}
             solo={view!.mode === 'solo'}
           />
-          <ReadinessCard readiness={readinessFromView(view!)} />
+          {view!.partner ? <ReadinessCard readiness={readinessFromView(view!)} /> : null}
           <Phase view={view!} onView={query.setView} reflecting={reflecting} setReflecting={setReflecting} />
         </div>
       )}
@@ -267,9 +268,9 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
         <>
           <SafetyNote safety={report.mine.safety} />
           {solo ? null : (
-            <Notice tone="info" title="Bu sizin özel raporunuz">
-              Yalnızca siz görüyorsunuz. Okuduktan sonra sayfanın en altından ortak raporunuzu görüntüleyebilirsiniz.
-            </Notice>
+            <p className="px-1 text-[13px] text-ink-faint">
+              Bu rapor yalnızca size özel. Ortak raporunuz sayfanın sonunda.
+            </p>
           )}
           <MyReportView report={report.mine} partnerName={view.partnerName ?? ''} solo={solo} />
           {unlocked ? (
@@ -301,7 +302,7 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
         </div>
       </Disclosure>
 
-      {view.freeDispute ? <NextDisputeOffer solo={solo} /> : null}
+      <AfterReport solo={solo} freeDispute={view.freeDispute} />
 
       <Card className="space-y-3">
         <p className="font-semibold">Bu döngü sık tekrar ediyorsa</p>
@@ -329,12 +330,19 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
   )
 }
 
-/** Ücretsiz mesele tamamlandı: sıradaki meseleler için yıllık teklif (aylık da seçilebilir). */
-function NextDisputeOffer({ solo }: { solo: boolean }) {
+/** Rapordan sonra: hesap kayıtlı değilse önce onu öner; ücretsiz meseleyse sıradakiler için teklif. */
+function AfterReport({ solo, freeDispute }: { solo: boolean; freeDispute: boolean }) {
   const panel = useQuery({ queryKey: ['panel'], queryFn: () => getPanelFn() })
   const [open, setOpen] = useState(false)
+  // Kaydedilince kart "kaydedildi" onayıyla yerinde kalsın.
+  const [askSave, setAskSave] = useState(false)
+  const unsaved = panel.data ? !panel.data.account.saved : false
+  useEffect(() => {
+    if (unsaved) setAskSave(true)
+  }, [unsaved])
+  if (askSave) return <SaveAccountCard />
   const m = panel.data?.membership
-  if (!m || m.active || m.payments !== 'test') return null
+  if (!freeDispute || !m || m.active || m.payments !== 'test') return null
   const deal = yearlyDeal(m.prices)
   return (
     <Card className="space-y-3 border-honey/40 bg-honey-soft/40">
@@ -351,7 +359,9 @@ function NextDisputeOffer({ solo }: { solo: boolean }) {
       <Button full onClick={() => setOpen(true)}>
         {m.trialAvailable ? `${m.trialDays} gün ücretsiz dene` : 'Üyelik seçeneklerini gör'}
       </Button>
-      {open ? <OfferSheet variant="resolved" onClose={() => setOpen(false)} onPurchased={() => setOpen(false)} /> : null}
+      {open ? (
+        <OfferSheet variant="resolved" onClose={() => setOpen(false)} onPurchased={() => setOpen(false)} />
+      ) : null}
     </Card>
   )
 }

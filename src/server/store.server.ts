@@ -29,7 +29,11 @@ export type MemberRow = {
   couple_id: string
   role: Role
   display_name: string
+  /** Bu cihazdaki oturumun hash'i (kullanıcı görmez) */
   auth_token_hash: string
+  /** Kaydedilmiş hesap (Supabase Auth kullanıcısı: Apple / Google / e-posta). Kaydedilmediyse null. */
+  auth_user_id: string | null
+  email: string | null
   joined_at: string
 }
 
@@ -115,21 +119,12 @@ export type SubscriptionRow = {
   period: PlanPeriod
   provider: string
   provider_ref: string | null
+  /** Satın alanın hesabı: veriler silinse de üyelik bu hesapta kalır. */
+  owner_user_id: string | null
   started_at: string
   expires_at: string
-  transfer_code_hash: string | null
   created_at: string
 }
-
-export type RecoveryInput = {
-  member_id: string
-  created_by: string
-  code_hash: string
-  usable_after: string
-  expires_at: string
-}
-
-export type RecoveryRow = RecoveryInput & { used_at: string | null; created_at: string }
 
 export type DeletionRequestRow = {
   id: string
@@ -150,13 +145,20 @@ export interface Store {
   getCouple(id: string): Promise<CoupleRow | null>
   getCoupleByCode(code: string): Promise<CoupleRow | null>
   listMembers(coupleId: string): Promise<MemberRow[]>
-  addMember(input: Omit<MemberRow, 'id' | 'joined_at'>): Promise<MemberRow | 'role_taken'>
+  addMember(
+    input: Omit<MemberRow, 'id' | 'joined_at' | 'auth_user_id' | 'email'> &
+      Partial<Pick<MemberRow, 'auth_user_id' | 'email'>>,
+  ): Promise<MemberRow | 'role_taken'>
   getMemberByTokenHash(hash: string): Promise<MemberRow | null>
+  getMemberByAuthUser(userId: string): Promise<MemberRow | null>
+  /** Üyeyi hesaba bağlar; hesap başka bir üyeye bağlıysa 'taken'. */
+  linkMemberAuth(memberId: string, userId: string, email: string | null): Promise<'ok' | 'taken'>
 
   listDisputes(coupleId: string): Promise<DisputeRow[]>
   getDispute(id: string): Promise<DisputeRow | null>
   createDispute(input: { couple_id: string; created_by: string; title: string }): Promise<DisputeRow>
   deleteDispute(id: string): Promise<void>
+  setDisputeTitle(id: string, title: string): Promise<void>
   setSharedApproval(id: string, role: Role): Promise<DisputeRow | null>
 
   getEntries(disputeIds: string[]): Promise<EntryRow[]>
@@ -200,22 +202,14 @@ export interface Store {
   /** Bu çift için (deneme dahil) hiç üyelik kaydı oluştu mu? */
   hasAnySubscription(coupleId: string): Promise<boolean>
   createSubscription(
-    input: Pick<SubscriptionRow, 'couple_id' | 'member_id' | 'period' | 'provider' | 'provider_ref' | 'expires_at'>,
+    input: Pick<
+      SubscriptionRow,
+      'couple_id' | 'member_id' | 'period' | 'provider' | 'provider_ref' | 'expires_at' | 'owner_user_id'
+    >,
   ): Promise<SubscriptionRow>
   extendSubscription(id: string, expiresAt: string): Promise<void>
-  setSubscriptionTransfer(id: string, hash: string): Promise<void>
-  /** Aktarım koduyla, sahipsiz ve süresi dolmamış bir üyeliği yeni çifte bağlar (atomik). */
-  claimSubscription(hash: string, coupleId: string, memberId: string, now: string): Promise<SubscriptionRow | null>
-
-  // Partnerin ürettiği yeniden bağlanma kodu
-  createRecovery(input: RecoveryInput): Promise<void>
-  /** Bu üyelerden birine ait, bekleme süresi geçmiş, kullanılmamış ve süresi dolmamış kodu tek seferlik kullanır (atomik). */
-  useRecovery(hash: string, memberIds: string[], now: string): Promise<{ member_id: string } | null>
-  /** Kullanılmamış ve süresi dolmamış kod (bekleme süresi dolmamış olsa da). */
-  findRecovery(hash: string, memberIds: string[], now: string): Promise<RecoveryRow | null>
-  /** Bu üye için bekleyen (kullanılmamış, süresi dolmamış) en yeni kod. */
-  getPendingRecovery(memberId: string, now: string): Promise<RecoveryRow | null>
-  cancelRecoveries(memberId: string): Promise<void>
+  /** Çift silinince sahipsiz kalan, süresi dolmamış üyelikleri aynı hesabın yeni çiftine bağlar. */
+  claimOrphanSubscriptions(userId: string, coupleId: string, memberId: string, now: string): Promise<number>
 
   // Silme talebi
   getDeletionRequest(coupleId: string): Promise<DeletionRequestRow | null>

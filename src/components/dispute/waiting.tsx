@@ -4,11 +4,10 @@ import { requestPerspectivesFn, requestReportsFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import { readMember } from '~/lib/member-token'
 import { inviteMessage, shareOrCopy } from '~/lib/share'
-import { genitive } from '~/lib/turkish'
+import { dative, genitive } from '~/lib/turkish'
 import type { DisputeView } from '~/lib/views'
 import { LogoMark } from '../brand'
 import { IconLeaf, IconShare } from '../icons'
-import { CodeTiles } from '../code-tiles'
 import { Button, Card, Notice } from '../ui'
 
 const TIPS = [
@@ -35,6 +34,9 @@ export function WaitingForPartner({ view, children }: { view: DisputeView; child
   const partner = view.partner?.name
   const phase = view.step === 1 ? 'anlatmasını' : 'yeniden değerlendirmesini'
 
+  // Partner henüz katılmadı: tek iş, onu davet etmek.
+  if (!partner) return <InviteNow view={view} />
+
   return (
     <div className="space-y-5">
       <Card className="animate-rise space-y-4 py-8 text-center">
@@ -45,27 +47,22 @@ export function WaitingForPartner({ view, children }: { view: DisputeView; child
           {view.step === 1 ? 'Anlattınız. Teşekkürler.' : 'Yeniden düşündünüz. Teşekkürler.'}
         </h2>
         <p className="mx-auto max-w-sm leading-relaxed text-ink-soft">
-          {partner
-            ? `Şimdi ${genitive(partner)} ${phase} bekliyoruz. Hazır olduğunda bu ekran kendiliğinden ilerleyecek.`
-            : `Sıra ${view.partnerName ? genitive(view.partnerName) : 'partnerinizin'}. Katıldığında kendi tarafını anlatacak; sonra ikinizi birbirinizin gözünden buluşturacağız.`}
+          {`${genitive(partner)} ${phase} bekliyoruz. Hazır olduğunda size haber vereceğiz.`}
         </p>
-        {partner ? null : <ShareCodeNow view={view} />}
-        {partner ? (
-          <Button
-            variant="secondary"
-            className="mx-auto"
-            onClick={async () => {
-              const r = await shareOrCopy({
-                title: 'MESELE',
-                text: `MESELE’de seni bekleyen bir mesele var: “${view.title}”. Hazır olduğunda kendi tarafını anlatır mısın?`,
-                url: `${window.location.origin}/mesele/${view.id}`,
-              })
-              setNote(r === 'copied' ? 'Mesaj panoya kopyalandı.' : r === 'shared' ? 'Hatırlatma gönderildi.' : null)
-            }}
-          >
-            <IconShare size={18} /> Nazikçe hatırlatın
-          </Button>
-        ) : null}
+        <Button
+          variant="secondary"
+          className="mx-auto"
+          onClick={async () => {
+            const r = await shareOrCopy({
+              title: 'MESELE',
+              text: `MESELE’de seni bekleyen bir mesele var: “${view.title}”. Hazır olduğunda kendi tarafını anlatır mısın?`,
+              url: `${window.location.origin}/mesele/${view.id}`,
+            })
+            setNote(r === 'copied' ? 'Mesaj panoya kopyalandı.' : r === 'shared' ? 'Hatırlatma gönderildi.' : null)
+          }}
+        >
+          <IconShare size={18} /> Nazikçe hatırlatın
+        </Button>
         {note ? <p className="text-sm text-sage">{note}</p> : null}
       </Card>
 
@@ -80,31 +77,35 @@ export function WaitingForPartner({ view, children }: { view: DisputeView; child
   )
 }
 
-/** Önce tek ilerleyen kişi anlatımını bitirdi: şimdi çift kodunu paylaşma zamanı. */
-function ShareCodeNow({ view }: { view: DisputeView }) {
+/** İlk anlatan bitirdi, partner henüz katılmadı: davet linkini gönder. */
+function InviteNow({ view }: { view: DisputeView }) {
   const code = readMember()?.coupleCode ?? ''
   const [note, setNote] = useState<string | null>(null)
-  if (!code) return null
-  const who = view.partnerName ?? 'eşiniz'
+  const name = view.partnerName ?? 'Partneriniz'
   return (
-    <div className="space-y-4 rounded-2xl border border-clay/30 bg-clay-soft/40 p-4">
-      <p className="font-semibold text-ink">Şimdi çift kodunuzu {who === 'eşiniz' ? 'eşinizle' : `${who} ile`} paylaşın</p>
-      <CodeTiles code={code} />
+    <Card className="animate-rise space-y-5 py-8 text-center">
+      <div className="mx-auto flex size-20 items-center justify-center">
+        <LogoMark size={72} />
+      </div>
+      <div className="space-y-2">
+        <h2 className="text-[22px] font-semibold">Şimdi sıra {genitive(name)}</h2>
+        <p className="mx-auto max-w-sm leading-relaxed text-ink-soft">
+          Davet linkini gönderin; {name} kendi tarafını anlatsın. Yalnızca olay anlatımınızı görecek.
+        </p>
+      </div>
       <Button
         full
+        size="lg"
+        disabled={!code}
         onClick={async () => {
           const r = await shareOrCopy(inviteMessage(code, window.location.origin, view.me.name))
           setNote(r === 'copied' ? 'Davet panoya kopyalandı.' : r === 'shared' ? 'Davet gönderildi.' : null)
         }}
       >
-        <IconShare size={18} /> Kodu paylaş
+        <IconShare size={18} /> {dative(name)} gönder
       </Button>
-      {note ? <p className="text-sm text-sage">{note}</p> : null}
-      <p className="text-[13px] leading-relaxed text-ink-faint">
-        {who === 'eşiniz' ? 'Eşiniz' : who} kendi telefonundan “Partnerimin koduyla katıl” diyerek katılır. Anlattıklarınız
-        ona gösterilmez; yalnızca 1. soruya yazdığınız olay anlatımını görüp onaylar ya da ekleme yapar.
-      </p>
-    </div>
+      <p className="text-[13px] text-ink-faint">{note ?? `Davet kodu: ${code}`}</p>
+    </Card>
   )
 }
 

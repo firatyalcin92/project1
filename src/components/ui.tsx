@@ -193,6 +193,7 @@ export function TextField({
   inputClassName,
   name,
   autoComplete = 'off',
+  type = 'text',
 }: {
   label: string
   hint?: string
@@ -201,12 +202,13 @@ export function TextField({
   maxLength?: number
   placeholder?: string
   autoFocus?: boolean
-  inputMode?: 'text' | 'search'
+  inputMode?: 'text' | 'search' | 'email' | 'numeric'
   autoCapitalize?: 'off' | 'characters' | 'words' | 'sentences'
   className?: string
   inputClassName?: string
   name?: string
   autoComplete?: string
+  type?: 'text' | 'email'
 }) {
   const id = useId()
   return (
@@ -217,6 +219,7 @@ export function TextField({
       <input
         id={id}
         name={name}
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={maxLength}

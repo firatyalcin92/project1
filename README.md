@@ -236,50 +236,70 @@ konuşma rehberi). Ortak rapor ve Genel Görüş yalnızca çift modundadır.
 dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı aynası, güçlü yanlar, büyüme alanları,
 önümüzdeki yol) ve iki partnerin paylaşılan çip seçimlerinin dağılımı. 5 yeni mesele sonra güncellenebilir.
 
-## Üyelik, cihaz kurtarma ve silme
+## Hesaplar: Apple / Google / e-posta kodu
+
+Uygulama **hesapsız başlar**: kişi adını yazar ve hemen ilk soruya geçer. Oturum, cihazdaki gizli bir token'dır
+(kullanıcı görmez). İlk rapordan sonra ve üyelik alırken "hesabınızı kaydedin" önerilir: **Apple**, **Google** ya da
+**e-postaya gelen 6 haneli kod**. Kaydedilen hesapla başka bir cihazdan giriş yapılır (`/giris`); bu cihazdaki
+eski oturum kapanır. Cihaz anahtarı yedeği, partnerle kurtarma kodu ve üyelik aktarım kodu kaldırıldı.
+
+- Doğrulamayı **Supabase Auth** yapar (`src/server/identity.server.ts`): e-posta kodu (`/auth/v1/otp` +
+  `/auth/v1/verify`), Apple/Google için PKCE (`/auth/v1/authorize` → `/giris?code=…` → `/auth/v1/token`).
+  Uygulama yalnızca Supabase kullanıcı kimliğini `couple_members.auth_user_id` olarak saklar.
+- Supabase tanımlı değilse (yerel geliştirme / testler) sahte sağlayıcı çalışır: e-posta kodu `123456`,
+  Apple/Google tek tıkla tamamlanır. Üretimde Supabase her zaman tanımlı olduğundan sahte sağlayıcı çalışmaz.
+- Kaydı olmayan bir hesapla giriş yapılırsa 30 dakikalık imzalı bir bilet verilir; adlar yazılınca hesap yeni
+  kayda bağlanır.
+
+**Supabase panelinde bir kez yapılacaklar:**
+
+1. **Authentication → URL Configuration:** *Site URL* = uygulama adresi (ör. `https://mesele-0zvp.onrender.com`);
+   *Redirect URLs*'e `https://mesele-0zvp.onrender.com/giris` ekleyin.
+2. **Authentication → Emails → Magic Link** şablonunda bağlantı yerine kodu gösterin: gövdeye `{{ .Token }}`
+   yazın (ör. "MESELE giriş kodunuz: {{ .Token }}"). Supabase'in hazır e-posta gönderimi saatte birkaç e-postayla
+   sınırlıdır; gerçek kullanım için **Authentication → Emails → SMTP Settings**'ten bir e-posta servisi (ör. Resend)
+   bağlayın.
+3. **Authentication → Sign In / Providers → Google:** Google Cloud Console'da bir OAuth istemcisi (Web) oluşturun;
+   *Authorized redirect URI* olarak Supabase'in gösterdiği `https://<proje>.supabase.co/auth/v1/callback` adresini
+   girin; Client ID ve Secret'ı Supabase'e yapıştırın.
+4. **Apple:** Apple Developer hesabında bir *Services ID* ve *Sign in with Apple* anahtarı oluşturun; aynı
+   callback adresini girin ve bilgileri Supabase'in Apple sağlayıcısına yapıştırın (Apple Developer üyeliği gerekir).
+
+Bir sağlayıcı açılmadıysa o düğme "Bu giriş yöntemi henüz açılmadı" der; diğerleri çalışmaya devam eder.
+
+## Üyelik ve silme
 
 - **Bir mesele ücretsiz**, sonrası aylık ya da yıllık üyelik. Üyelik **çift düzeyindedir**: birinin alması
-  ikisine yeter (`subscriptions` tablosu). Bu bilgi ana sayfada, çift oluştururken ve panelde baştan söylenir.
+  ikisine yeter (`subscriptions` tablosu).
 - **Fiyatlar:** aylık 249 ₺, yıllık 1.999 ₺ (`DEFAULT_PRICES`, `src/lib/plans.ts`); `MESELE_PRICE_MONTHLY` /
   `MESELE_PRICE_YEARLY` ortam değişkenleri bunları geçersiz kılar.
-- **3 gün ücretsiz deneme:** yıllık üyelik çift başına bir kez 3 gün ücretsiz denenebilir (`provider = 'trial'`;
-  aktarım koduna dönüşmez). Deneme sırasında alınan üyelik, kalan deneme günlerinin üstüne eklenir.
+- **3 gün ücretsiz deneme:** yıllık üyelik çift başına bir kez 3 gün ücretsiz denenebilir (`provider = 'trial'`).
+  Deneme sırasında alınan üyelik, kalan deneme günlerinin üstüne eklenir.
 - **Teklif ekranları** (`src/components/offer.tsx`, aylık + yıllık, yıllık öne çıkar):
-  1. ilk meseleye başlamadan önce: yıllık, 3 gün ücretsiz deneme teklifiyle (bir kez);
-  2. ilk mesele tamamlanınca: panele dönüşte bir kez, ayrıca rapor sayfasının sonunda kart;
-  3. ücretsiz hak bittiyse yeni meselede **1. sorudan sonra**: mesele açılır, 1. soru kaydedilir; sonrası
+  1. ilk mesele tamamlanınca: panele dönüşte bir kez, ayrıca rapor sayfasının sonunda kart;
+  2. ücretsiz hak bittiyse yeni meselede **1. sorudan sonra**: mesele açılır, 1. soru kaydedilir; sonrası
      (kayıt, yansıtma, gönderim) sunucuda `PAYMENT_REQUIRED` ile kilitlidir.
-- **Satın almadan önce** cihaz anahtarı yedeklenmiş olmalı; partner katılmadıysa çift kodunun paylaşıldığı ya da
-  saklandığı onaylanmalı. Böylece satın alan kimse kayıtlarını kaybetmez.
+- **Üyelik hesaba bağlıdır:** satın almadan önce hesap kaydedilmelidir (`ACCOUNT_REQUIRED`). Satır
+  `owner_user_id` taşır; veriler silinse de kalır ve aynı hesapla yeniden başlanınca kendiliğinden bağlanır.
 - **Ödeme altyapısı henüz bağlı değil.** `MESELE_PAYMENTS=test` iken üyelik ödeme alınmadan başlar (yalnızca deneme);
   `none` (varsayılan) iken satın alma kapalıdır. Gerçek ödeme için: iOS uygulamasında Apple'ın uygulama içi satın
   alması (App Store kuralı), web'de iyzico/Stripe gibi bir sağlayıcı bağlanmalı (`purchase()` →
   `src/server/account.server.ts`).
-- **Cihaz anahtarı yedeği:** çift kurma / katılma / kurtarma sonrasında "Cihaz anahtarınızı yedekleyin" adımı ve
-  anahtar kaybolursa ne olacağının açık anlatımı; yedeklenmediyse panelde hatırlatma.
-- **Partnerle kurtarma:** cihazını kaybeden partnere diğer partner Hesap sayfasından tek kullanımlık bir _yeniden
-  bağlanma kodu_ üretir (`member_recovery`, yalnızca hash saklanır). Kötüye kullanıma karşı kod **12 saat sonra**
-  çalışmaya başlar (`MESELE_RECOVERY_DELAY_MINUTES`, varsayılan 720) ve 2 gün geçerlidir; bu sürede hesap sahibinin
-  eski cihazında uyarı çıkar ve "Ben istemedim" diyerek iptal edebilir. Kod çift koduyla birlikte `/katil?mod=kurtar`
-  ekranında kullanılır; eski cihazdaki anahtar geçersiz olur.
 - **Tüm verileri sil:** bireysel modda ya da partner katılmadıysa hemen; çift modunda partnerin onayıyla
-  (`deletion_requests`). Silme üyeliği iptal etmez: satın alan kişiye bir **aktarım kodu** verilir ve kalan süre
-  Üyelik sayfasından yeni bir çifte ya da bireysel hesaba taşınır.
-- **Hazır olma durumu:** panel ve mesele ekranında "Siz hazırsınız, Ayşe bekleniyor" gibi; yalnızca aşama
-  gösterilir, kimsenin cevabı ya da taslağı gösterilmez.
-- **Meseleler arası bağlam:** raporlar önceki (en fazla 5) meseleyi hatırlar: ortak rapor özetleri + yalnızca
-  okuyanın kendi kişisel raporu. Rapordaki "Sizi tanıdıkça" bölümü bu bağı kurar.
+  (`deletion_requests`).
+- **Hazır olma durumu:** panel ve mesele ekranında yalnızca aşama gösterilir, kimsenin cevabı gösterilmez.
+- **Meseleler arası bağlam:** raporlar önceki (en fazla 5) meseleyi hatırlar.
 
-**Mevcut Supabase kurulumu için güncelleme:** SQL Editor'de `supabase/guncelleme-uyelik.sql` dosyasını bir kez
+**Mevcut Supabase kurulumu için güncelleme:** SQL Editor'de `supabase/guncelleme-hesap.sql` dosyasını bir kez
 çalıştırın (tekrar çalıştırmak zararsızdır, veriye dokunmaz). Yeni kurulumlar için `supabase/kurulum.sql` hepsini
-içerir. `/durum` sayfası güncellemenin eksik olduğunu söyler.
+içerir.
 
 ## Kırılmaz güvenlik kuralları — nerede uygulanıyor?
 
 | Kural                                 | Uygulama                                                                                                                                                                                                                                                                                                                                                                        | Test                                                                       |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | **Çift kodu bir şifre değildir**      | 6 hane, karışan karakter yok (`crypto.server.ts`). Kod yalnızca `joinCouple`'da çifti bulur; B rolü dolunca kod hiçbir şey açmaz (`unique(couple_id, role)`). Kimlik doğrulama yalnızca token ile. Koda katılma IP başına hız sınırlı.                                                                                                                                          | `flow.test.ts`                                                             |
-| **Cihaza özel gizli token**           | 256-bit (`crypto.getRandomValues`), base64url, yalnızca bir kez döner; istemcide `localStorage['mesele.member.v1']` (+ Capacitor Preferences yedeği). DB'de yalnızca SHA-256 `auth_token_hash`.                                                                                                                                                                                 | `flow.test.ts`, `sql.test.ts`                                              |
+| **Cihaza özel gizli token**           | 256-bit (`crypto.getRandomValues`), base64url, yalnızca bir kez döner; hesaba giriş yeni bir token üretir ve eskisini geçersiz kılar; istemcide `localStorage['mesele.member.v1']` (+ Capacitor Preferences yedeği). DB'de yalnızca SHA-256 `auth_token_hash`.                                                                                                                                                                                 | `flow.test.ts`, `sql.test.ts`                                              |
 | **`x-mesele-member` + `memberAuth`**  | [`src/functions/middleware.ts`](./src/functions/middleware.ts): istemci başlığı ekler, sunucu hash'leyip üyeyi bulur. Her mesele erişimi `requireDispute` ile `member → couple → dispute` zincirini doğrular; yabancı mesele "bulunamadı" döner (IDOR).                                                                                                                         | `flow.test.ts`                                                             |
 | **RLS + sunucu izolasyonu**           | Tüm tablolarda RLS açık, politika yok, istemci rollerine yetki yok. Tüm okuma/yazma `createServerFn` içinde service role ile. Sunucu fonksiyonlarına yalnızca aynı kökenden istek (CSRF middleware, `src/start.ts`). `*.server.ts` dosyaları istemci paketine giremez.                                                                                                          | `sql.test.ts`                                                              |
 | **Ham cevaplar partnere dönmez (v2)** | Danışman iki tarafın tüm cevaplarını analizde kullanır; [`disputes.server.ts`](./src/server/disputes.server.ts) görünüm modeli partnere yalnızca AI metinlerini döner, ham cevapları asla. İstemler partner cevaplarını alıntılamayı yasaklar ve ihtiyaç diline çevirtir; ortak rapor iki onaya kadar istemciye gönderilmez. Service worker sunucu yanıtlarını önbelleğe almaz. | `flow.test.ts`                                                             |
@@ -291,10 +311,12 @@ içerir. `/durum` sayfası güncellemenin eksik olduğunu söyler.
 ```
 src/
   routes/               TanStack Router dosya tabanlı rotalar
-    index.tsx           /             Karşılama + manifesto (token varsa /panel)
-    olustur.tsx         /olustur      Çift oluştur, kodu paylaş
-    katil.tsx           /katil        Koda katıl · cihaz anahtarıyla geri dön
-    panel.tsx           /panel        Aktif mesele, arşiv, Genel Görüş sayacı, cihaz anahtarı
+    index.tsx           /             Karşılama (oturum varsa /panel)
+    olustur.tsx         /olustur      İki ad → doğrudan ilk meselenin ilk sorusu
+    katil.tsx           /katil        Davet linkiyle katıl (ad hazır gelir)
+    giris.tsx           /giris        Apple / Google / e-posta kodu; Apple/Google dönüşü
+    panel.tsx           /panel        Şu an yapılacak tek şey + önceki meseleler
+    hesap.tsx           /hesap        Ayarlar: hesap, davet, üyelik, gizlilik, silme
     mesele.$id.tsx      /mesele/$id   4 adımlı akış
     meseleler.tsx       /meseleler    Arşiv
     genel-gorus.tsx     /genel-gorus  9 bölümlük ilişki raporu

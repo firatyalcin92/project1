@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GenelGorusRouteImport } from './routes/genel-gorus'
+import { Route as GirisRouteImport } from './routes/giris'
 import { Route as GizlilikRouteImport } from './routes/gizlilik'
 import { Route as HesapRouteImport } from './routes/hesap'
 import { Route as KatilRouteImport } from './routes/katil'
@@ -28,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const GenelGorusRoute = GenelGorusRouteImport.update({
   id: '/genel-gorus',
   path: '/genel-gorus',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GirisRoute = GirisRouteImport.update({
+  id: '/giris',
+  path: '/giris',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GizlilikRoute = GizlilikRouteImport.update({
@@ -74,6 +80,7 @@ const MeseleIdRoute = MeseleIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/genel-gorus': typeof GenelGorusRoute
+  '/giris': typeof GirisRoute
   '/gizlilik': typeof GizlilikRoute
   '/hesap': typeof HesapRoute
   '/katil': typeof KatilRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/genel-gorus': typeof GenelGorusRoute
+  '/giris': typeof GirisRoute
   '/gizlilik': typeof GizlilikRoute
   '/hesap': typeof HesapRoute
   '/katil': typeof KatilRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/genel-gorus': typeof GenelGorusRoute
+  '/giris': typeof GirisRoute
   '/gizlilik': typeof GizlilikRoute
   '/hesap': typeof HesapRoute
   '/katil': typeof KatilRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/genel-gorus'
+    | '/giris'
     | '/gizlilik'
     | '/hesap'
     | '/katil'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/genel-gorus'
+    | '/giris'
     | '/gizlilik'
     | '/hesap'
     | '/katil'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/genel-gorus'
+    | '/giris'
     | '/gizlilik'
     | '/hesap'
     | '/katil'
@@ -150,6 +162,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GenelGorusRoute: typeof GenelGorusRoute
+  GirisRoute: typeof GirisRoute
   GizlilikRoute: typeof GizlilikRoute
   HesapRoute: typeof HesapRoute
   KatilRoute: typeof KatilRoute
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/genel-gorus'
       fullPath: '/genel-gorus'
       preLoaderRoute: typeof GenelGorusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/giris': {
+      id: '/giris'
+      path: '/giris'
+      fullPath: '/giris'
+      preLoaderRoute: typeof GirisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gizlilik': {
@@ -238,6 +258,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GenelGorusRoute: GenelGorusRoute,
+  GirisRoute: GirisRoute,
   GizlilikRoute: GizlilikRoute,
   HesapRoute: HesapRoute,
   KatilRoute: KatilRoute,

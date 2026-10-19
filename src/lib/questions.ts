@@ -593,18 +593,17 @@ export const WHEN_LABEL: Record<NonNullable<StrongestOption['when']>, string> = 
 export function introMessage(partnerName: string) {
   const n = partnerName ? locative(partnerName) : 'eşinizde'
   return [
-    'Merhaba, yeni mesele için ben hazırım. Bakalım neler olmuş ve neler yapabilirsiniz, birlikte değerlendirelim.',
-    `Unutmayın: burada amacımız haklıyı haksızı bulmak, iyiyi kötüyü belirlemek değil. Ne yaşandığını, bunun sizde ve ${n} nasıl bir karşılık bulduğunu anlamaya çalışacağız; ilişkinizin bu tartışmada tıkandığı yerleri görüp neler yapabileceğinize bakacağız.`,
-    `Size başlangıçta ${QUESTION_COUNT} sorum var. Ne kadar detaylı yanıt verir, düşüncelerinizden ve duygularınızdan ne kadar bahsederseniz, size hazırlayacağım rapor ve öneriler de o kadar size özel olur.`,
+    `Merhaba. Burada amacımız kimin haklı olduğunu bulmak değil; ne yaşandığını ve bunun sizde ve ${n} nasıl bir karşılık bulduğunu anlamak.`,
+    `${QUESTION_COUNT} kısa soru soracağım. İçinizden geldiği gibi yazın; rapor o kadar size özel olur.`,
   ]
 }
 
 export function privacyNotice(partnerName: string, solo: boolean, order: 'first' | 'second' | 'solo' = 'second') {
-  if (solo) return 'Cevaplarınız yalnızca size özel danışman raporunu hazırlamak için kullanılır; kimseyle paylaşılmaz.'
+  if (solo) return 'Cevaplarınız kimseyle paylaşılmaz.'
   const to = partnerName ? dative(partnerName) : 'eşinize'
   if (order === 'first')
-    return `İlk sorudaki olay anlatımınızı ${partnerName || 'eşiniz'} okuyup ekleme yapabilecek. Diğer cevaplarınız ${to} olduğu gibi gösterilmez ve üçüncü kişilerle paylaşılmaz; danışman bunları analizde kullanır ve raporda ihtiyaç diliyle yansıtır.`
-  return `Cevaplarınız ${to} olduğu gibi gösterilmez ve üçüncü kişilerle paylaşılmaz. Danışman analizde bunları kullanır ve raporda ihtiyaç diliyle, uygun bir dille yansıtabilir. Bunu bilerek, içinizden geldiği gibi yazın.`
+    return `Yalnızca ilk sorudaki olay anlatımınızı ${partnerName || 'eşiniz'} görecek; diğer cevaplarınız ${to} gösterilmez.`
+  return `Cevaplarınız ${to} olduğu gibi gösterilmez.`
 }
 
 // ---------------------------------------------------------------------------

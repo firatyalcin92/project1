@@ -32,7 +32,12 @@ export const TRIAL_DAYS = 3
 /** "1.999 ₺", "249,90 TL", "1999" → sayı; okunamazsa null */
 export function parsePrice(raw: string | undefined | null): number | null {
   if (!raw?.trim()) return null
-  const n = Number(raw.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.'))
+  const n = Number(
+    raw
+      .replace(/[^\d.,]/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.'),
+  )
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null
 }
 

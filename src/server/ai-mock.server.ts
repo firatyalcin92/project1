@@ -14,6 +14,7 @@ export function mockGenerate(task: AiTask, ctx: Record<string, unknown>): unknow
   switch (task) {
     case 'reflection':
       return {
+        title: s(ctx.title, 'Akşamki tartışma'),
         reflection: `${s(ctx.owner, 'Siz')}, anlattıklarınızı okudum. O an söylediklerinizin karşılık bulmadığını ve içinizde “yine aynı yerdeyiz” duygusunun büyüdüğünü hissediyorum. Bu sizin için kolay bir an olmamış.`,
       }
     case 'perspective':

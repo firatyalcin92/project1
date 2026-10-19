@@ -37,7 +37,7 @@ const ADVICE = {
   data_api_kapali:
     'Supabase Data API bu proje için kapalı ya da public şeması dışa açık değil. Project Settings → Data API bölümünden Data API’yi açın ve "Exposed schemas" listesinde public olduğundan emin olun.',
   guncelleme_gerekli:
-    'Uygulama güncellendi ve veritabanına yeni tablolar gerekiyor (üyelik, kurtarma kodu, silme talebi). Supabase → SQL Editor → New query içine supabase/guncelleme-uyelik.sql dosyasının tamamını yapıştırıp Run deyin (mevcut veriler silinmez).',
+    'Uygulama güncellendi ve veritabanına yeni alanlar gerekiyor (hesaplar, üyelik, silme talebi). Supabase → SQL Editor → New query içine supabase/guncelleme-hesap.sql dosyasının tamamını yapıştırıp Run deyin (mevcut veriler silinmez).',
   bilinmeyen: 'Supabase beklenmeyen bir hata döndürdü. Ayrıntıyı (kod ve mesaj) geliştiriciyle paylaşın.',
 }
 
@@ -100,12 +100,16 @@ export async function diagnose(env = process.env, fetchImpl = fetch) {
         mesaj: String(tables.body?.message ?? '').slice(0, 200),
       })
     }
-    // v3: üyelik / kurtarma / silme tabloları (guncelleme-uyelik.sql)
-    for (const table of ['subscriptions', 'member_recovery', 'deletion_requests']) {
-      const t = await call(`${table}?select=id&limit=1`)
+    // v4: hesaplar, üyelik ve silme talepleri (guncelleme-hesap.sql)
+    for (const path of [
+      'couple_members?select=auth_user_id&limit=1',
+      'subscriptions?select=owner_user_id&limit=1',
+      'deletion_requests?select=id&limit=1',
+    ]) {
+      const t = await call(path)
       if (!t.res.ok) {
         const kind = classify(t.res.status, t.body)
-        return done(kind === 'tablolar_yok' ? 'guncelleme_gerekli' : kind, {
+        return done(kind === 'tablolar_yok' || kind === 'eksik_kurulum' ? 'guncelleme_gerekli' : kind, {
           kod: t.body?.code ?? String(t.res.status),
           mesaj: String(t.body?.message ?? '').slice(0, 200),
         })

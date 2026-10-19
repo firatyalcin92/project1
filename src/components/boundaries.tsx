@@ -44,7 +44,7 @@ export function NotFound() {
   )
 }
 
-/** Cihazdaki anahtar sunucuda tanınmadığında. */
+/** Cihazdaki oturum sunucuda tanınmadığında (ör. hesaba başka cihazdan girildi). */
 export function UnknownDevice() {
   return (
     <AppShell>
@@ -57,15 +57,20 @@ function UnknownDeviceContent() {
   const navigate = useNavigate()
   return (
     <div className="space-y-5 py-10">
-      <h1 className="text-2xl font-semibold">Bu cihaz tanınmadı</h1>
-      <Notice tone="warn">
-        Bu cihazdaki anahtar artık geçerli görünmüyor. Yedeklediğin bir cihaz anahtarın varsa onunla geri dönebilir ya
-        da yeniden başlayabilirsin.
-      </Notice>
+      <h1 className="text-2xl font-semibold">Oturumunuz kapandı</h1>
+      <p className="leading-relaxed text-ink-soft">
+        Hesabınıza başka bir cihazdan giriş yapılmış olabilir. Aynı yöntemle yeniden giriş yapın.
+      </p>
       <div className="flex flex-col gap-3">
-        <LinkButton to="/katil" search={{ mod: 'anahtar' }} full>
-          Cihaz anahtarımla dön
-        </LinkButton>
+        <Button
+          full
+          onClick={() => {
+            clearMember()
+            void navigate({ to: '/giris' })
+          }}
+        >
+          Giriş yap
+        </Button>
         <Button
           variant="secondary"
           full
@@ -74,7 +79,7 @@ function UnknownDeviceContent() {
             void navigate({ to: '/' })
           }}
         >
-          Bu cihazda yeniden başla
+          Baştan başla
         </Button>
       </div>
     </div>

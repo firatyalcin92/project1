@@ -32,6 +32,12 @@ export const ReflectionSchema = z.object({
     .describe(
       'Kişinin anlattıklarına 2-3 cümlelik, "siz" hitaplı, sıcak bir yansıtma. Soru sorma, yorum ya da tavsiye verme.',
     ),
+  title: z
+    .string()
+    .min(1)
+    .describe(
+      'Meseleye 2-4 kelimelik, suçlamasız, tarafsız bir ad (ör. "Cumartesi akşamı planı", "Annemlerin ziyareti"). Kimseyi suçlamaz, duygu içermez.',
+    ),
 })
 
 export type Reflection = z.infer<typeof ReflectionSchema>

@@ -3,16 +3,10 @@ import { LIMITS } from '~/lib/questions'
 import { OVERVIEW_THRESHOLD } from '~/lib/status'
 import type { PanelView, SessionResult } from '~/lib/views'
 import type { AuthedMember } from './auth.server'
-import { authenticateMember } from './auth.server'
 import { generateCoupleCode, generateMemberToken, hashMemberToken } from './crypto.server'
 import { fail } from './errors.server'
-import {
-  deletionFor,
-  generateReadableCode,
-  hashReadableCode,
-  membershipFor,
-  normalizeReadableCode,
-} from './account.server'
+import { deletionFor, membershipFor } from './account.server'
+import type { Identity } from './identity.server'
 import { activeSummary, summarize } from './disputes.server'
 import { overviewStatus } from './overview.server'
 import { getStore, type CoupleRow, type MemberRow } from './store.server'
@@ -31,15 +25,21 @@ export function normalizeCode(raw: string) {
   return raw.replace(/[\s-]/g, '').toUpperCase()
 }
 
-async function issueMember(couple: CoupleRow, role: 'A' | 'B', displayName: string) {
+async function issueMember(couple: CoupleRow, role: 'A' | 'B', displayName: string, identity: Identity | null) {
   const store = await getStore()
   const token = generateMemberToken()
+  // Bu hesap zaten bir çifte bağlıysa yeni üye hesapsız başlar (iki çifte aynı hesap bağlanamaz).
+  const taken = identity ? Boolean(await store.getMemberByAuthUser(identity.userId)) : true
   const result = await store.addMember({
     couple_id: couple.id,
     role,
     display_name: displayName,
     auth_token_hash: await hashMemberToken(token),
+    ...(identity && !taken ? { auth_user_id: identity.userId, email: identity.email } : {}),
   })
+  if (identity && !taken && result !== 'role_taken') {
+    await store.claimOrphanSubscriptions(identity.userId, couple.id, result.id, new Date().toISOString())
+  }
   return { token, result }
 }
 
@@ -60,6 +60,8 @@ export async function createCouple(input: {
   mode: 'couple' | 'solo'
   displayName: string
   partnerName?: string
+  /** Giriş yapmış ama kaydı olmayan kişi: hesap yeni üyeye bağlanır. */
+  identity?: Identity | null
 }): Promise<SessionResult> {
   const displayName = cleanName(input.displayName, LIMITS.displayName, 'Adınız')
   const solo = input.mode === 'solo'
@@ -79,15 +81,31 @@ export async function createCouple(input: {
   }
   if (!couple) return fail('INTERNAL', 'Kod üretilemedi. Lütfen tekrar dene.')
 
-  const { token, result } = await issueMember(couple, 'A', displayName)
+  const { token, result } = await issueMember(couple, 'A', displayName, input.identity ?? null)
   if (result === 'role_taken') return fail('INTERNAL', 'Çift oluşturulamadı. Lütfen tekrar dene.')
   return session(token, result, couple)
 }
 
-export async function joinCouple(input: { code: string; displayName: string }): Promise<SessionResult> {
+/** Davet linkini açan kişiye: kim davet etti, hangi adla katılması bekleniyor. */
+export async function invitePreview(rawCode: string) {
+  const code = normalizeCode(rawCode)
+  const store = await getStore()
+  const couple = /^[A-HJ-NP-Z2-9]{6}$/.test(code) ? await store.getCoupleByCode(code) : null
+  if (!couple || couple.mode === 'solo') return null
+  const members = await store.listMembers(couple.id)
+  if (members.some((m) => m.role === 'B')) return null
+  const inviter = members.find((m) => m.role === 'A')
+  return { inviter: inviter?.display_name ?? null, suggestedName: couple.partner_name }
+}
+
+export async function joinCouple(input: {
+  code: string
+  displayName: string
+  identity?: Identity | null
+}): Promise<SessionResult> {
   const code = normalizeCode(input.code)
   const displayName = cleanName(input.displayName, LIMITS.displayName, 'Adınız')
-  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) fail('VALIDATION', 'Çift kodu 6 karakterden oluşur (ör. WWPX6G).')
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) fail('VALIDATION', 'Davet kodu 6 karakterden oluşur (ör. WWPX6G).')
 
   const store = await getStore()
   const couple = await store.getCoupleByCode(code)
@@ -97,24 +115,67 @@ export async function joinCouple(input: { code: string; displayName: string }): 
   const members = await store.listMembers(couple.id)
   if (members.some((m) => m.role === 'B')) {
     // Kod yalnızca bir kez eşleştirir: bir şifre değildir, bu yüzden dolu bir çifte erişim vermez.
-    return fail('CONFLICT', 'Bu çift kodu zaten eşleşmiş. Kendi cihazından anahtarınla geri dönebilirsin.')
+    return fail(
+      'CONFLICT',
+      'Bu davet zaten kullanılmış. Daha önce katıldıysanız “Giriş yap” ile hesabınıza dönebilirsiniz.',
+    )
   }
 
-  const { token, result } = await issueMember(couple, 'B', displayName)
+  const { token, result } = await issueMember(couple, 'B', displayName, input.identity ?? null)
   if (result === 'role_taken') {
-    return fail('CONFLICT', 'Bu çift kodu az önce eşleşti. Kendi cihazından anahtarınla geri dönebilirsin.')
+    return fail(
+      'CONFLICT',
+      'Bu davet az önce kullanıldı. Daha önce katıldıysanız “Giriş yap” ile hesabınıza dönebilirsiniz.',
+    )
   }
   return session(token, result, couple)
 }
 
-/** Yedeklenen cihaz anahtarıyla (token) yeni bir cihazda geri dönüş. */
-export async function restoreSession(token: string): Promise<SessionResult> {
-  const member = await authenticateMember(token)
+// ---------------------------------------------------------------------------
+// Hesap: kaydet ya da giriş yap
+// ---------------------------------------------------------------------------
+
+export type SignInResult =
+  /** Bu cihazdaki (hesapsız) kayıtlar hesaba bağlandı; oturum aynı kalır */
+  | { status: 'linked'; email: string | null }
+  /** Hesaba bağlı kayıtlara giriş yapıldı; yeni oturum */
+  | { status: 'signed_in'; session: SessionResult }
+  /** Bu hesapla kayıt yok: adlar yazılınca hesap bağlanır (bilet 30 dk geçerli) */
+  | { status: 'no_account'; ticket: string; email: string | null }
+
+/**
+ * Doğrulanmış hesapla ne yapılacağına karar verir.
+ * - Bu hesaba bağlı bir üye varsa ona giriş yapılır (diğer cihazdaki oturum kapanır).
+ * - Yoksa ve bu cihazda hesapsız bir üye varsa, kayıtları bu hesaba bağlanır.
+ * - Hiçbiri yoksa yeni başlangıç için bilet döner.
+ */
+export async function signIn(
+  identity: Identity,
+  current: AuthedMember | null,
+  ticketFor: (i: Identity) => string,
+): Promise<SignInResult> {
   const store = await getStore()
-  const couple = await store.getCouple(member.coupleId)
-  if (!couple) return fail('UNAUTHORIZED', 'Bu anahtar artık geçerli değil.')
-  const row = (await store.listMembers(couple.id)).find((m) => m.id === member.id)!
-  return session(token, row, couple)
+  const existing = await store.getMemberByAuthUser(identity.userId)
+
+  if (existing && existing.id !== current?.id) {
+    const couple = await store.getCouple(existing.couple_id)
+    if (!couple) return fail('UNAUTHORIZED', 'Hesabınıza bağlı kayıt bulunamadı.')
+    const token = generateMemberToken()
+    await store.setMemberTokenHash(existing.id, await hashMemberToken(token))
+    return { status: 'signed_in', session: session(token, existing, couple) }
+  }
+
+  if (current) {
+    const row = (await store.listMembers(current.coupleId)).find((m) => m.id === current.id)
+    if (row?.auth_user_id && row.auth_user_id !== identity.userId)
+      fail('CONFLICT', 'Bu cihazdaki kayıtlar başka bir hesaba bağlı.')
+    if ((await store.linkMemberAuth(current.id, identity.userId, identity.email)) === 'taken')
+      fail('CONFLICT', 'Bu hesap başka kayıtlara bağlı.')
+    await store.claimOrphanSubscriptions(identity.userId, current.coupleId, current.id, new Date().toISOString())
+    return { status: 'linked', email: identity.email }
+  }
+
+  return { status: 'no_account', ticket: ticketFor(identity), email: identity.email }
 }
 
 export async function buildPanel(member: AuthedMember): Promise<PanelView> {
@@ -145,99 +206,6 @@ export async function buildPanel(member: AuthedMember): Promise<PanelView> {
     },
     membership: await membershipFor(member.coupleId, member.id),
     deletion: await deletionFor(member.coupleId, member.id),
-    recoveryPending: couple.mode === 'solo' ? null : await pendingRecoveryFor(member, members),
+    account: { saved: Boolean(me.auth_user_id), email: me.email },
   }
-}
-
-// ---------------------------------------------------------------------------
-// Cihazını kaybeden partner için yeniden bağlanma kodu
-// ---------------------------------------------------------------------------
-
-/**
- * Kötüye kullanıma karşı: kod üretildikten ancak bir bekleme süresi (varsayılan 12 saat) sonra çalışır.
- * Bu sürede hesap sahibinin (hâlâ açıksa) eski cihazında uyarı görünür ve iptal edebilir.
- */
-const recoveryDelayMs = () => {
-  // Yalnızca sunucu tarafında, işletmeci tarafından değiştirilebilir (ör. testler için 0).
-  const minutes = Number(process.env.MESELE_RECOVERY_DELAY_MINUTES ?? 720)
-  return Number.isFinite(minutes) && minutes >= 0 ? minutes * 60 * 1000 : 12 * 60 * 60 * 1000
-}
-const RECOVERY_VALID_MS = 48 * 60 * 60 * 1000
-
-/**
- * Partnerinin cihazı kaybolduysa (anahtarı yedeklenmemişse) diğer partner ona tek
- * kullanımlık bir kod üretir. Kod çift koduyla birlikte kullanılır; eski cihazdaki
- * anahtar geçersiz olur.
- */
-export async function createPartnerRecovery(member: AuthedMember) {
-  const store = await getStore()
-  const partner = (await store.listMembers(member.coupleId)).find((m) => m.id !== member.id)
-  if (!partner) return fail('CONFLICT', 'Partneriniz henüz katılmadı.')
-  const code = generateReadableCode(8)
-  const delay = recoveryDelayMs()
-  const usableAfter = new Date(Date.now() + delay).toISOString()
-  const expiresAt = new Date(Date.now() + delay + RECOVERY_VALID_MS).toISOString()
-  await store.createRecovery({
-    member_id: partner.id,
-    created_by: member.id,
-    code_hash: await hashReadableCode(code),
-    usable_after: usableAfter,
-    expires_at: expiresAt,
-  })
-  return { code, usableAfter, expiresAt, partnerName: partner.display_name }
-}
-
-/** Hesap sahibi "bu kodu ben istemedim" der: bekleyen kodlar iptal edilir. */
-export async function cancelMyRecovery(member: AuthedMember) {
-  const store = await getStore()
-  await store.cancelRecoveries(member.id)
-  return { cancelled: true }
-}
-
-/** Bu üye için bekleyen kurtarma kodu (panelde uyarı için) */
-export async function pendingRecoveryFor(member: AuthedMember, members: MemberRow[]) {
-  const store = await getStore()
-  const r = await store.getPendingRecovery(member.id, new Date().toISOString())
-  if (!r) return null
-  return {
-    createdByName: members.find((m) => m.id === r.created_by)?.display_name ?? null,
-    usableAfter: r.usable_after,
-  }
-}
-
-export async function redeemRecovery(input: { coupleCode: string; recoveryCode: string }): Promise<SessionResult> {
-  const coupleCode = normalizeCode(input.coupleCode)
-  const recovery = normalizeReadableCode(input.recoveryCode)
-  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(coupleCode) || !/^[A-HJ-NP-Z2-9]{8}$/.test(recovery)) {
-    fail('VALIDATION', 'Çift kodu 6, yeniden bağlanma kodu 8 karakterdir.')
-  }
-  const store = await getStore()
-  const couple = await store.getCoupleByCode(coupleCode)
-  const notFound = () =>
-    fail('NOT_FOUND', 'Kodlar eşleşmedi ya da sürenin dolduğu görülüyor. Partnerinizden yeni bir kod isteyin.')
-  if (!couple) return notFound()
-  const members = await store.listMembers(couple.id)
-  const ids = members.map((m) => m.id)
-  const hash = await hashReadableCode(recovery)
-  const at = new Date().toISOString()
-  const used = await store.useRecovery(hash, ids, at)
-  if (!used) {
-    const waiting = await store.findRecovery(hash, ids, at)
-    if (waiting && waiting.usable_after > at) {
-      const when = new Date(waiting.usable_after).toLocaleString('tr-TR', {
-        timeZone: 'Europe/Istanbul',
-        day: 'numeric',
-        month: 'long',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-      return fail('CONFLICT', `Güvenliğiniz için bu kod ${when} itibarıyla çalışmaya başlayacak.`)
-    }
-    return notFound()
-  }
-  const target = members.find((m) => m.id === used.member_id)
-  if (!target) return notFound()
-  const token = generateMemberToken()
-  await store.setMemberTokenHash(target.id, await hashMemberToken(token))
-  return session(token, target, couple)
 }

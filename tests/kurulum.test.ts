@@ -6,25 +6,29 @@ it('kurulum.sql tek seferde çalışır', async () => {
   await db.exec('create role anon; create role authenticated; create role service_role;')
   await db.exec(readFileSync(new URL('../supabase/kurulum.sql', import.meta.url), 'utf8'))
   const r = await db.query("select count(*)::int as n from pg_tables where schemaname='public'")
-  expect((r.rows[0] as { n: number }).n).toBe(11)
+  expect((r.rows[0] as { n: number }).n).toBe(10)
 })
 
-it('guncelleme-uyelik.sql mevcut kuruluma iki kez uygulanabilir ve veriye dokunmaz', async () => {
+it('guncelleme-hesap.sql eski kuruluma (üyelik tabloları olsa da olmasa da) iki kez uygulanabilir', async () => {
   const db = new PGlite()
   await db.exec('create role anon; create role authenticated; create role service_role;')
   for (const f of ['20261013000000_mesele_init.sql', '20261014000000_mesele_solo_mode.sql'])
     await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   await db.exec(`insert into couples (code, name) values ('ABCDEF', 'Biz')`)
-  const update = readFileSync(new URL('../supabase/guncelleme-uyelik.sql', import.meta.url), 'utf8')
+  const update = readFileSync(new URL('../supabase/guncelleme-hesap.sql', import.meta.url), 'utf8')
   await db.exec(update)
   await db.exec(update)
   const r = await db.query("select count(*)::int as n from pg_tables where schemaname='public'")
-  expect((r.rows[0] as { n: number }).n).toBe(11)
+  expect((r.rows[0] as { n: number }).n).toBe(10)
+  const cols = await db.query(
+    "select column_name from information_schema.columns where table_name='couple_members' and column_name in ('auth_user_id','email')",
+  )
+  expect(cols.rows).toHaveLength(2)
   const c = await db.query('select count(*)::int as n from couples')
   expect((c.rows[0] as { n: number }).n).toBe(1)
   const grants = await db.query(
     `select count(*)::int as n from information_schema.role_table_grants
-     where table_name in ('subscriptions','member_recovery','deletion_requests') and grantee in ('anon','authenticated')`,
+     where table_name in ('subscriptions','deletion_requests') and grantee in ('anon','authenticated')`,
   )
   expect((grants.rows[0] as { n: number }).n).toBe(0)
 })

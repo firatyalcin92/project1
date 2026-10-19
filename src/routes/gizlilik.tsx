@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { IconEye, IconKey, IconLock, IconShield, IconSparkle, IconUsers } from '~/components/icons'
+import { IconEye, IconLock, IconShield, IconSparkle, IconUsers } from '~/components/icons'
 import { AppShell, PageTitle } from '~/components/layout'
 import { Disclaimer } from '~/components/safety'
 import { Card } from '~/components/ui'
@@ -33,10 +33,15 @@ function Privacy() {
         lead="Bir tartışmayı dürüstçe anlatabilmek için güvende hissetmek gerekir. MESELE’nin verilerinizi nasıl koruduğunu sade bir dille anlatıyoruz."
       />
       <div className="space-y-4 pb-8">
-        <Item icon={<IconShield size={18} />} title="Kişisel bilginizi istemiyoruz">
+        <Item icon={<IconShield size={18} />} title="En az bilgiyle">
           <p>
-            E-posta adresi, telefon numarası, şifre, kimlik ya da adres bilgisi istemiyoruz. Yalnızca size nasıl
-            seslenileceğini soruyoruz; takma ad da kullanabilirsiniz.
+            Başlamak için yalnızca size nasıl seslenileceğini soruyoruz; takma ad da olur. Telefon numarası, kimlik ya
+            da adres istemiyoruz.
+          </p>
+          <p>
+            Hesabınızı kaydetmek isterseniz Apple, Google ya da e-postanızla giriş yaparsınız. Bu yalnızca
+            kayıtlarınızın telefon değişse de kaybolmaması içindir. Apple ile girişte “e-postamı gizle” seçeneğini
+            kullanabilirsiniz.
           </p>
         </Item>
 
@@ -60,7 +65,7 @@ function Privacy() {
             Cevaplarınız reklam ya da pazarlama için kullanılmaz, satılmaz ve kimseyle paylaşılmaz. Veritabanına
             yalnızca uygulamanın kendi sunucusu erişir; tarayıcıdan ya da dışarıdan doğrudan erişim kapalıdır.
           </p>
-          <p>Çift kodu yalnızca sizi eşleştirmek içindir; partneriniz katıldıktan sonra başka kimseye kapı açmaz.</p>
+          <p>Davet linki yalnızca sizi eşleştirmek içindir; partneriniz katıldıktan sonra başka kimseye kapı açmaz.</p>
         </Item>
 
         <Item icon={<IconSparkle size={18} />} title="Yapay zekâ analizi">
@@ -75,22 +80,14 @@ function Privacy() {
           </p>
         </Item>
 
-        <Item icon={<IconKey size={18} />} title="Hesabınız: cihaz anahtarı">
-          <p>
-            Telefonunuza size özel, gizli bir anahtar kaydedilir. Sunucuda bu anahtarın kendisi değil, geri çevrilemeyen
-            bir izi saklanır. Anahtarı yedeklemezseniz telefon değişince kayıtlarınıza ulaşamayabilirsiniz; Hesap
-            sayfasından yedekleyebilirsiniz.
-          </p>
-        </Item>
-
         <Item icon={<IconLock size={18} />} title="Silme hakkınız">
           <p>
-            Tüm verilerinizi Hesap sayfasından silebilirsiniz. Çift olarak kullanıyorsanız partnerinizin de onay vermesi
-            gerekir; böylece kimse ortak kayıtları tek taraflı silemez. Silme geri alınamaz.
+            Tüm verilerinizi Ayarlar sayfasından silebilirsiniz. Çift olarak kullanıyorsanız partnerinizin de onay
+            vermesi gerekir; böylece kimse ortak kayıtları tek taraflı silemez. Silme geri alınamaz.
           </p>
           <p>
-            Verilerin silinmesi üyeliğinizi iptal etmez: satın alan kişiye verilen aktarım koduyla kalan süre yeni bir
-            çifte ya da bireysel kullanıma taşınabilir.
+            Verilerin silinmesi üyeliğinizi iptal etmez: üyelik hesabınızda kalır ve aynı hesapla yeniden başladığınızda
+            devam eder.
           </p>
         </Item>
 

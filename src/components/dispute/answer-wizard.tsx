@@ -454,13 +454,6 @@ function QuestionStep({
       ) : null}
       {shown >= 2 ? (
         <div className="animate-rise space-y-3">
-          {q.section ? (
-            <p className="px-1">
-              <span className="inline-flex rounded-full bg-clay-soft px-3 py-1 text-[13px] font-semibold text-clay-strong">
-                {q.section}
-              </span>
-            </p>
-          ) : null}
           {afterPartner ? (
             <figure className="rounded-2xl border-l-4 border-partner-b bg-partner-b-soft/60 px-4 py-3">
               <figcaption className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
@@ -471,7 +464,7 @@ function QuestionStep({
               </blockquote>
             </figure>
           ) : q.helper ? (
-            <p className="px-1 text-[14px] leading-relaxed text-ink-soft">{q.helper}</p>
+            <WhyAsk text={q.helper} />
           ) : null}
         </div>
       ) : null}
@@ -500,6 +493,22 @@ function QuestionStep({
         </div>
       ) : null}
     </section>
+  )
+}
+
+/** Açıklama metni varsayılan olarak gizli; isteyen dokunup okur. */
+function WhyAsk({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  return open ? (
+    <p className="animate-rise px-1 text-[14px] leading-relaxed text-ink-soft">{text}</p>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className="px-1 text-[13px] font-medium text-ink-faint underline-offset-4 hover:text-ink hover:underline"
+    >
+      Neden soruyoruz?
+    </button>
   )
 }
 
@@ -559,11 +568,10 @@ function TextStep({
           placeholder={q.placeholder}
           aria-label={q.prompt(partnerName, seed)}
         />
-        <MicHint />
+        {isEvent ? <MicHint /> : null}
         {isEvent && order === 'first' ? (
-          <p className="rounded-2xl bg-sunken px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-soft">
-            Bu kutuya yazdıklarınızı {partnerName || 'partneriniz'} olduğu gibi görecek; onaylayacak ya da kendi
-            gözünden ekleme yapıp devam edecek. Diğer cevaplarınız ona gösterilmez.
+          <p className="px-1 text-[13px] text-ink-faint">
+            Bu kutudakini {partnerName || 'partneriniz'} görecek; diğer cevaplarınızı görmeyecek.
           </p>
         ) : null}
         {short ? (

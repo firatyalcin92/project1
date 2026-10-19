@@ -8,7 +8,6 @@ import type {
   EntryRow,
   MemberRow,
   ReconsiderationRow,
-  RecoveryRow,
   RelationshipReportRow,
   ReportRow,
   Store,
@@ -31,7 +30,6 @@ type Tables = {
   reports: Map<string, ReportRow>
   relationship: Map<string, RelationshipReportRow>
   subscriptions: Map<string, SubscriptionRow>
-  recovery: Map<string, RecoveryRow>
   deletions: Map<string, DeletionRequestRow>
 }
 
@@ -61,7 +59,6 @@ export function createMemoryStore(): Store {
     reports: new Map(),
     relationship: new Map(),
     subscriptions: new Map(),
-    recovery: new Map(),
     deletions: new Map(),
   }
 
@@ -99,7 +96,14 @@ export function createMemoryStore(): Store {
       const members = [...t.members.values()]
       if (members.some((m) => m.couple_id === input.couple_id && m.role === input.role)) return 'role_taken'
       if (members.some((m) => m.auth_token_hash === input.auth_token_hash)) return 'role_taken'
-      const row: MemberRow = { ...input, id: crypto.randomUUID(), joined_at: now() }
+      if (input.auth_user_id && members.some((m) => m.auth_user_id === input.auth_user_id)) return 'role_taken'
+      const row: MemberRow = {
+        auth_user_id: null,
+        email: null,
+        ...input,
+        id: crypto.randomUUID(),
+        joined_at: now(),
+      }
       t.members.set(row.id, row)
       return clone(row)
     },
@@ -107,6 +111,21 @@ export function createMemoryStore(): Store {
     async getMemberByTokenHash(hash) {
       const m = [...t.members.values()].find((x) => x.auth_token_hash === hash)
       return m ? clone(m) : null
+    },
+
+    async getMemberByAuthUser(userId) {
+      const m = [...t.members.values()].find((x) => x.auth_user_id === userId)
+      return m ? clone(m) : null
+    },
+
+    async linkMemberAuth(memberId, userId, email) {
+      if ([...t.members.values()].some((x) => x.auth_user_id === userId && x.id !== memberId)) return 'taken'
+      const m = t.members.get(memberId)
+      if (m) {
+        m.auth_user_id = userId
+        m.email = email
+      }
+      return 'ok'
     },
 
     async listDisputes(coupleId) {
@@ -137,6 +156,11 @@ export function createMemoryStore(): Store {
       }
       t.disputes.set(row.id, row)
       return clone(row)
+    },
+
+    async setDisputeTitle(id, title) {
+      const d = t.disputes.get(id)
+      if (d) d.title = title
     },
 
     async deleteDispute(id) {
@@ -298,7 +322,6 @@ export function createMemoryStore(): Store {
         for (const [k, v] of m) if (disputeIds.includes(v.dispute_id)) m.delete(k)
       }
       for (const [k, r] of t.relationship) if (r.couple_id === coupleId) t.relationship.delete(k)
-      for (const [k, r] of t.recovery) if (memberIds.includes(r.member_id)) t.recovery.delete(k)
       t.deletions.delete(coupleId)
       for (const id of memberIds) t.members.delete(id)
       t.couples.delete(coupleId)
@@ -326,13 +349,7 @@ export function createMemoryStore(): Store {
     },
 
     async createSubscription(input) {
-      const row: SubscriptionRow = {
-        id: crypto.randomUUID(),
-        ...input,
-        started_at: now(),
-        transfer_code_hash: null,
-        created_at: now(),
-      }
+      const row: SubscriptionRow = { id: crypto.randomUUID(), ...input, started_at: now(), created_at: now() }
       t.subscriptions.set(row.id, row)
       return clone(row)
     },
@@ -342,57 +359,16 @@ export function createMemoryStore(): Store {
       if (r) r.expires_at = expiresAt
     },
 
-    async setSubscriptionTransfer(id, hash) {
-      const r = t.subscriptions.get(id)
-      if (r) r.transfer_code_hash = hash
-    },
-
-    async claimSubscription(hash, coupleId, memberId, at) {
-      const r = [...t.subscriptions.values()].find(
-        (x) => x.transfer_code_hash === hash && x.couple_id === null && x.expires_at > at,
-      )
-      if (!r) return null
-      r.couple_id = coupleId
-      r.member_id = memberId
-      r.transfer_code_hash = null
-      return clone(r)
-    },
-
-    async createRecovery(input) {
-      for (const [k, r] of t.recovery) if (r.member_id === input.member_id && !r.used_at) t.recovery.delete(k)
-      t.recovery.set(crypto.randomUUID(), { ...input, used_at: null, created_at: now() })
-    },
-
-    async useRecovery(hash, memberIds, at) {
-      const r = [...t.recovery.values()].find(
-        (x) =>
-          x.code_hash === hash &&
-          memberIds.includes(x.member_id) &&
-          !x.used_at &&
-          x.usable_after <= at &&
-          x.expires_at > at,
-      )
-      if (!r) return null
-      r.used_at = at
-      return { member_id: r.member_id }
-    },
-
-    async findRecovery(hash, memberIds, at) {
-      const r = [...t.recovery.values()].find(
-        (x) => x.code_hash === hash && memberIds.includes(x.member_id) && !x.used_at && x.expires_at > at,
-      )
-      return r ? clone(r) : null
-    },
-
-    async getPendingRecovery(memberId, at) {
-      const rows = [...t.recovery.values()]
-        .filter((x) => x.member_id === memberId && !x.used_at && x.expires_at > at)
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      return rows[0] ? clone(rows[0]) : null
-    },
-
-    async cancelRecoveries(memberId) {
-      for (const [k, r] of t.recovery) if (r.member_id === memberId && !r.used_at) t.recovery.delete(k)
+    async claimOrphanSubscriptions(userId, coupleId, memberId, at) {
+      let n = 0
+      for (const r of t.subscriptions.values()) {
+        if (r.owner_user_id === userId && r.couple_id === null && r.expires_at > at) {
+          r.couple_id = coupleId
+          r.member_id = memberId
+          n++
+        }
+      }
+      return n
     },
 
     async getDeletionRequest(coupleId) {

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { approveSharedReportFn } from '~/functions/dispute'
 import { parseError } from '~/lib/errors'
 import type { MyReport, SharedReport } from '~/lib/report-schemas'
@@ -22,6 +22,17 @@ function SectionTitle({ eyebrow, title, icon }: { eyebrow?: string; title: strin
       ) : null}
       <h3 className="text-[22px] leading-snug font-semibold">{title}</h3>
     </div>
+  )
+}
+
+/** Raporun geri kalanı: dokununca açılır. */
+function More({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  if (open) return <div className="animate-rise space-y-5">{children}</div>
+  return (
+    <Button variant="secondary" full onClick={() => setOpen(true)}>
+      Devamını oku
+    </Button>
   )
 }
 
@@ -58,57 +69,12 @@ export function MyReportView({ report, partnerName, solo }: { report: MyReport; 
         <p className="text-[18px] leading-relaxed text-ink">{report.greeting}</p>
       </div>
 
-      {report.history ? (
-        <section className="space-y-2 rounded-2xl border border-honey/40 bg-honey-soft/50 p-4">
-          <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
-            <IconSparkle size={14} className="text-honey" /> Sizi tanıdıkça
-          </p>
-          <Paragraphs text={report.history} className="text-ink" />
-        </section>
-      ) : null}
-
-      {/* Eski raporlarda bu alan yok. */}
-      {report.feelings ? (
-        <section className="space-y-2">
-          <SectionTitle eyebrow="Sırasında ve sonrasında" title="Hislerinizin izi" />
-          <Paragraphs text={report.feelings} className="text-ink-soft" />
-        </section>
-      ) : null}
-
       <section className="space-y-2 rounded-2xl bg-partner-b-soft/70 p-4">
         <p className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
           {solo ? `${genitive(p)} olası iç dünyası` : `${genitive(p)} iç dünyası`}
         </p>
         <Paragraphs text={report.partnerInner} className="text-ink" />
       </section>
-
-      <section className="space-y-2">
-        <SectionTitle eyebrow="Onun yerine geçebildiniz mi?" title={MATCH_LABEL[report.needGuess.match]} />
-        <Paragraphs text={report.needGuess.text} className="text-ink-soft" />
-      </section>
-
-      <section className="space-y-2">
-        <SectionTitle title="Döngüdeki yeriniz" />
-        <Paragraphs text={report.yourPlace} className="text-ink-soft" />
-      </section>
-
-      {report.patterns.length ? (
-        <section className="space-y-3">
-          <SectionTitle eyebrow="Fark etmeniz gereken kalıplar" title="Düşüncelerinizin sizi götürdüğü yer" />
-          <ul className="space-y-3">
-            {report.patterns.map((pt) => (
-              <li key={pt.name} className="space-y-1.5 rounded-2xl border border-line p-4">
-                <p className="font-semibold">{pt.name}</p>
-                <p className="text-[14px] leading-relaxed text-ink-soft">{pt.seenIn}</p>
-                <p className="text-[14px] leading-relaxed text-ink">
-                  <span className="font-semibold text-sage">Bunun yerine: </span>
-                  {pt.reframe}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       <section className="space-y-3">
         <SectionTitle eyebrow="İhtiyaç dili" title={`${dative(p)} ihtiyacınızı böyle söyleyin`} />
@@ -121,11 +87,6 @@ export function MyReportView({ report, partnerName, solo }: { report: MyReport; 
         </div>
         <p className="text-sm font-medium text-ink">Tam olarak şu cümleyi kurun:</p>
         <Phrase text={report.needsLanguage.say} />
-      </section>
-
-      <section className="space-y-3">
-        <SectionTitle eyebrow="Anladığınızı gösterin" title={`${dative(p)} söyleyebileceğiniz cümle`} />
-        <Phrase text={report.understanding} />
       </section>
 
       <section className="space-y-3 rounded-2xl bg-sage-soft p-4">
@@ -150,22 +111,74 @@ export function MyReportView({ report, partnerName, solo }: { report: MyReport; 
         </p>
       </section>
 
-      <section className="space-y-2">
-        <SectionTitle title="Kendinizde değiştireceğiniz" />
-        <Paragraphs text={report.selfChange} className="text-ink-soft" />
-      </section>
+      <More>
+        {report.history ? (
+          <section className="space-y-2 rounded-2xl border border-honey/40 bg-honey-soft/50 p-4">
+            <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
+              <IconSparkle size={14} className="text-honey" /> Sizi tanıdıkça
+            </p>
+            <Paragraphs text={report.history} className="text-ink" />
+          </section>
+        ) : null}
 
-      <section className="flex gap-3 rounded-2xl bg-honey-soft p-4">
-        <IconSparkle size={20} className="mt-0.5 shrink-0 text-honey" />
-        <div>
-          <p className="font-semibold">Güçlü yanınız</p>
-          <p className="mt-1 leading-relaxed text-ink">{report.strength}</p>
-        </div>
-      </section>
+        {/* Eski raporlarda bu alan yok. */}
+        {report.feelings ? (
+          <section className="space-y-2">
+            <SectionTitle eyebrow="Sırasında ve sonrasında" title="Hislerinizin izi" />
+            <Paragraphs text={report.feelings} className="text-ink-soft" />
+          </section>
+        ) : null}
 
-      <p className="border-t border-line pt-4 text-center font-display text-[17px] text-ink-soft italic">
-        {report.closing}
-      </p>
+        <section className="space-y-2">
+          <SectionTitle eyebrow="Onun yerine geçebildiniz mi?" title={MATCH_LABEL[report.needGuess.match]} />
+          <Paragraphs text={report.needGuess.text} className="text-ink-soft" />
+        </section>
+
+        <section className="space-y-2">
+          <SectionTitle title="Döngüdeki yeriniz" />
+          <Paragraphs text={report.yourPlace} className="text-ink-soft" />
+        </section>
+
+        {report.patterns.length ? (
+          <section className="space-y-3">
+            <SectionTitle eyebrow="Fark etmeniz gereken kalıplar" title="Düşüncelerinizin sizi götürdüğü yer" />
+            <ul className="space-y-3">
+              {report.patterns.map((pt) => (
+                <li key={pt.name} className="space-y-1.5 rounded-2xl border border-line p-4">
+                  <p className="font-semibold">{pt.name}</p>
+                  <p className="text-[14px] leading-relaxed text-ink-soft">{pt.seenIn}</p>
+                  <p className="text-[14px] leading-relaxed text-ink">
+                    <span className="font-semibold text-sage">Bunun yerine: </span>
+                    {pt.reframe}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <section className="space-y-3">
+          <SectionTitle eyebrow="Anladığınızı gösterin" title={`${dative(p)} söyleyebileceğiniz cümle`} />
+          <Phrase text={report.understanding} />
+        </section>
+
+        <section className="space-y-2">
+          <SectionTitle title="Kendinizde değiştireceğiniz" />
+          <Paragraphs text={report.selfChange} className="text-ink-soft" />
+        </section>
+
+        <section className="flex gap-3 rounded-2xl bg-honey-soft p-4">
+          <IconSparkle size={20} className="mt-0.5 shrink-0 text-honey" />
+          <div>
+            <p className="font-semibold">Güçlü yanınız</p>
+            <p className="mt-1 leading-relaxed text-ink">{report.strength}</p>
+          </div>
+        </section>
+
+        <p className="border-t border-line pt-4 text-center font-display text-[17px] text-ink-soft italic">
+          {report.closing}
+        </p>
+      </More>
     </Card>
   )
 }
@@ -410,14 +423,6 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
           <IconUnlock size={14} /> Ortak Rapor · Döngü Analizi ve İhtiyaç Aynası
         </Eyebrow>
         <Paragraphs text={report.opening} className="text-[17px] text-ink" />
-        {report.history ? (
-          <div className="space-y-1.5 rounded-2xl border border-honey/40 bg-honey-soft/50 p-4">
-            <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
-              <IconSparkle size={14} className="text-honey" /> Sizi tanıdıkça
-            </p>
-            <Paragraphs text={report.history} className="text-ink" />
-          </div>
-        ) : null}
       </Card>
 
       <Card className="space-y-4">
@@ -432,70 +437,81 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
       {/* Eski raporlarda bu bölüm yok. */}
       {report.breakCycle ? <BreakCycle data={report.breakCycle} names={names} /> : null}
 
-      <Card className="space-y-4">
-        <SectionTitle eyebrow="Kim haklı?" title="Dürüst bir cevap" />
-        <Paragraphs text={report.whoIsRight.answer} className="text-ink" />
-        <div className="grid gap-3">
-          {(['A', 'B'] as const).map((r) => (
-            <div key={r} className="rounded-2xl border border-line p-4">
-              <p className="flex items-center gap-2 text-sm font-semibold">
-                <span
-                  className="inline-block size-2.5 rounded-full"
-                  style={{ background: partnerColor(r) }}
-                  aria-hidden
-                />
-                {names[r]} haklı, çünkü…
-              </p>
-              <p className="mt-1.5 leading-relaxed text-ink-soft">
-                {r === 'A' ? report.whoIsRight.pointA : report.whoIsRight.pointB}
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="rounded-2xl bg-honey-soft px-4 py-3">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Asıl mesele</p>
-          <p className="mt-1 leading-relaxed text-ink">{report.whoIsRight.realIssue}</p>
-        </div>
-      </Card>
-
-      <Card className="space-y-4">
-        <SectionTitle eyebrow="Temel ihtiyaç kesişimi" title="Aslında ikiniz de…" icon={<IconHeart size={14} />} />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {(['A', 'B'] as const).map((r) => (
-            <div key={r} className={cx('rounded-2xl p-4', r === 'A' ? 'bg-partner-a-soft' : 'bg-partner-b-soft')}>
-              <p className="text-sm font-semibold text-ink">{names[r]}</p>
-              <p className="mt-1 leading-relaxed text-ink">{r === 'A' ? report.needs.a : report.needs.b}</p>
-            </div>
-          ))}
-        </div>
-        <p className="text-center font-display text-[18px] leading-relaxed text-ink">{report.needs.commonGround}</p>
-      </Card>
-
-      <Card className="space-y-4">
-        <SectionTitle eyebrow="Ortak çözüm ve onarım adımları" title="Döngü bir dahaki sefere başladığında" />
-        <ol className="space-y-4">
-          {report.repairSteps.slice(0, 3).map((s, i) => (
-            <li key={i} className="space-y-2">
-              <p className="flex items-center gap-2 font-semibold">
-                <span className="inline-flex size-7 items-center justify-center rounded-full bg-clay font-display text-sm text-on-clay">
-                  {i + 1}
-                </span>
-                {s.title}
-              </p>
-              <p className="text-sm text-ink-faint">{s.when}</p>
-              <Phrase text={s.phrase} />
-              <p className="text-[14px] leading-relaxed text-ink-soft">{s.why}</p>
-            </li>
-          ))}
-        </ol>
-      </Card>
-
       <Card className="space-y-2 border-sage/40 bg-sage-soft">
         <p className="flex items-center gap-2 font-semibold">
           <IconArrowRight size={18} className="text-sage" /> Birlikte, bugün için
         </p>
         <p className="leading-relaxed text-ink">{report.tonight}</p>
       </Card>
+
+      <More>
+        <Card className="space-y-4">
+          <SectionTitle eyebrow="Kim haklı?" title="Dürüst bir cevap" />
+          <Paragraphs text={report.whoIsRight.answer} className="text-ink" />
+          <div className="grid gap-3">
+            {(['A', 'B'] as const).map((r) => (
+              <div key={r} className="rounded-2xl border border-line p-4">
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  <span
+                    className="inline-block size-2.5 rounded-full"
+                    style={{ background: partnerColor(r) }}
+                    aria-hidden
+                  />
+                  {names[r]} haklı, çünkü…
+                </p>
+                <p className="mt-1.5 leading-relaxed text-ink-soft">
+                  {r === 'A' ? report.whoIsRight.pointA : report.whoIsRight.pointB}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-2xl bg-honey-soft px-4 py-3">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Asıl mesele</p>
+            <p className="mt-1 leading-relaxed text-ink">{report.whoIsRight.realIssue}</p>
+          </div>
+        </Card>
+
+        <Card className="space-y-4">
+          <SectionTitle eyebrow="Temel ihtiyaç kesişimi" title="Aslında ikiniz de…" icon={<IconHeart size={14} />} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(['A', 'B'] as const).map((r) => (
+              <div key={r} className={cx('rounded-2xl p-4', r === 'A' ? 'bg-partner-a-soft' : 'bg-partner-b-soft')}>
+                <p className="text-sm font-semibold text-ink">{names[r]}</p>
+                <p className="mt-1 leading-relaxed text-ink">{r === 'A' ? report.needs.a : report.needs.b}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center font-display text-[18px] leading-relaxed text-ink">{report.needs.commonGround}</p>
+        </Card>
+
+        <Card className="space-y-4">
+          <SectionTitle eyebrow="Ortak çözüm ve onarım adımları" title="Döngü bir dahaki sefere başladığında" />
+          <ol className="space-y-4">
+            {report.repairSteps.slice(0, 3).map((s, i) => (
+              <li key={i} className="space-y-2">
+                <p className="flex items-center gap-2 font-semibold">
+                  <span className="inline-flex size-7 items-center justify-center rounded-full bg-clay font-display text-sm text-on-clay">
+                    {i + 1}
+                  </span>
+                  {s.title}
+                </p>
+                <p className="text-sm text-ink-faint">{s.when}</p>
+                <Phrase text={s.phrase} />
+                <p className="text-[14px] leading-relaxed text-ink-soft">{s.why}</p>
+              </li>
+            ))}
+          </ol>
+        </Card>
+
+        {report.history ? (
+          <Card className="space-y-2">
+            <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
+              <IconSparkle size={14} className="text-honey" /> Sizi tanıdıkça
+            </p>
+            <Paragraphs text={report.history} className="text-ink" />
+          </Card>
+        ) : null}
+      </More>
 
       <p className="px-2 text-center font-display text-[18px] italic leading-relaxed text-ink-soft">{report.closing}</p>
     </article>
