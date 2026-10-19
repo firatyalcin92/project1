@@ -69,11 +69,17 @@ export function MyReportView({ report, partnerName, solo }: { report: MyReport; 
         <p className="text-[18px] leading-relaxed text-ink">{report.greeting}</p>
       </div>
 
-      <section className="space-y-2 rounded-2xl bg-partner-b-soft/70 p-4">
-        <p className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
-          {solo ? `${genitive(p)} olası iç dünyası` : `${genitive(p)} iç dünyası`}
-        </p>
-        <Paragraphs text={report.partnerInner} className="text-ink" />
+      <section className="space-y-3">
+        <SectionTitle
+          eyebrow={solo ? `${genitive(p)} olası ihtiyacı` : `${genitive(p)} ihtiyacı`}
+          title={report.partnerNeed || `${genitive(p)} duygusal ihtiyacı`}
+        />
+        <div className="space-y-2 rounded-2xl bg-partner-b-soft/70 p-4">
+          <p className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">O an içinde olan</p>
+          <Paragraphs text={report.partnerInner} className="text-ink" />
+        </div>
+        <p className="text-sm font-medium text-ink">{dative(p)} şöyle karşılık verebilirsiniz:</p>
+        <Phrase text={report.understanding} />
       </section>
 
       <section className="space-y-3">
@@ -156,11 +162,6 @@ export function MyReportView({ report, partnerName, solo }: { report: MyReport; 
             </ul>
           </section>
         ) : null}
-
-        <section className="space-y-3">
-          <SectionTitle eyebrow="Anladığınızı gösterin" title={`${dative(p)} söyleyebileceğiniz cümle`} />
-          <Phrase text={report.understanding} />
-        </section>
 
         <section className="space-y-2">
           <SectionTitle title="Kendinizde değiştireceğiniz" />

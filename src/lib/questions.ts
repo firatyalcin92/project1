@@ -70,6 +70,16 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
     ],
   },
   {
+    id: 'gorulmemek',
+    label: 'Görülmemek',
+    chips: [
+      { id: 'gorulmedim', label: 'Görülmemiş hissettim' },
+      { id: 'ihmal', label: 'İhmal edilmiş hissettim' },
+      { id: 'kucumsendim', label: 'Küçümsenmiş hissettim' },
+      { id: 'reddedildim', label: 'Reddedilmiş hissettim' },
+    ],
+  },
+  {
     id: 'yorgunluk',
     label: 'Yorgunluk',
     chips: [{ id: 'tukenmis', label: 'Yoruldum, tükendim' }],
@@ -86,7 +96,6 @@ const RETIRED_FEELING_CHIPS: readonly Chip[] = [
   { id: 'dinlenmedim', label: 'Dinlenmediğimi hissettim' },
   { id: 'onemsenmedim', label: 'Önemsenmediğimi hissettim' },
   { id: 'duygularim_kucumsendi', label: 'Duygularımın küçümsendiğini hissettim' },
-  { id: 'reddedildim', label: 'Reddedilmiş hissettim' },
   { id: 'haksizlik', label: 'Haksızlığa uğradığımı düşündüm' },
   { id: 'suclandim', label: 'Suçlandığımı hissettim' },
   { id: 'saygisizlik', label: 'Saygısızlığa uğradığımı hissettim' },
@@ -97,7 +106,6 @@ const RETIRED_FEELING_CHIPS: readonly Chip[] = [
   { id: 'uzaklasmak_istedim', label: 'Uzaklaşmak, konuşmayı bırakmak istedim' },
   { id: 'ice_kapandim', label: 'İçime kapandım, sustum' },
   { id: 'kendime_kizdim', label: 'Kendime kızdım' },
-  { id: 'gorulmedim', label: 'Görülmediğimi veya fark edilmediğimi hissettim' },
   { id: 'degerim_bilinmedi', label: 'Değerimin bilinmediğini hissettim' },
   { id: 'yok_sayildim', label: 'Yok sayıldığımı hissettim' },
   { id: 'ciddiye_alinmadim', label: 'Anlattıklarımın ciddiye alınmadığını hissettim' },
@@ -280,6 +288,8 @@ export type Question = {
   /** Aynı sorunun bölümü (ör. "A · Tartışma sırasında") */
   section?: string
   helper?: string
+  /** Sorunun altındaki kısa yönlendirme satırı (ör. "Tam tartışma esnasında iç sesiniz dedi ki…") */
+  lead?: string
   placeholder: string
   /** Kutunun altında dokunarak başlanabilen örnek yönlendirmeler */
   examples: (partnerName: string) => string[]
@@ -383,6 +393,7 @@ export const QUESTIONS: readonly Question[] = [
         seed,
       ),
     helper: 'Aklınızdan geçen cümleyi olduğu gibi yazın; burada doğru ya da yanlış yok.',
+    lead: 'Tam tartışma esnasında iç sesiniz dedi ki…',
     placeholder: '“Yine beni dinlemiyor” diye düşündüm…',
     examples: () => [
       '“Yine beni dinlemiyor” diye düşündüm.',
@@ -416,6 +427,7 @@ export const QUESTIONS: readonly Question[] = [
         seed,
       ),
     helper: FEELINGS_HELPER,
+    lead: 'İçinizden geçen duygular, hisleriniz…',
     placeholder: 'Kendi kelimelerinizle…',
     examples: () => [],
     textRequired: false,
@@ -594,7 +606,7 @@ export function introMessage(partnerName: string) {
   const n = partnerName ? locative(partnerName) : 'eşinizde'
   return [
     `Merhaba. Burada amacımız kimin haklı olduğunu bulmak değil; ne yaşandığını ve bunun sizde ve ${n} nasıl bir karşılık bulduğunu anlamak.`,
-    `${QUESTION_COUNT} kısa soru soracağım. İçinizden geldiği gibi yazın; rapor o kadar size özel olur.`,
+    `${QUESTION_COUNT} kısa soru soracağım. İçinizden geldiği gibi yazın, hepsi bu kadar; sonrasında size bir rapor sunup önerilerde bulunacağım.`,
   ]
 }
 

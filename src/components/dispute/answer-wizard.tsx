@@ -24,6 +24,7 @@ import {
   seedFor,
   strongestOptions,
   type AnswerQuestionId,
+  type FeelingGroup,
   type Question,
 } from '~/lib/questions'
 import { genitive } from '~/lib/turkish'
@@ -40,6 +41,10 @@ type Draft = { whatHappened: string; answers: Record<AnswerQuestionId, AnswerDra
 type WizardMeta = { disputeId: string; order: 'first' | 'second' | 'solo'; partnerEvent: string | null }
 const Meta = createContext<WizardMeta>({ disputeId: '', order: 'solo', partnerEvent: null })
 const useSeed = (questionId: string) => seedFor(useContext(Meta).disputeId, questionId)
+
+/** Anlatılana göre yapay zekânın önerdiği hisler ve ihtiyaçlar (önce gösterilir, seçili gelmez). */
+const Suggestions = createContext<{ feelings: string[]; needs: string[] }>({ feelings: [], needs: [] })
+const SUGGESTED_LABEL = 'Anlattıklarınıza göre'
 
 /** İkinci anlatan, ilk anlatımı aynen onayladı mı? */
 const agreed = (d: Pick<Draft, 'answers'>) => d.answers[EVENT_AGREE]?.tags.includes(AGREE_TAG) ?? false
@@ -165,6 +170,7 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
   }
   const [confirming, setConfirming] = useState(false)
   const [reflection, setReflection] = useState(view.mine.reflection)
+  const [suggestions, setSuggestions] = useState(view.mine.suggestions)
   // Yansıtmanın hangi "olay + düşünce" için üretildiği; durum olduğu için değişince ekran yenilenir.
   const [reflectedFor, setReflectedFor] = useState(view.mine.reflection ? '__saved__' : '')
   const [revealedPage, setRevealedPage] = useState<Page | null>(null)
@@ -193,7 +199,10 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
       reflectAnswersFn({
         data: { disputeId: view.id, whatHappened: draft.whatHappened, thought: draft.answers.dusunce.text },
       }),
-    onSuccess: (r) => setReflection(r.reflection),
+    onSuccess: (r) => {
+      setReflection(r.reflection)
+      setSuggestions(r.suggestions)
+    },
     onError: onPaymentRequired,
   })
 
@@ -246,127 +255,129 @@ export function AnswerWizard({ view, onView }: { view: DisputeView; onView: (v: 
 
   return (
     <Meta.Provider value={meta}>
-      <div ref={topRef} className="scroll-mt-20">
-        {question ? (
-          <div className="mb-5 flex items-center gap-3">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-              <div
-                className="h-full rounded-full bg-clay transition-[width] duration-500"
-                style={{ width: `${((questionIndex + 1) / QUESTIONS.length) * 100}%` }}
-              />
-            </div>
-            <span className="text-xs font-medium text-ink-faint tabular-nums">
-              {question.number} / {QUESTION_COUNT}
-            </span>
-          </div>
-        ) : null}
-
-        <div key={page} className="animate-rise space-y-5">
-          {page === 'giris' ? (
-            <Intro
-              partnerName={partnerName}
-              solo={solo}
-              order={meta.order}
-              onRevealed={() => setRevealedPage('giris')}
-            />
-          ) : page === 'ozet' ? (
-            <Summary draft={draft} partnerName={partnerName} solo={solo} order={meta.order} />
-          ) : (
-            <QuestionStep
-              question={question!}
-              draft={draft}
-              partnerName={partnerName}
-              update={update}
-              setAnswer={setAnswer}
-              reflection={page === FEELINGS ? reflection : null}
-              ready={page === FEELINGS ? reflectionReady : true}
-              onRevealed={() => setRevealedPage(page)}
-            />
-          )}
-        </div>
-
-        {save.isError ? (
-          <div className="mt-4">
-            <Notice tone="error">{parseError(save.error).message}</Notice>
-          </div>
-        ) : null}
-
-        <BottomBar>
-          {page === 'ozet' && confirming ? (
-            <div className="space-y-3">
-              <p className="text-center text-sm text-ink-soft">
-                Gönderdikten sonra cevaplarınızı değiştiremezsiniz.{' '}
-                {solo
-                  ? 'Ardından danışman raporunuz hazırlanacak.'
-                  : 'Ardından partnerinizin de anlatmasını bekleyeceğiz.'}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setConfirming(false)}>
-                  Bir daha bakayım
-                </Button>
-                <Button full loading={save.isPending} onClick={() => save.mutate(true)}>
-                  Evet, gönder
-                </Button>
+      <Suggestions.Provider value={suggestions}>
+        <div ref={topRef} className="scroll-mt-20">
+          {question ? (
+            <div className="mb-5 flex items-center gap-3">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                <div
+                  className="h-full rounded-full bg-clay transition-[width] duration-500"
+                  style={{ width: `${((questionIndex + 1) / QUESTIONS.length) * 100}%` }}
+                />
               </div>
+              <span className="text-xs font-medium text-ink-faint tabular-nums">
+                {question.number} / {QUESTION_COUNT}
+              </span>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              {pageIndex > 0 ? (
-                <Button variant="secondary" aria-label="Önceki soru" onClick={() => go(-1)}>
-                  <IconArrowLeft size={18} />
-                </Button>
-              ) : null}
-              {page === 'giris' ? (
-                <Button full size="lg" disabled={!revealed} onClick={() => go(1)}>
-                  Hazırım, başlayalım <IconArrowRight size={18} />
-                </Button>
-              ) : page === 'ozet' ? (
-                <Button full size="lg" disabled={!allComplete} onClick={() => setConfirming(true)}>
-                  Cevaplarımı gönder
-                </Button>
-              ) : (
-                <Button
-                  full
-                  size="lg"
-                  disabled={!complete}
-                  onClick={() => {
-                    if (page === 'olay' && paywall) {
-                      if (dirty.current) save.mutate(false)
-                      setOfferOpen(true)
-                    } else go(1)
-                  }}
-                >
-                  Devam <IconArrowRight size={18} />
-                </Button>
-              )}
+          ) : null}
+
+          <div key={page} className="animate-rise space-y-5">
+            {page === 'giris' ? (
+              <Intro
+                partnerName={partnerName}
+                solo={solo}
+                order={meta.order}
+                onRevealed={() => setRevealedPage('giris')}
+              />
+            ) : page === 'ozet' ? (
+              <Summary draft={draft} partnerName={partnerName} solo={solo} order={meta.order} />
+            ) : (
+              <QuestionStep
+                question={question!}
+                draft={draft}
+                partnerName={partnerName}
+                update={update}
+                setAnswer={setAnswer}
+                reflection={page === FEELINGS ? reflection : null}
+                ready={page === FEELINGS ? reflectionReady : true}
+                onRevealed={() => setRevealedPage(page)}
+              />
+            )}
+          </div>
+
+          {save.isError ? (
+            <div className="mt-4">
+              <Notice tone="error">{parseError(save.error).message}</Notice>
             </div>
-          )}
-          {revealed && reason ? (
-            <p className="mt-2 text-center text-[13px] text-ink-soft">{reason}</p>
-          ) : (
-            <p
-              className={cx(
-                'mt-2 text-center text-[12px] text-ink-faint',
-                save.isPending ? 'opacity-100' : 'opacity-0',
-              )}
-            >
-              Taslak kaydediliyor…
-            </p>
-          )}
-        </BottomBar>
-        {offerOpen ? (
-          <OfferSheet
-            variant="continue"
-            onClose={() => setOfferOpen(false)}
-            onPurchased={() => {
-              setUnlocked(true)
-              setOfferOpen(false)
-              save.reset()
-              if (page === 'olay') go(1)
-            }}
-          />
-        ) : null}
-      </div>
+          ) : null}
+
+          <BottomBar>
+            {page === 'ozet' && confirming ? (
+              <div className="space-y-3">
+                <p className="text-center text-sm text-ink-soft">
+                  Gönderdikten sonra cevaplarınızı değiştiremezsiniz.{' '}
+                  {solo
+                    ? 'Ardından danışman raporunuz hazırlanacak.'
+                    : 'Ardından partnerinizin de anlatmasını bekleyeceğiz.'}
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => setConfirming(false)}>
+                    Bir daha bakayım
+                  </Button>
+                  <Button full loading={save.isPending} onClick={() => save.mutate(true)}>
+                    Evet, gönder
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {pageIndex > 0 ? (
+                  <Button variant="secondary" aria-label="Önceki soru" onClick={() => go(-1)}>
+                    <IconArrowLeft size={18} />
+                  </Button>
+                ) : null}
+                {page === 'giris' ? (
+                  <Button full size="lg" disabled={!revealed} onClick={() => go(1)}>
+                    Hazırım, başlayalım <IconArrowRight size={18} />
+                  </Button>
+                ) : page === 'ozet' ? (
+                  <Button full size="lg" disabled={!allComplete} onClick={() => setConfirming(true)}>
+                    Cevaplarımı gönder
+                  </Button>
+                ) : (
+                  <Button
+                    full
+                    size="lg"
+                    disabled={!complete}
+                    onClick={() => {
+                      if (page === 'olay' && paywall) {
+                        if (dirty.current) save.mutate(false)
+                        setOfferOpen(true)
+                      } else go(1)
+                    }}
+                  >
+                    Devam <IconArrowRight size={18} />
+                  </Button>
+                )}
+              </div>
+            )}
+            {revealed && reason ? (
+              <p className="mt-2 text-center text-[13px] text-ink-soft">{reason}</p>
+            ) : (
+              <p
+                className={cx(
+                  'mt-2 text-center text-[12px] text-ink-faint',
+                  save.isPending ? 'opacity-100' : 'opacity-0',
+                )}
+              >
+                Taslak kaydediliyor…
+              </p>
+            )}
+          </BottomBar>
+          {offerOpen ? (
+            <OfferSheet
+              variant="continue"
+              onClose={() => setOfferOpen(false)}
+              onPurchased={() => {
+                setUnlocked(true)
+                setOfferOpen(false)
+                save.reset()
+                if (page === 'olay') go(1)
+              }}
+            />
+          ) : null}
+        </div>
+      </Suggestions.Provider>
     </Meta.Provider>
   )
 }
@@ -463,8 +474,8 @@ function QuestionStep({
                 {meta.partnerEvent}
               </blockquote>
             </figure>
-          ) : q.helper ? (
-            <WhyAsk text={q.helper} />
+          ) : q.lead ? (
+            <p className="px-1 text-[15px] text-ink-soft italic">{q.lead}</p>
           ) : null}
         </div>
       ) : null}
@@ -493,22 +504,6 @@ function QuestionStep({
         </div>
       ) : null}
     </section>
-  )
-}
-
-/** Açıklama metni varsayılan olarak gizli; isteyen dokunup okur. */
-function WhyAsk({ text }: { text: string }) {
-  const [open, setOpen] = useState(false)
-  return open ? (
-    <p className="animate-rise px-1 text-[14px] leading-relaxed text-ink-soft">{text}</p>
-  ) : (
-    <button
-      type="button"
-      onClick={() => setOpen(true)}
-      className="px-1 text-[13px] font-medium text-ink-faint underline-offset-4 hover:text-ink hover:underline"
-    >
-      Neden soruyoruz?
-    </button>
   )
 }
 
@@ -541,6 +536,7 @@ function TextStep({
   const setText = (v: string) =>
     isEvent ? update((d) => ({ ...d, whatHappened: v })) : setAnswer(q.id as AnswerQuestionId, { text: v })
   const short = q.textRequired && text.trim().length > 0 && text.trim().length < q.minLength
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0
   const examples = q.examples(partnerName)
   const toggle = (id: string) =>
     setAnswer(q.id as AnswerQuestionId, {
@@ -574,7 +570,13 @@ function TextStep({
             Bu kutudakini {partnerName || 'partneriniz'} görecek; diğer cevaplarınızı görmeyecek.
           </p>
         ) : null}
-        {short ? (
+        {isEvent && order !== 'second' && words > 0 && words < 100 ? (
+          <p className="px-1 text-[13px] leading-relaxed text-ink-soft">
+            {words < 50
+              ? 'Aranızda yaşananları anlayabilmem, değerlendirebilmem için biraz daha detaylı anlatır mısınız?'
+              : 'Biraz daha detaylı anlatmanız meseleyi anlamamda bana yardımcı olacak.'}
+          </p>
+        ) : short ? (
           <p className="px-1 text-[13px] text-ink-faint">Biraz daha açar mısınız? Birkaç kelime daha yeter.</p>
         ) : null}
         {examples.length && !text.trim() ? (
@@ -641,6 +643,17 @@ function TextStep({
   )
 }
 
+/** Önerilen hisler en üstte ayrı bir grupta; diğer gruplardan çıkarılır. */
+function suggestedFirst(groups: readonly FeelingGroup[], suggested: readonly string[]): readonly FeelingGroup[] {
+  if (!suggested.length) return groups
+  const all = groups.flatMap((g) => g.chips)
+  const top = { id: 'oneri', label: SUGGESTED_LABEL, chips: all.filter((c) => suggested.includes(c.id)) }
+  const rest = groups
+    .map((g) => ({ ...g, chips: g.chips.filter((c) => !suggested.includes(c.id)) }))
+    .filter((g) => g.chips.length)
+  return top.chips.length ? [top, ...rest] : groups
+}
+
 function FeelingsPicker({
   question: q,
   answer,
@@ -654,6 +667,8 @@ function FeelingsPicker({
   // Sınır için "başka bir şey" seçildiği an bir yer tutar.
   const used = answer.tags.filter((t) => t !== OTHER_CHIP).length + (otherSelected ? 1 : 0)
   const full = used >= FEELING_MAX
+  const suggested = useContext(Suggestions).feelings
+  const groups = suggestedFirst(FEELING_GROUPS, suggested)
   const toggle = (id: string) => {
     const on = answer.tags.includes(id)
     if (!on && full) return
@@ -682,7 +697,7 @@ function FeelingsPicker({
         </span>
       </p>
 
-      {FEELING_GROUPS.map((g, gi) => (
+      {groups.map((g, gi) => (
         <div key={g.id} className="animate-rise space-y-2" style={{ animationDelay: `${(gi + 1) * STAGGER_MS}ms` }}>
           <p className="px-1 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">{g.label}</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label={`${q.title}: ${g.label}`}>
@@ -703,10 +718,7 @@ function FeelingsPicker({
         </div>
       ))}
 
-      <div
-        className="animate-rise space-y-2"
-        style={{ animationDelay: `${(FEELING_GROUPS.length + 1) * STAGGER_MS}ms` }}
-      >
+      <div className="animate-rise space-y-2" style={{ animationDelay: `${(groups.length + 1) * STAGGER_MS}ms` }}>
         <p className="px-1 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">Başka</p>
         <ChipToggle
           shape="soft"
@@ -858,6 +870,14 @@ function NeedsStep({
   const full = answer.tags.length >= max
   const [followInstant] = useState(() => answer.text.trim().length > 0)
   const followStage = useReveal(1, { instant: followInstant, ready: answer.tags.length > 0 })
+  const suggested = useContext(Suggestions).needs
+  const top = q.chips!.filter((c) => suggested.includes(c.id))
+  const needGroups = top.length
+    ? [
+        { label: SUGGESTED_LABEL, chips: top },
+        { label: 'Diğer ihtiyaçlar', chips: q.chips!.filter((c) => !suggested.includes(c.id)) },
+      ]
+    : [{ label: 'İhtiyaçlar', chips: [...q.chips!] }]
   const toggle = (id: string) => {
     const on = answer.tags.includes(id)
     if (!on && full) return
@@ -871,22 +891,29 @@ function NeedsStep({
           {answer.tags.length} / {max}
         </span>
       </p>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={q.title}>
-        {q.chips!.map((chip, i) => {
-          const selected = answer.tags.includes(chip.id)
-          return (
-            <span key={chip.id} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
-              <ChipToggle
-                shape="soft"
-                label={chip.label}
-                selected={selected}
-                disabled={full && !selected}
-                onToggle={() => toggle(chip.id)}
-              />
-            </span>
-          )
-        })}
-      </div>
+      {needGroups.map((g) => (
+        <div key={g.label} className="space-y-2">
+          {needGroups.length > 1 ? (
+            <p className="px-1 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">{g.label}</p>
+          ) : null}
+          <div className="flex flex-wrap gap-2" role="group" aria-label={`${q.title}: ${g.label}`}>
+            {g.chips.map((chip, i) => {
+              const selected = answer.tags.includes(chip.id)
+              return (
+                <span key={chip.id} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
+                  <ChipToggle
+                    shape="soft"
+                    label={chip.label}
+                    selected={selected}
+                    disabled={full && !selected}
+                    onToggle={() => toggle(chip.id)}
+                  />
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      ))}
       {q.followUp && followStage >= 1 ? (
         <div className="animate-rise space-y-3 pt-1">
           <Bubble>

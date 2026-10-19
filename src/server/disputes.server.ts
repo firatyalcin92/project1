@@ -18,6 +18,8 @@ import {
   strongestOptions,
   type AnswerQuestionId,
   type ReflectionId,
+  FEELING_CHIPS,
+  NEED_CHIPS,
 } from '~/lib/questions'
 import {
   MyReportSchema,
@@ -193,10 +195,13 @@ function buildView(
   // Yalnızca KENDİ cevapları döner.
   const answers = emptyAnswers()
   let reflection = ''
+  let suggestions = { feelings: [] as string[], needs: [] as string[] }
   for (const a of b.answers) {
     if (a.member_id !== member.id) continue
-    if (a.question_id === REFLECTION_ANSWER_ID) reflection = a.text_answer
-    else if ((ANSWER_QUESTION_IDS as readonly string[]).includes(a.question_id)) {
+    if (a.question_id === REFLECTION_ANSWER_ID) {
+      reflection = a.text_answer
+      suggestions = suggestionsFromTags(a.selected_tags)
+    } else if ((ANSWER_QUESTION_IDS as readonly string[]).includes(a.question_id)) {
       answers[a.question_id as AnswerQuestionId] = { text: a.text_answer, tags: a.selected_tags }
     }
   }
@@ -271,6 +276,7 @@ function buildView(
       whatHappened: myEntry?.what_happened ?? '',
       answers,
       reflection,
+      suggestions,
       submittedAt: myEntry?.submitted_at ?? null,
     },
     partnerView,
@@ -499,7 +505,7 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
 export async function reflectAnswers(
   member: AuthedMember,
   input: { disputeId: string; whatHappened: string; thought: string },
-): Promise<{ reflection: string }> {
+): Promise<{ reflection: string; suggestions: { feelings: string[]; needs: string[] } }> {
   const d = await assertCanAnswer(member, input.disputeId)
   if ((await disputeAccess(d)).paywall) fail('PAYMENT_REQUIRED', PAYWALL_MESSAGE)
   const bundle = await loadBundle(d)
@@ -523,7 +529,7 @@ export async function reflectAnswers(
     whatHappened,
     thought,
   })
-  const { reflection, title } = await generateJson({
+  const { reflection, title, suggestedFeelings, suggestedNeeds } = await generateJson({
     task: 'reflection',
     schema: ReflectionSchema,
     system: prompt.system,
@@ -542,11 +548,39 @@ export async function reflectAnswers(
       member_id: member.id,
       question_id: REFLECTION_ANSWER_ID,
       text_answer: reflection.slice(0, LIMITS.reflection),
-      selected_tags: [],
+      // Önerilen his ve ihtiyaçlar yansıtmanın yanında saklanır (f:… / n:…).
+      selected_tags: [
+        ...suggestedFeelings
+          .filter((id) => FEELING_IDS.includes(id))
+          .slice(0, 4)
+          .map((id) => `f:${id}`),
+        ...suggestedNeeds
+          .filter((id) => NEED_IDS.includes(id))
+          .slice(0, 4)
+          .map((id) => `n:${id}`),
+      ],
       visibility: 'partner',
     },
   ])
-  return { reflection }
+  return {
+    reflection,
+    suggestions: suggestionsFromTags([
+      ...suggestedFeelings.map((x) => `f:${x}`),
+      ...suggestedNeeds.map((x) => `n:${x}`),
+    ]),
+  }
+}
+
+const FEELING_IDS: readonly string[] = FEELING_CHIPS.map((c) => c.id)
+const NEED_IDS: readonly string[] = NEED_CHIPS.map((c) => c.id)
+
+/** Yapay zekânın anlatılana göre önerdiği hisler ve ihtiyaçlar (yalnızca listedekiler). */
+function suggestionsFromTags(tags: readonly string[]) {
+  const pick = (prefix: string, allowed: readonly string[]) =>
+    [...new Set(tags.filter((t) => t.startsWith(prefix)).map((t) => t.slice(prefix.length)))]
+      .filter((id) => allowed.includes(id))
+      .slice(0, 4)
+  return { feelings: pick('f:', FEELING_IDS), needs: pick('n:', NEED_IDS) }
 }
 
 // ---------------------------------------------------------------------------

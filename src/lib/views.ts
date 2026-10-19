@@ -85,6 +85,8 @@ export type MyAnswersView = {
   answers: Record<AnswerQuestionId, AnswerDraft>
   /** Danışmanın 3. sorudan önceki yansıtması */
   reflection: string
+  /** Anlatılana göre yapay zekânın önerdiği hisler ve ihtiyaçlar (kişi kendisi seçer) */
+  suggestions: { feelings: string[]; needs: string[] }
   submittedAt: string | null
 }
 

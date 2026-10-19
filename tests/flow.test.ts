@@ -712,8 +712,12 @@ describe('mesele başlığı sorulmaz', () => {
     const { ma, mb } = await pair()
     const { id } = await createDispute(ma)
     expect((await getDisputeView(ma, id)).title).toBe('Yeni mesele')
-    await reflectAnswers(ma, { disputeId: id, whatHappened: RAW_A, thought: 'Yine beni dinlemiyor' })
+    const r = await reflectAnswers(ma, { disputeId: id, whatHappened: RAW_A, thought: 'Yine beni dinlemiyor' })
     expect((await getDisputeView(mb, id)).title).toBe('Akşamki tartışma')
+    // Anlatılana göre önerilen his ve ihtiyaçlar saklanır; yalnızca sahibine döner
+    expect(r.suggestions).toEqual({ feelings: ['kirildim', 'gorulmedim'], needs: ['duyulmak', 'onemsenmek'] })
+    expect((await getDisputeView(ma, id)).mine.suggestions).toEqual(r.suggestions)
+    expect((await getDisputeView(mb, id)).mine.suggestions).toEqual({ feelings: [], needs: [] })
 
     const solo = await createCouple({ mode: 'solo', displayName: 'Deniz', partnerName: 'Can' })
     const ms = await authenticateMember(solo.token)

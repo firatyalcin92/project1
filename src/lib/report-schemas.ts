@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { FEELING_CHIPS, NEED_CHIPS } from './questions'
 
 /**
  * AI çıktı şemaları. Sunucu, modelden gelen JSON'u bu şemalarla doğrular;
@@ -38,6 +39,14 @@ export const ReflectionSchema = z.object({
     .describe(
       'Meseleye 2-4 kelimelik, suçlamasız, tarafsız bir ad (ör. "Cumartesi akşamı planı", "Annemlerin ziyareti"). Kimseyi suçlamaz, duygu içermez.',
     ),
+  suggestedFeelings: z
+    .array(z.enum(FEELING_CHIPS.map((c) => c.id) as [string, ...string[]]))
+    .max(4)
+    .describe('Anlatılana göre kişinin muhtemelen yaşadığı 2-4 duygu (listeden kimlik). Anlatım desteklemiyorsa boş.'),
+  suggestedNeeds: z
+    .array(z.enum(NEED_CHIPS.map((c) => c.id) as [string, ...string[]]))
+    .max(4)
+    .describe('Anlatılana göre kişinin muhtemel 2-4 ihtiyacı (listeden kimlik). Anlatım desteklemiyorsa boş.'),
 })
 
 export type Reflection = z.infer<typeof ReflectionSchema>
@@ -215,6 +224,12 @@ export const MyReportSchema = z.object({
     .min(1)
     .describe(
       'Partnerin o an iç dünyasında olan: hissettiği birincil duygu ve ihtiyacı, ihtiyaç diliyle. Partnerin cümlelerini ASLA aynen alıntılama.',
+    ),
+  partnerNeed: z
+    .string()
+    .min(1)
+    .describe(
+      'Partnerin bu tartışmadaki duygusal ihtiyacı; tek, doğrudan cümle (ör. "Ayşe’nin en çok ihtiyacı, sizin için öncelikli olduğunu bilmekti."). Bireysel modda olası ihtiyaç.',
     ),
   needGuess: z
     .object({

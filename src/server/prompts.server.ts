@@ -361,6 +361,9 @@ export function buildReflectionPrompt(input: {
 - Hissettiği olası duyguya nazikçe işaret edebilirsin ama etiketleme, yorum yapma, tavsiye verme, soru sorma.
 - Partner adı: ${input.partnerName || 'eşi'}.
 - Ayrıca meseleye 2-4 kelimelik, suçlamasız bir ad ver (title). Konuyu söylesin, kimseyi suçlamasın.
+- suggestedFeelings: Anlatılana göre ${genitive(input.name)} muhtemelen yaşadığı 2-4 duyguyu şu listeden seç (yalnızca kimlik): ${FEELING_CHIPS.map((c) => `${c.id} (${c.label})`).join(', ')}.
+- suggestedNeeds: Muhtemel 2-4 ihtiyacını şu listeden seç (yalnızca kimlik): ${NEED_CHIPS.map((c) => `${c.id} (${c.label})`).join(', ')}.
+- Bunlar yalnızca öneridir; kişi kendisi seçecek. Anlatım desteklemiyorsa boş bırak.
 
 Ne oldu: ${quote(input.whatHappened)}
 İçinden geçen düşünce: ${quote(input.thought)}`
@@ -461,7 +464,8 @@ ${HISTORY_RULE}
 - yourPlace: Döngüdeki yeri; 2 cümle, ortak döngüyü tekrar anlatmadan.
 - patterns: ${genitive(owner)} KENDİ cevaplarında gerçekten görülen bilişsel çarpıtma ve iletişim kalıpları (felaketleştirme, genelleme, zihin okuma, etiketleme, meli-malı, cezalandırma isteği, talep dili, suçlama, savunma, duvar örme). Görmüyorsan boş dizi ver; uydurma. Her birine yapıcı bir alternatif yaz.
 - needsLanguage: ${genitive(owner)} kendi ihtiyacını ("Kendi ihtiyacı" satırı) ${dative(partner)} suçlamadan nasıl söyleyeceğini öğret. insteadOf: muhtemelen kurduğu suçlayıcı ya da talep eden cümle. say: bunun yerine BİREBİR kurması gereken cümle (gözlem → duygu → ihtiyaç → rica), ${dative(partner)} "sen" diye.
-- understanding: ${dative(partner)} onun bakış açısını anladığını gösteren, birebir söylenecek bir cümle.
+- partnerNeed: ${genitive(partner)} bu tartışmadaki duygusal ihtiyacını TEK ve doğrudan bir cümleyle söyle.
+- understanding: Bu ihtiyaca karşılık ${dative(partner)} "sen" diye birebir söylenecek, onun ihtiyacını gördüğünü gösteren bir cümle.
 - tonight: Bu akşam konuşmayı nasıl yöneteceği: açılış cümlesi, 3 kısa adım, kaçınılacak tek şey.
 - selfChange: Kendinde değiştirmek istediği şeyi ("Kendinde müdahale etmesi gerektiğini düşündüğü şey" satırı) somut bir alışkanlığa çevir.
 - strength ve closing birer cümle.`
