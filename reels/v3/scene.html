@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels Top Graphics v3</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script>
+// Video 3: Siz kalkınca kalemi bırakıyorsa — planı çocuk yapsın (3 soru yöntemi). Altyazı yok.
+const DURATION = 68.28;
+const ZOOM_BUMPS = [[16.5, 17.9], [43.15, 44.85], [63.7, 65.1]];
+// Tam boy dikey kaynak; sağ alttaki filigran kırpma dışında kalır. Yüz biraz yukarıda olsun diye y=265.
+const AVATAR = { chain: 'scale=1620:2880:flags=lanczos,crop=1620:1440:0:265', focusY: 0.42 };
+const MID_FOLLOW = 37.9;
+const OVERLAYS = [[MID_FOLLOW, MID_FOLLOW + 4.7]];
+const CHUNKS = []; // altyazı kapalı: üst bölümdeki tipografi metni zaten taşıyor
+
+window.preload = () => Promise.all([
+  preloadFollow('../'),
+  loadImage('classroom.jpg').then(im => { IMG.classroom = im; }),
+  loadImage('boy.svg').then(im => { IMG.boy = im; }),
+]);
+
+// Görseli kutuyu dolduracak şekilde kırparak, yuvarlak köşeli çizer. (fx, fy): odak noktası, zoom ≥ 1
+function photo(img, cx, cy, w, h, r, zoom = 1, fx = 0.5, fy = 0.5) {
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const k = Math.max(w / iw, h / ih) * zoom;
+  const sw = w / k, sh = h / k;
+  const sx = clamp(fx * iw - sw / 2, 0, iw - sw), sy = clamp(fy * ih - sh / 2, 0, ih - sh);
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(cx - w / 2, cy - h / 2, w, h, r); ctx.clip();
+  ctx.drawImage(img, sx, sy, sw, sh, cx - w / 2, cy - h / 2, w, h);
+  ctx.restore();
+}
+
+function crossOut(x, y, r, p) {
+  if (p <= 0) return;
+  ctx.strokeStyle = C.coral; ctx.lineWidth = r * 0.22; ctx.lineCap = 'round';
+  const q1 = clamp(p * 2), q2 = clamp(p * 2 - 1);
+  ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x - r + 2 * r * q1, y - r + 2 * r * q1); ctx.stroke();
+  if (q2 > 0) { ctx.beginPath(); ctx.moveTo(x + r, y - r); ctx.lineTo(x + r - 2 * r * q2, y - r + 2 * r * q2); ctx.stroke(); }
+}
+
+function strike(x0, x1, y, t, t0) {
+  const p = eOut(prog(t, t0, 0.3));
+  if (p <= 0) return;
+  ctx.strokeStyle = C.coral; ctx.lineWidth = 12; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0, y + 3); ctx.lineTo(x0 + (x1 - x0) * p, y - 3); ctx.stroke();
+}
+
+function speech(label, size, bg, fg, tail = -1) {
+  font(size, 900);
+  const w = ctx.measureText(label).width + size * 1.4, h = size * 2.1;
+  shadow(true, 26, 10);
+  rrect(-w / 2, -h / 2, w, h, h / 2, bg);
+  ctx.beginPath(); ctx.moveTo(tail * w * 0.22 - 18, h / 2 - 4); ctx.lineTo(tail * w * 0.3, h / 2 + 26); ctx.lineTo(tail * w * 0.22 + 18, h / 2 - 4); ctx.closePath();
+  ctx.fillStyle = bg; ctx.fill();
+  shadow(false);
+  text(label, 0, 2, size, fg, 900);
+}
+
+// ---------- sahneler ----------
+const SCENES = [
+  { s: -0.4, e: 6.3, acc: C.sky, acc2: C.coral, draw: sHook },
+  { s: 6.3, e: 11.9, acc: C.coral, acc2: C.lilac, draw: sIssue },
+  { s: 11.9, e: 22.3, acc: C.lilac, acc2: C.sky, draw: sCommands },
+  { s: 22.3, e: 26.2, acc: C.yellow, acc2: C.mint, draw: sHow },
+  { s: 26.2, e: 34.6, acc: C.mint, acc2: C.sky, draw: sQuestions },
+  { s: 34.6, e: 41.9, acc: C.sky, acc2: C.yellow, draw: sPlan },
+  { s: 41.9, e: 48.6, acc: C.yellow, acc2: C.coral, draw: sDontFix },
+  { s: 48.6, e: 55.9, acc: C.mint, acc2: C.sky, draw: sGoal },
+  { s: 55.9, e: 60.3, acc: C.lilac, acc2: C.mint, draw: sSteps },
+  { s: 60.3, e: 999, acc: C.coral, acc2: C.lilac, draw: sFollow },
+];
+
+// 1) Siz kalkınca kalemi bırakıyor mu?
+function sHook(t) {
+  words('Siz masadan kalkınca...', 540, 270, t, 0.15, { size: 56, weight: 900 });
+  // masa
+  const dA = popA(t, 0.2, 0.3);
+  if (dA > 0) {
+    ctx.save(); ctx.globalAlpha *= dA; shadow(true, 24, 10);
+    rrect(180, 610, 720, 34, 14, '#B07A4E');
+    rrect(230, 644, 26, 100, 8, '#8A5C38'); rrect(824, 644, 26, 100, 8, '#8A5C38');
+    shadow(false); ctx.restore();
+  }
+  withT(400, 530, popS(t, 0.25, 0.5), 0, popA(t, 0.25), () => emoji('🧒', 0, 0, 150));
+  withT(560, 588, popS(t, 0.35, 0.5), 0, popA(t, 0.35), () => emoji('📒', 0, 0, 70));
+  // ebeveyn kalkıp gidiyor
+  const go = eInOut(prog(t, 0.8, 1.0));
+  withT(760 + 420 * go, 500, popS(t, 0.3, 0.5), go * 0.15, popA(t, 0.3) * (1 - go * 0.8), () => emoji('👩', 0, 0, 150));
+  // kalem düşüyor
+  const drop = eOut(prog(t, 1.6, 0.7));
+  withT(495 + 40 * drop, 545 + 50 * drop, popS(t, 0.4, 0.5), 0.6 + drop * 1.8, popA(t, 0.4), () => emoji('✏️', 0, 0, 64));
+  withT(540, 800, popS(t, 1.8, 0.5), 0, popA(t, 1.8), () => {
+    shadow(true); text('...kalemi bırakıyor mu? ✏️', 0, 0, 52, C.coral, 900); shadow(false);
+  });
+  withT(540, 365, popS(t, 3.9, 0.5), 0, popA(t, 3.9), () => pill('Değiştirmeniz gereken bir şey olabilir', '🔍', 32, C.yellow, C.ink));
+}
+
+// 2) Mesele yanında oturmak değil, her şeyi sizin yönetmeniz
+function sIssue(t) {
+  words('Ama mesele...', 540, 270, t, 6.47, { size: 54, weight: 900 });
+  withT(540, 420, popS(t, 7.3, 0.5), 0, popA(t, 7.3) * (1 - 0.45 * prog(t, 8.8, 0.4)), () => pill('Yanında oturmanız', '🪑', 44, C.white, C.ink));
+  strike(250, 830, 422, t, 8.76);
+  withT(540, 600, popS(t, 9.4, 0.55), -0.02, popA(t, 9.4), () => pill('Her şeyi sizin yönetmeniz', '🕹️', 48, C.coral, C.white));
+  withT(540, 775, popS(t, 11.0, 0.5), 0, popA(t, 11.0), () => {
+    shadow(true); text('olabilir.', 0, 0, 50, C.muted, 800); shadow(false);
+  });
+}
+
+// 3) Hep siz söylüyorsanız → çocuk yönlendirme bekler
+function sCommands(t) {
+  const aA = phase(t, 11.9, 17.55);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    withT(150, 520, popS(t, 12.0, 0.5), Math.sin(t * 3) * 0.05, popA(t, 12.0), () => { shadow(true, 30, 10); emoji('🗣️', 0, 0, 150); shadow(false); });
+    [['Ne zaman başlayacağını', '⏰', 12.05, 345], ['Hangi soruyu çözeceğini', '❓', 13.48, 475], ['Ne zaman mola vereceğini', '☕', 15.0, 605]].forEach(([l, em, t0, y], i) => {
+      withT(620, y, popS(t, t0, 0.45), (i - 1) * 0.02, popA(t, t0), () => pill(l, em, 36, C.white, C.ink));
+    });
+    withT(540, 770, popS(t, 16.5, 0.5), 0, popA(t, 16.5), () => {
+      shadow(true, 30, 10); text('hep siz söylüyorsanız...', 0, 0, 62, C.yellow, 900); shadow(false);
+    });
+    ctx.restore();
+  }
+  if (t < 17.6) return;
+  words('Çocuk kendi kendini yönetmek yerine', 540, 270, t, 17.79, { size: 46, weight: 800, color: C.muted, per: 0.1 });
+  withT(400, 520, popS(t, 18.3, 0.55), 0, popA(t, 18.3), () => { shadow(true, 40, 14); emoji('🧒', 0, 0, 170); shadow(false); });
+  // bekleme baloncuğu
+  withT(690, 430, popS(t, 19.3, 0.5), 0, popA(t, 19.3), () => {
+    shadow(true, 24, 8); rrect(-150, -62, 300, 124, 50, C.white); shadow(false);
+    circle(-130, 80, 14, C.white); circle(-160, 108, 8, C.white);
+    text('Şimdi ne? 🤷', 0, 2, 40, C.ink, 900);
+  });
+  // kum saati
+  withT(720, 600, popS(t, 19.6, 0.5), Math.sin(t * 2) * 0.3, popA(t, 19.6), () => emoji('⏳', 0, 0, 80));
+  words('*yönlendirmenizi beklemeye alışabilir', 540, 770, t, 19.9, { size: 48, weight: 900, accent: C.yellow, per: 0.25 });
+}
+
+// 4) Peki nasıl değiştireceğiz?
+function sHow(t) {
+  withT(540, 410, popS(t, 22.5, 0.55), Math.sin(t * 3) * 0.08, popA(t, 22.5), () => { shadow(true, 40, 14); emoji('🤔', 0, 0, 160); shadow(false); });
+  words('Peki bunu nasıl *değiştireceğiz?', 540, 600, t, 22.54, { size: 60, weight: 900, per: 0.16 });
+  withT(540, 740, popS(t, 24.6, 0.5), 0, popA(t, 24.6), () => pill('Küçük bir yöntem', '💡', 46, C.yellow, C.ink));
+}
+
+// 5) Derse başlamadan önce 3 soru
+function sQuestions(t) {
+  const aA = phase(t, 26.2, 29.2);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Derse başlamadan önce...', 540, 270, t, 26.31, { size: 54, weight: 900 });
+    const z = 1 + 0.04 * prog(t, 26.4, 3);
+    withT(540, 560, popS(t, 26.4, 0.6), -0.02, popA(t, 26.4), () => {
+      shadow(true, 40, 16, 'rgba(0,0,0,0.45)');
+      rrect(-215, -215, 430, 430, 46, '#FFC05C');
+      shadow(false);
+      photo(IMG.boy, 0, 0, 430, 430, 46, z, 0.55, 0.5);
+    });
+    withT(770, 720, popS(t, 28.4, 0.5), 0.1, popA(t, 28.4), () => {
+      shadow(true, 30, 10); rrect(-150, -60, 300, 120, 60, C.mint); shadow(false);
+      text('3 soru ❓', 0, 2, 52, C.ink, 900);
+    });
+    ctx.restore();
+  }
+  if (t < 29.25) return;
+  words('Çocuğunuza *3 *soru sorun', 540, 270, t, 29.3, { size: 54, weight: 900, accent: C.mint });
+  [['Önce ne yapacaksın?', 29.5, C.sky], ['Takıldığında ne deneyeceksin?', 30.81, C.yellow], ['Ben ne zaman gelip kontrol edeyim?', 32.74, C.coral]].forEach(([q, t0, col], i) => {
+    const y = 420 + i * 150;
+    withT(100, y, 1, 0, popA(t, t0, 0.25), () => {
+      const dx = -40 * (1 - eOut(prog(t, t0, 0.45)));
+      withT(dx, 0, popS(t, t0, 0.45), 0, 1, () => { circle(0, 0, 40, col); text(String(i + 1), 0, 3, 46, C.ink, 900); });
+      font(42, 900);
+      const w = ctx.measureText(q).width + 60;
+      shadow(true, 22, 8); rrect(dx + 62, -46, w, 92, 30, 'rgba(255,255,255,0.96)'); shadow(false);
+      text(q, dx + 92, 2, 42, C.ink, 900, 'left');
+    });
+  });
+}
+
+// 6) Planı çocuk oluştursun, kağıda yazın, süre sonunda kontrol edin
+function sPlan(t) {
+  words('Planı *çocuğunuz oluştursun ✍️', 540, 270, t, 34.72, { size: 52, weight: 900, accent: C.sky });
+  const aA = phase(t, 34.6, 37.75);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    withT(330, 540, popS(t, 34.8, 0.5), 0, popA(t, 34.8) * (1 - 0.4 * prog(t, 35.4, 0.3)), () => emoji('👩', 0, 0, 160));
+    crossOut(330, 540, 75, prog(t, 35.36, 0.4));
+    withT(750, 540, popS(t, 35.85, 0.55), 0, popA(t, 35.85), () => {
+      ctx.strokeStyle = C.mint; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(0, 0, 112, 0, Math.PI * 2 * eOut(prog(t, 36.2, 0.5))); ctx.stroke();
+      emoji('🧒', 0, 0, 160);
+    });
+    withT(540, 760, popS(t, 36.5, 0.5), 0, popA(t, 36.5), () => text('Sizin değil, onun planı', 0, 0, 46, C.white, 900));
+    ctx.restore();
+  }
+  if (t < 37.8) return;
+  // kağıt
+  withT(540, 575, popS(t, 37.95, 0.55), -0.025, popA(t, 37.95), () => {
+    shadow(true, 40, 16, 'rgba(0,0,0,0.45)'); rrect(-300, -230, 600, 460, 26, '#FFFDF5'); shadow(false);
+    for (let i = 0; i < 6; i++) { ctx.fillStyle = 'rgba(79,179,255,0.25)'; ctx.fillRect(-270, -130 + i * 62, 540, 2); }
+    ctx.fillStyle = 'rgba(255,94,108,0.4)'; ctx.fillRect(-220, -230, 3, 460);
+    text('PLANIM ✍️', -190, -180, 40, C.ink, 900, 'left');
+    [['1. Önce: 2 soru', 38.5], ['2. Takılırsam: örneğe bakarım', 38.9], ['3. Kontrol: 15 dk sonra ⏰', 39.6]].forEach(([l, t0], i) => {
+      const p = prog(t, t0, 0.5);
+      if (p <= 0) return;
+      const cy = -99 + i * 62;
+      ctx.save(); ctx.beginPath(); ctx.rect(-200, cy - 31, 470 * eOut(p), 62); ctx.clip();
+      text(l, -195, cy + 2, 34, '#2B3A67', 700, 'left');
+      ctx.restore();
+    });
+  });
+  withT(800, 785, popS(t, 41.0, 0.5), -0.15, popA(t, 41.0), () => {
+    rrect(-150, -48, 300, 96, 18, null, C.mint, 7);
+    text('ANLAŞTIK ✓', 0, 3, 40, C.mint, 900);
+  });
+}
+
+// 7) Kontrolde hemen düzeltmeyin, sorun
+function sDontFix(t) {
+  words('Kontrol ettiğinizde...', 540, 270, t, 41.98, { size: 54, weight: 900 });
+  withT(540, 400, popS(t, 43.2, 0.5) * (1 + 0.06 * Math.sin(prog(t, 43.7, 0.5) * Math.PI)), 0, popA(t, 43.2), () => pill('Hemen düzeltmeyin', '🚫', 48, C.coral, C.white));
+  withT(380, 570, popS(t, 45.0, 0.5), -0.03, popA(t, 45.0), () => speech('“Nerede takıldın?”', 40, C.white, C.ink, -1));
+  withT(620, 700, popS(t, 46.1, 0.5), 0.02, popA(t, 46.1), () => speech('“Kendin ne denedin?”', 40, C.yellow, C.ink, 1));
+  withT(540, 830, popS(t, 47.9, 0.45), 0, popA(t, 47.9), () => { shadow(true); text('diye sorun 💬', 0, 0, 44, C.muted, 800); shadow(false); });
+}
+
+// 8) Amaç: başında beklemek değil, kendi çalışmasını yönetebilmesi
+function sGoal(t) {
+  words('Amacımız...', 540, 270, t, 49.03, { size: 54, weight: 900 });
+  const aA = phase(t, 48.6, 52.2);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    withT(540, 480, popS(t, 49.9, 0.5), 0, popA(t, 49.9) * (1 - 0.45 * prog(t, 51.7, 0.4)), () => pill('Başında sürekli beklemek', '⏳', 44, C.white, C.ink));
+    strike(180, 900, 482, t, 51.72);
+    ctx.restore();
+  }
+  if (t < 52.1) return;
+  const z = 1.05 + 0.08 * prog(t, 52.2, 4);
+  withT(540, 545, popS(t, 52.2, 0.6), 0, popA(t, 52.2), () => {
+    shadow(true, 40, 16, 'rgba(0,0,0,0.45)'); rrect(-410, -215, 820, 430, 40, '#000'); shadow(false);
+    photo(IMG.classroom, 0, 0, 820, 430, 40, z, 0.52, 0.42);
+  });
+  withT(540, 790, popS(t, 52.8, 0.5), 0, popA(t, 52.8), () => pill('Kendi çalışmasını yönetebilmesi', '✅', 40, C.mint, C.ink));
+}
+
+// 9) Yaşına ve becerilerine göre adım adım
+function sSteps(t) {
+  words('Yaşına ve becerilerine göre', 540, 270, t, 56.07, { size: 52, weight: 900 });
+  const steps = 4, sw = 170, sh = 70, x0 = 200, yb = 840;
+  for (let i = 0; i < steps; i++) {
+    const t0 = 56.6 + i * 0.25;
+    withT(x0 + i * sw + sw / 2, yb - (i + 1) * sh / 2, 1, 0, popA(t, t0, 0.3), () => {
+      const h = (i + 1) * sh, rise = eOut(prog(t, t0, 0.4));
+      rrect(-sw / 2 + 4, h / 2 - h * rise, sw - 8, h * rise, 14, [C.sky, C.mint, C.yellow, C.coral][i]);
+    });
+  }
+  // çocuk basamakları tırmanıyor
+  const climb = clamp((t - 58.6) / 1.4) * 3;
+  const k = Math.floor(climb), f = climb - k;
+  const xi = Math.min(3, k + eInOut(f)), hop = Math.sin(f * Math.PI) * 40 * (k < 3 ? 1 : 0);
+  withT(x0 + xi * sw + sw / 2, yb - (Math.min(3, k + f) + 1) * sh - 60 - hop, popS(t, 57.2, 0.5), 0, popA(t, 57.2), () => emoji('🧒', 0, 0, 100));
+  withT(540, 390, popS(t, 58.95, 0.5), 0, popA(t, 58.95), () => {
+    shadow(true, 30, 10); text('adım adım 👣', 0, 0, 74, C.yellow, 900); shadow(false);
+  });
+}
+
+// 10) Kapanış: takip et
+function sFollow(t) {
+  withT(540, 365, popS(t, 60.45, 0.6), 0, popA(t, 60.45), () => profilePic(0, 0, 100, t));
+  withT(540, 520, popS(t, 60.7, 0.5), 0, popA(t, 60.7), () => { shadow(true); text(USERNAME, 0, 0, 52, C.white, 900); shadow(false); });
+  withT(345, 595, popS(t, 60.71, 0.45), 0, popA(t, 60.71), () => pill('Çocuk gelişimi', '🌱', 30, 'rgba(255,255,255,0.12)', C.white));
+  withT(735, 595, popS(t, 61.67, 0.45), 0, popA(t, 61.67), () => pill('Çocuk psikolojisi', '🧠', 30, 'rgba(255,255,255,0.12)', C.white));
+  const TAP = 63.95;
+  const press = Math.sin(prog(t, TAP - 0.05, 0.3) * Math.PI);
+  withT(540, 705, popS(t, 62.5, 0.5), 0, popA(t, 62.5), () => {
+    const pulse = t < TAP ? 1 + 0.03 * Math.sin(t * 7) : 1;
+    ctx.scale(pulse, pulse);
+    followButton(0, 0, 380, 92, 40, prog(t, TAP + 0.05, 0.4), press, true);
+  });
+  tapHand(540, 705, t, TAP);
+  hearts(540, 705, t, TAP + 0.1, 8, 2.2, 0.35);
+  const byeA = 1 - prog(t, 67.2, 0.25);
+  withT(540, 810, 1, 0, popA(t, 65.17, 0.3) * byeA, () => {
+    text('Sonraki videolarda görüşmek üzere 👋', 0, (1 - eOut(prog(t, 65.17, 0.4))) * 20, 40, C.muted, 800);
+  });
+  withT(540, 810, popS(t, 67.35, 0.45), 0, popA(t, 67.35), () => text('Sağlıkla kalın 💚', 0, 0, 52, C.mint, 900));
+}
+
+// ---------- videonun ortası: avatarın üstünde kompakt takip kartı ----------
+window.OVERLAY = t => followCardOverlay(t, MID_FOLLOW, 700, 0.3);
+</script>
+</body>
+</html>

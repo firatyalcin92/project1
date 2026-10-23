@@ -16,7 +16,7 @@ for s, e in sil:
     cur = e
 if dur - cur > 0.15: segs.append((cur, dur))
 
-SPOKEN = {'7-8': 4, '10-15': 3, '9-10': 3, '15-20': 4, '11-12': 5, '20-30': 4, 'MOXO': 2}
+SPOKEN = {'7-8': 4, '10-15': 3, '9-10': 3, '15-20': 4, '11-12': 5, '20-30': 4, 'MOXO': 2, '3': 1}
 words = open(script).read().split()
 def syl(w):
     core = re.sub(r'[^\w-]', '', w)
