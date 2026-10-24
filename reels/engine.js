@@ -239,6 +239,28 @@ window.renderFrame = function (t) {
   chrome(t);
 };
 
+// Kare çizilmeden önce asenkron hazırlık (ör. üst bölümde oynayan klibin karesini yüklemek)
+window.prepareFrame = async function (t) {
+  await prepareClips(t);
+  if (window.PREPARE) await window.PREPARE(t);
+};
+
+// Üst bölümde oynayan klipler: TOP_CLIPS = [{ name, src, from, start, end }, ...].
+// render.cjs kareleri 25 fps JPG olarak CLIP_BASE/<name>/00001.jpg... altına çıkarır.
+const clipFrames = {};
+async function prepareClips(t) {
+  if (typeof TOP_CLIPS === 'undefined' || !window.CLIP_BASE) return;
+  for (const c of TOP_CLIPS) {
+    if (t < c.start - 0.5 || t > c.end + 0.5) { delete clipFrames[c.name]; continue; }
+    const n = Math.max(1, Math.round((c.end - c.start) * 25));
+    const i = clamp(Math.floor((t - c.start) * 25), 0, n - 1) + 1;
+    if (clipFrames[c.name] && clipFrames[c.name].i === i) continue;
+    const im = await loadImage(`${window.CLIP_BASE}/${c.name}/${String(i).padStart(5, '0')}.jpg`);
+    clipFrames[c.name] = { i, im };
+  }
+}
+function clipFrame(name) { return clipFrames[name] ? clipFrames[name].im : null; }
+
 // Saydam bindirme katmanı; videoya özel OVERLAY(t) tanımlıysa çizer
 window.renderOverlay = function (t) {
   if (!octx) return;

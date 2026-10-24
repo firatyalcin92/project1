@@ -9,6 +9,8 @@
 //   ZOOM_BUMPS = [[başlangıç, bitiş], ...]      avatarın hafifçe yakınlaştığı vurgu anları
 //   AVATAR = { chain, focusY }                   avatarı 1620x1440'a getiren FFmpeg zinciri + yüzün dikey konumu
 //   OVERLAYS = [[başlangıç, bitiş], ...]         alt bölüme bindirilen saydam katmanın (OVERLAY) aktif olduğu aralıklar
+//   BOTTOM_CLIPS = [{ src, start, end, from, focusY }, ...]
+//                                                alt bölümde avatarın yerine oynatılan klipler (src sahne klasörüne göre)
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -34,8 +36,28 @@ async function launch() {
     zoom: typeof ZOOM_BUMPS !== 'undefined' ? ZOOM_BUMPS : [],
     avatar: typeof AVATAR !== 'undefined' ? AVATAR : null,
     overlays: typeof OVERLAYS !== 'undefined' ? OVERLAYS : [],
+    bottomClips: typeof BOTTOM_CLIPS !== 'undefined' ? BOTTOM_CLIPS : [],
+    topClips: typeof TOP_CLIPS !== 'undefined' ? TOP_CLIPS : [],
   }));
+  if (config.topClips.length) await page.evaluate(base => { window.CLIP_BASE = base; }, extractTopClips(config.topClips));
   return { browser, page, config };
+}
+
+// Üst bölüm klip pencerelerini 25 fps JPG karelerine çıkarır (aynı ayar için tekrar kullanılır)
+function extractTopClips(clips) {
+  const sceneDir = path.dirname(new URL(SCENE).pathname);
+  const key = require('crypto').createHash('md5').update(SCENE + JSON.stringify(clips)).digest('hex').slice(0, 10);
+  const base = path.join(require('os').tmpdir(), `reels-clips-${key}`);
+  for (const c of clips) {
+    const dir = path.join(base, c.name);
+    if (fs.existsSync(path.join(dir, '00001.jpg'))) continue;
+    fs.mkdirSync(dir, { recursive: true });
+    require('child_process').execFileSync('ffmpeg', [
+      '-v', 'error', '-y', '-ss', String(c.from), '-t', String(c.end - c.start + 0.2), '-i', path.join(sceneDir, c.src),
+      '-vf', `fps=${FPS}`, '-q:v', '3', path.join(dir, '%05d.jpg'),
+    ]);
+  }
+  return 'file://' + base;
 }
 
 async function overlayFrame(page, t) {
@@ -44,7 +66,10 @@ async function overlayFrame(page, t) {
 }
 
 async function frame(page, t) {
-  await page.evaluate(tt => window.renderFrame(tt), t);
+  await page.evaluate(async tt => {
+    if (window.prepareFrame) await window.prepareFrame(tt);
+    window.renderFrame(tt);
+  }, t);
   return page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1080, height: 960 } });
 }
 
@@ -75,6 +100,22 @@ async function render(avatar, output) {
   const ovDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'reels-ov-'));
   const ovInputs = [], ovFilters = [];
   let avLabel = 'av';
+  let nextInput = 2;
+
+  // Alt bölümde avatarın yerine geçen klipler (yumuşak geçişle)
+  const sceneDir = path.dirname(new URL(SCENE).pathname);
+  for (const [k, c] of config.bottomClips.entries()) {
+    const dur = c.end - c.start;
+    ovInputs.push('-i', path.join(sceneDir, c.src));
+    ovFilters.push(
+      `[${nextInput++}:v]trim=start=${c.from}:duration=${dur.toFixed(3)},setpts=PTS-STARTPTS+${c.start}/TB,fps=${FPS},` +
+        `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:960:(iw-1080)/2:(ih-960)*${c.focusY},setsar=1,format=yuva420p,` +
+        `fade=t=in:st=${c.start}:d=0.35:alpha=1,fade=t=out:st=${(c.end - 0.35).toFixed(3)}:d=0.35:alpha=1[bc${k}]`,
+    );
+    ovFilters.push(`[${avLabel}][bc${k}]overlay=0:0:eof_action=pass:enable='between(t,${c.start},${c.end})'[avc${k}]`);
+    avLabel = `avc${k}`;
+  }
+
   for (const [k, [s, e]] of config.overlays.entries()) {
     const dir = path.join(ovDir, String(k));
     fs.mkdirSync(dir);
@@ -83,7 +124,7 @@ async function render(avatar, output) {
       fs.writeFileSync(path.join(dir, `${String(f - f0).padStart(5, '0')}.png`), await overlayFrame(page, f / FPS));
     }
     ovInputs.push('-framerate', String(FPS), '-i', path.join(dir, '%05d.png'));
-    ovFilters.push(`[${k + 2}:v]format=rgba,setpts=PTS+${(f0 / FPS).toFixed(3)}/TB[ov${k}]`);
+    ovFilters.push(`[${nextInput++}:v]format=rgba,setpts=PTS+${(f0 / FPS).toFixed(3)}/TB[ov${k}]`);
     ovFilters.push(`[${avLabel}][ov${k}]overlay=0:0:eof_action=pass:enable='between(t,${(f0 / FPS).toFixed(3)},${(f1 / FPS).toFixed(3)})'[av${k}]`);
     avLabel = `av${k}`;
   }
@@ -104,7 +145,9 @@ async function render(avatar, output) {
     '-filter_complex', filter,
     '-map', '[v]', '-map', '[a]',
     '-frames:v', String(frames),
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', process.env.REELS_CRF || '17', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+    // Uzun videolarda dosya boyutunu sınırlamak için: REELS_MAXRATE=4M
+    ...(process.env.REELS_MAXRATE ? ['-maxrate', process.env.REELS_MAXRATE, '-bufsize', String(parseInt(process.env.REELS_MAXRATE) * 2) + 'M'] : []),
     '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart',
     output,
   ], { stdio: ['pipe', 'inherit', 'inherit'] });

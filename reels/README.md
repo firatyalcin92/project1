@@ -13,6 +13,7 @@
 | `v2/scene.html`, `v2/final_reels.mp4` | Video 2 — Çocuk masada neden duramıyor? (102 sn), ortada ve sonda takip et animasyonu |
 | `v2/align.py`, `v2/script.txt`, `v2/words.js` | Seslendirme metninin sesle kelime düzeyinde hizalanması |
 | `v3/scene.html`, `v3/final_reels.mp4` | Video 3 — Planı çocuk yapsın, 3 soru yöntemi (68 sn), altyazısız, fotoğraf ve illüstrasyonlu |
+| `v4/scene.html`, `v4/clips/`, `v4/final_reels.mp4` | Video 4 — Mükemmeliyetçi çocuklar (162 sn), altyazısız; hazır çocuk klipleri üstte kart içinde (`TOP_CLIPS`) ve altta avatarın yerinde (`BOTTOM_CLIPS`) |
 
 ```bash
 # Video 1
@@ -21,6 +22,8 @@ NODE_PATH=$(npm root -g) node render.cjs avatar.mp4 final_reels.mp4
 NODE_PATH=$(npm root -g) node render.cjs --scene v2/scene.html v2/avatar.mp4 v2/final_reels.mp4
 # Video 3
 NODE_PATH=$(npm root -g) node render.cjs --scene v3/scene.html v3/avatar.mp4 v3/final_reels.mp4
+# Video 4 (uzun video: dosya GitHub'ın 100 MB sınırının altında kalsın diye bit hızı sınırlı)
+REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v4/scene.html v4/avatar.mp4 v4/final_reels.mp4
 # hızlı kontrol: seçili anları preview/ altına PNG olarak kaydeder (o_*.png = alt bindirme katmanı)
 NODE_PATH=$(npm root -g) node render.cjs --scene v2/scene.html --preview 1,54.5,98
 ```
@@ -35,6 +38,6 @@ python3 v2/align.py v2/avatar.mp4 v2/script.txt 7-8@18.15 10-15@19.40 9-10@20.79
 python3 -c "import json; open('v2/words.js','w').write('const WORDS = '+json.dumps(json.load(open('words.json')),ensure_ascii=False)+';\n')"
 ```
 
-Video 3'te seslendirme metni verilmediği için konuşma, sherpa-onnx ile çalışan Whisper (medium) modeliyle yazıya döküldü, elle düzeltildi (`v3/script.txt`) ve `align.py` ile hizalandı.
+Video 3'te seslendirme metni verilmediği için konuşma, sherpa-onnx ile çalışan Whisper (medium) modeliyle yazıya döküldü, elle düzeltildi (`v3/script.txt`) ve `align.py` ile hizalandı. Video 4'te metin verildi; Whisper dökümünün parça başlangıçları `align.py`'ye zaman çapası olarak verildi.
 
 Gereksinimler: Node + Playwright (Chromium), FFmpeg, Python 3, Inter Display ve Noto Color Emoji fontları.

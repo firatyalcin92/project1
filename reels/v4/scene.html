@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels Top Graphics v4</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script>
+// Video 4: Mükemmeliyetçi çocuklar. Altyazı yok; hazır çocuk klipleri üstte kart içinde ya da altta avatarın yerinde.
+const DURATION = 161.64;
+const ZOOM_BUMPS = [[56.5, 57.6], [89.8, 92.6], [115.8, 119.0], [159.4, 160.6]];
+// Tam boy dikey kaynak; sağ alttaki filigran kırpma dışında kalır.
+const AVATAR = { chain: 'scale=1620:2880:flags=lanczos,crop=1620:1440:0:265', focusY: 0.42 };
+const MID_FOLLOW = 102.8;
+const OVERLAYS = [[MID_FOLLOW, MID_FOLLOW + 4.7]];
+const CHUNKS = []; // altyazı kapalı
+
+// Altta avatarın yerine geçen klipler (avatarın sesi devam eder)
+const BOTTOM_CLIPS = [
+  { src: 'clips/kure.mp4', start: 12.55, end: 15.55, from: 1.0, focusY: 0.3 },
+  { src: 'clips/uzgun.mp4', start: 15.55, end: 19.3, from: 4.0, focusY: 0.6 },
+  { src: 'clips/bloklar.mp4', start: 63.75, end: 67.75, from: 0.5, focusY: 0.08 },
+  { src: 'clips/bloklar.mp4', start: 123.0, end: 128.0, from: 8.5, focusY: 0.08 },
+];
+// Üst bölümde kart içinde oynayan klipler
+const TOP_CLIPS = [
+  { name: 'uzgun', src: 'clips/uzgun.mp4', from: 0.2, start: 67.6, end: 72.4 },
+  { name: 'kure', src: 'clips/kure.mp4', from: 7.0, start: 72.2, end: 78.6 },
+];
+
+window.preload = () => preloadFollow('../');
+
+function noWay(label, em, y, t, t0, tStrike, size = 44) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0) * (1 - 0.45 * prog(t, tStrike + 0.1, 0.4)), () => pill(label, em, size, 'rgba(255,255,255,0.9)', C.ink));
+  if (t >= tStrike) {
+    font(size, 800);
+    const w = ctx.measureText(label).width + size * 1.25 + 70;
+    strike(540 - w / 2 - 20, 540 + w / 2 + 20, y, t, tStrike);
+  }
+}
+
+function quoteCard(str, cx, cy, w, h, t, t0, o = {}) {
+  const { bg = C.white, fg = C.ink, size = 44, accent = C.coral, per = 0.1, rot = 0 } = o;
+  withT(cx, cy, popS(t, t0, 0.55), rot, popA(t, t0), () => {
+    shadow(true, 36, 14); rrect(-w / 2, -h / 2, w, h, 40, bg); shadow(false);
+    text('“', -w / 2 + 44, -h / 2 + 46, 90, accent, 900);
+    para(str, 0, 6, w - 110, t, t0 + 0.15, { size, weight: 900, color: fg, accent, per });
+  });
+}
+
+// ---------- sahneler ----------
+const SCENES = [
+  { s: -0.4, e: 3.3, acc: C.yellow, acc2: C.coral, draw: sTitle },
+  { s: 3.3, e: 10.6, acc: C.coral, acc2: C.lilac, draw: sFear },
+  { s: 10.6, e: 19.4, acc: C.sky, acc2: C.coral, draw: sTeacher },
+  { s: 19.4, e: 26.2, acc: C.coral, acc2: C.yellow, draw: sJustGame },
+  { s: 26.2, e: 32.4, acc: C.lilac, acc2: C.sky, draw: sNotLosing },
+  { s: 32.4, e: 34.5, acc: C.yellow, acc2: C.mint, draw: sWhat },
+  { s: 34.5, e: 48.3, acc: C.sky, acc2: C.lilac, draw: sSource },
+  { s: 48.3, e: 57.5, acc: C.coral, acc2: C.yellow, draw: sChangeSelf },
+  { s: 57.5, e: 63.6, acc: C.mint, acc2: C.sky, draw: sSteps },
+  { s: 63.6, e: 72.3, acc: C.sky, acc2: C.mint, draw: sGame },
+  { s: 72.3, e: 78.4, acc: C.mint, acc2: C.yellow, draw: sHomework },
+  { s: 78.4, e: 86.0, acc: C.lilac, acc2: C.mint, draw: sKeepGoing },
+  { s: 86.0, e: 93.1, acc: C.coral, acc2: C.lilac, draw: sLove },
+  { s: 93.1, e: 106.5, acc: C.yellow, acc2: C.coral, draw: sConsistency },
+  { s: 106.5, e: 119.2, acc: C.mint, acc2: C.sky, draw: sModel },
+  { s: 119.2, e: 132.8, acc: C.yellow, acc2: C.mint, draw: sPraise },
+  { s: 132.8, e: 138.6, acc: C.coral, acc2: C.lilac, draw: sAvoid },
+  { s: 138.6, e: 147.8, acc: C.mint, acc2: C.sky, draw: sInstead },
+  { s: 147.8, e: 156.4, acc: C.yellow, acc2: C.lilac, draw: sRemember },
+  { s: 156.4, e: 999, acc: C.coral, acc2: C.lilac, draw: sFollow },
+];
+
+// 1) Başlık
+function sTitle(t) {
+  withT(540, 400, popS(t, 0.15, 0.6), Math.sin(t * 2) * 0.05, popA(t, 0.15), () => { shadow(true, 50, 0, 'rgba(255,201,60,0.6)'); emoji('🏆', 0, 0, 170); shadow(false); });
+  withT(760, 330, popS(t, 0.6, 0.5), 0.15, popA(t, 0.6), () => {
+    rrect(-95, -42, 190, 84, 42, C.coral); text('%100', 0, 3, 46, C.white, 900);
+  });
+  words('*Mükemmeliyetçi', 540, 620, t, 0.17, { size: 92, weight: 900 });
+  words('çocuklar', 540, 720, t, 0.98, { size: 80, weight: 900 });
+  for (let i = 0; i < 5; i++) {
+    const tw = 0.6 + 0.4 * Math.sin(t * 6 + i * 1.3);
+    star([250, 830, 300, 860, 540][i], [300, 450, 470, 560, 245][i], 22 * tw * popS(t, 0.5 + i * 0.1, 0.4), i % 2 ? C.yellow : C.white, t);
+  }
+}
+
+// 2) Yanlış yapma korkusu; defalarca silip yeniden yapma
+function sFear(t) {
+  const aA = phase(t, 3.3, 7.3);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Yanlış yapmaktan *korkuyor', 540, 275, t, 3.4, { size: 56, weight: 900, accent: C.coral });
+    withT(540, 500, popS(t, 4.1, 0.55), Math.sin(t * 18) * 0.04, popA(t, 4.1), () => { shadow(true, 40, 14); emoji('😰', 0, 0, 180); shadow(false); });
+    withT(540, 730, popS(t, 6.2, 0.5), 0, popA(t, 6.2), () => pill('Hiç başlamıyor', '⛔', 46, C.coral, C.white));
+    ctx.restore();
+  }
+  if (t < 7.3) return;
+  words('Ya da...', 540, 275, t, 7.35, { size: 52, weight: 900 });
+  // kağıt: yazılıp silinen satır
+  withT(540, 520, popS(t, 7.45, 0.5), -0.02, popA(t, 7.45), () => {
+    shadow(true, 36, 14); rrect(-300, -170, 600, 340, 28, '#FFFDF5'); shadow(false);
+    for (let i = 0; i < 4; i++) { ctx.fillStyle = 'rgba(79,179,255,0.25)'; ctx.fillRect(-260, -90 + i * 70, 520, 2); }
+    const cyc = (t - 7.6) / 0.75;
+    const k = Math.max(0, cyc - Math.floor(cyc));
+    const write = k < 0.6 ? k / 0.6 : 1, erase = k < 0.6 ? 0 : (k - 0.6) / 0.4;
+    ctx.save(); ctx.beginPath(); ctx.rect(-240 + 480 * erase, -60, 480 * (write - erase), 80); ctx.clip();
+    text('2 + 3 = 5', 0, -20, 64, '#2B3A67', 800);
+    ctx.restore();
+    if (erase > 0) withT(-240 + 480 * erase, -20, 1, 0.3, 1, () => emoji('🧽', 0, 0, 70));
+    else withT(-240 + 480 * write, -10, 1, 0.5, 1, () => emoji('✏️', 0, 0, 60));
+    text(`× ${Math.max(1, Math.floor(cyc) + 1)}`, 220, 110, 52, C.coral, 900);
+  });
+  words('Defalarca *silip yeniden yapıyor', 540, 770, t, 8.2, { size: 50, weight: 900, accent: C.coral, per: 0.12 });
+}
+
+// 3) Öğretmen aradı: ödüllü yarışma, kazanamadı
+function sTeacher(t) {
+  const aA = phase(t, 10.6, 12.45, 0.25);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    withT(540, 500, popS(t, 10.75, 0.55), 0, popA(t, 10.75), () => {
+      shadow(true, 40, 16); rrect(-210, -260, 420, 520, 56, '#111827'); shadow(false);
+      for (let k = 0; k < 2; k++) {
+        const ph = ((t - 10.8) * 1.2 + k / 2) % 1;
+        ctx.strokeStyle = `rgba(52,211,153,${0.7 * (1 - ph)})`; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(0, -70, 70 + 70 * ph, 0, Math.PI * 2); ctx.stroke();
+      }
+      circle(0, -70, 70, C.lilac); emoji('👩‍🏫', 0, -70, 80);
+      text('Öğretmen', 0, 50, 44, C.white, 900);
+      text('arıyor...', 0, 100, 30, C.muted, 700);
+      withT(0, 190, 1, Math.sin(t * 25) * 0.15, 1, () => { circle(0, 0, 42, C.mint); emoji('📞', 0, 0, 44); });
+    });
+    ctx.restore();
+  }
+  if (t < 12.45) return;
+  words('“Sınıfta *ödüllü bir yarışma yaptık...”', 540, 275, t, 12.6, { size: 46, weight: 900, accent: C.yellow, per: 0.13 });
+  withT(540, 480, popS(t, 13.4, 0.55), 0, popA(t, 13.4) * (1 - 0.5 * prog(t, 14.5, 0.4)), () => { shadow(true, 50, 0, 'rgba(255,201,60,0.6)'); emoji('🏆', 0, 0, 170); shadow(false); });
+  withT(540, 480, popS(t, 14.45, 0.5), 0, popA(t, 14.45), () => { ctx.globalAlpha *= 0.9; crossOut(0, 0, 95, prog(t, 14.6, 0.4)); });
+  withT(540, 660, popS(t, 14.5, 0.5), 0, popA(t, 14.5), () => pill('Meryem kazanamadı', '😢', 44, C.white, C.ink));
+  const shake = Math.sin(t * 50) * 10 * (1 - prog(t, 15.7, 0.6));
+  withT(540 + shake, 780, popS(t, 15.65, 0.5), -0.03, popA(t, 15.65), () => {
+    shadow(true, 30, 10); text('Ortalığı birbirine kattı! 💥', 0, 0, 54, C.coral, 900); shadow(false);
+  });
+}
+
+// 4) "Alt tarafı bir oyun" demek işe yaramaz
+function sJustGame(t) {
+  words('Böyle durumlarda sürekli...', 540, 275, t, 19.65, { size: 46, color: C.muted });
+  quoteCard('Alt tarafı bir oyun, kazanmasan n’olacak sanki!', 540, 500, 820, 250, t, 21.4, { size: 54, accent: C.coral, per: 0.13, rot: -0.02 });
+  withT(560, 740, popS(t, 25.2, 0.5) * (1 + 0.6 * (1 - eOut(prog(t, 25.2, 0.25)))), -0.08, popA(t, 25.2, 0.12), () => {
+    ctx.fillStyle = 'rgba(10,15,39,0.75)'; ctx.beginPath(); ctx.roundRect(-270, -52, 540, 104, 18); ctx.fill();
+    rrect(-270, -52, 540, 104, 18, null, C.coral, 8);
+    text('İŞE YARAMAZ ✖', 0, 3, 56, C.coral, 900);
+  });
+}
+
+// 5) Mesele kaybetmek değil, yeterince iyi olamadığını düşünmek
+function sNotLosing(t) {
+  words('Çünkü mesele...', 540, 275, t, 26.4, { size: 54, weight: 900 });
+  noWay('Sadece kaybetmek', '🎲', 420, t, 28.3, 29.35);
+  withT(540, 640, popS(t, 30.0, 0.55), 0, popA(t, 30.0), () => {
+    shadow(true, 36, 14);
+    rrect(-380, -95, 760, 190, 95, C.white);
+    circle(-250, 125, 22, C.white); circle(-290, 165, 13, C.white);
+    shadow(false);
+    text('💭 “Yeterince iyi değilim”', 0, 4, 54, C.ink, 900);
+  });
+  withT(160, 800, popS(t, 30.8, 0.5), 0, popA(t, 30.8), () => emoji('😔', 0, 0, 90));
+}
+
+// 6) Peki ne yapabilirsiniz?
+function sWhat(t) {
+  withT(540, 420, popS(t, 32.5, 0.55), 0, popA(t, 32.5), () => { shadow(true, 50, 0, 'rgba(255,201,60,0.8)'); emoji('💡', 0, 0, 170); shadow(false); });
+  words('Peki ne *yapabilirsiniz?', 540, 660, t, 32.55, { size: 70, weight: 900 });
+}
+
+// 7) Kaynağı: genetik ya da gözlem; ebeveynden kopyalama
+function sSource(t) {
+  const aA = phase(t, 34.5, 40.1);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Bu yapı nereden gelir?', 540, 275, t, 34.6, { size: 54, weight: 900 });
+    [[300, '🧬', 'Genetik', 36.85, C.lilac], [780, '👀', 'Gözlemleyerek', 38.2, C.sky]].forEach(([x, em, l, t0, col]) => {
+      withT(x, 540, popS(t, t0, 0.55), 0, popA(t, t0), () => {
+        shadow(true, 30, 12); rrect(-200, -170, 400, 340, 40, 'rgba(255,255,255,0.08)'); shadow(false);
+        rrect(-200, -170, 400, 340, 40, null, col, 4);
+        emoji(em, 0, -40, 120);
+        text(l, 0, 95, 44, col, 900);
+      });
+    });
+    withT(540, 540, popS(t, 38.0, 0.4), 0, popA(t, 38.0), () => { circle(0, 0, 40, C.yellow); text('ya', 0, 2, 34, C.ink, 900); });
+    withT(540, 790, popS(t, 38.8, 0.5), 0, popA(t, 38.8), () => text('öğrenir', 0, 0, 50, C.white, 900));
+    ctx.restore();
+  }
+  if (t < 40.1) return;
+  words('Tecrübelerim gösterdi ki...', 540, 275, t, 40.3, { size: 50, weight: 900 });
+  withT(260, 520, popS(t, 41.3, 0.55), 0, popA(t, 41.3), () => {
+    emoji('👩', -45, 0, 130); emoji('👨', 55, 10, 120);
+  });
+  withT(260, 680, popS(t, 42.7, 0.5), 0, popA(t, 42.7), () => pill('Mükemmeliyetçi tutum', '📏', 28, C.yellow, C.ink));
+  // ok
+  const ap = eOut(prog(t, 45.2, 0.5));
+  if (ap > 0) {
+    ctx.strokeStyle = C.white; ctx.lineWidth = 10; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(420, 520); ctx.lineTo(420 + 220 * ap, 520); ctx.stroke();
+    if (ap > 0.9) { ctx.fillStyle = C.white; ctx.beginPath(); ctx.moveTo(650, 520); ctx.lineTo(625, 500); ctx.lineTo(625, 540); ctx.closePath(); ctx.fill(); }
+  }
+  withT(820, 520, popS(t, 45.3, 0.55), 0, popA(t, 45.3), () => emoji('🧒', 0, 0, 140));
+  withT(820, 680, popS(t, 46.1, 0.5), 0.05, popA(t, 46.1), () => pill('Kopyalar', '📋', 34, C.coral, C.white));
+}
+
+// 8) Kim böyleyse önce o değişmeli; gerekirse destek almalı
+function sChangeSelf(t) {
+  words('Kim böyleyse...', 540, 275, t, 48.5, { size: 54, weight: 900 });
+  withT(540, 420, popS(t, 50.6, 0.5), 0, popA(t, 50.6), () => pill('Önce kendini değiştirmeli', '🔄', 46, C.white, C.ink));
+  withT(540, 560, popS(t, 53.1, 0.5), -0.03, popA(t, 53.1), () => {
+    rrect(-200, -50, 400, 100, 50, C.yellow); text('🎯 Kaynak o', 0, 3, 48, C.ink, 900);
+  });
+  withT(540, 700, popS(t, 54.2, 0.5), 0, popA(t, 54.2), () => pill('Değiştiremiyorsa destek almalı', '🤝', 42, C.mint, C.ink));
+  withT(540, 815, popS(t, 56.65, 0.5), 0, popA(t, 56.65), () => {
+    shadow(true); text('çocuk değil!', 0, 0, 56, C.coral, 900); shadow(false);
+  });
+}
+
+// 9) Hatayla baş etmeyi adım adım öğretin
+function sSteps(t) {
+  words('Evde kimse mükemmeliyetçi değilse?', 540, 275, t, 57.6, { size: 46, weight: 800, color: C.muted, per: 0.1 });
+  words('Hatayla baş etmeyi', 540, 380, t, 60.6, { size: 62, weight: 900 });
+  words('*adım *adım öğretin', 540, 460, t, 62.2, { size: 62, weight: 900, accent: C.mint });
+  // ayak izleri yolu
+  for (let i = 0; i < 7; i++) {
+    const t0 = 61.0 + i * 0.28;
+    const x = 140 + i * 135, y = 700 - Math.sin(i * 0.9) * 40 + (i % 2 ? 28 : -28);
+    withT(x, y, popS(t, t0, 0.35), 1.45, popA(t, t0), () => emoji('👣', 0, 0, 62));
+  }
+  withT(1000, 640, popS(t, 63.0, 0.45), 0, popA(t, 63.0), () => emoji('🏁', 0, 0, 72));
+}
+
+// 10) Oyunda kaybedince: hemen yeniden başlatmayın, üzülmesine izin verin
+function sGame(t) {
+  const aA = phase(t, 63.6, 67.65, 0.25);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Birlikte oyun oynarken...', 540, 275, t, 63.82, { size: 54, weight: 900 });
+    withT(540, 480, popS(t, 64.6, 0.55), Math.sin(t * 3) * 0.1, popA(t, 64.6), () => { shadow(true, 40, 14); emoji('🎲', 0, 0, 160); shadow(false); });
+    withT(540, 690, popS(t, 65.75, 0.5), 0, popA(t, 65.75), () => pill('Hemen yeniden başlatmayın', '🔁', 46, C.coral, C.white));
+    ctx.restore();
+  }
+  if (t < 67.6) return;
+  withT(540, 470, 0.9 + 0.1 * popS(t, 67.6, 0.6), 0, popA(t, 67.6), () => clipCard('uzgun', 0, 0, 640, 440, 0.55, 1.0 + 0.04 * prog(t, 67.6, 5)));
+  withT(540, 470 + 210, popS(t, 67.9, 0.5), 0, popA(t, 67.9), () => pill('Üzülmesine izin verin', '💙', 40, C.white, C.ink));
+  words('Kaybetmek de *oyunun *bir *parçası 🧩', 540, 790, t, 69.45, { size: 50, weight: 900, accent: C.yellow, per: 0.15 });
+}
+
+// 11) Ödevde kusursuzluk değil, deneme ve düzeltme
+function sHomework(t) {
+  words('Ödev yaparken...', 540, 275, t, 72.45, { size: 54, weight: 900 });
+  withT(540, 505, 0.9 + 0.1 * popS(t, 72.4, 0.6), 0, popA(t, 72.4), () => clipCard('kure', 0, 0, 820, 340, 0.42, 1.0 + 0.04 * prog(t, 72.4, 6)));
+  // alt sıra: ✖ Kusursuz | ✔ Denemek | ✔ Düzeltmek
+  const chips = [['Kusursuz', '❌', 73.7, 'rgba(255,255,255,0.9)', C.ink, 200], ['Denemek', '✅', 75.3, C.mint, C.ink, 540], ['Düzeltmek', '✅', 76.8, C.mint, C.ink, 880]];
+  chips.forEach(([l, em, t0, bg, fg, x], i) => {
+    withT(x, 745, popS(t, t0, 0.5), 0, popA(t, t0) * (i === 0 ? 1 - 0.45 * prog(t, 74.8, 0.4) : 1), () => pill(l, em, 36, bg, fg));
+  });
+  strike(70, 330, 745, t, 74.75);
+  words('*odaklanın', 540, 835, t, 77.7, { size: 50, weight: 900, accent: C.yellow });
+}
+
+// 12) Amaç: hiç hata yapmayan değil, yoluna devam edebilen çocuk
+function sKeepGoing(t) {
+  words('Amacımız...', 540, 275, t, 78.75, { size: 54, weight: 900 });
+  noWay('Hiç hata yapmayan biri', '🤖', 400, t, 79.5, 82.0);
+  // yol ve taş
+  const rA = popA(t, 82.5, 0.3);
+  if (rA > 0) {
+    ctx.save(); ctx.globalAlpha *= rA;
+    rrect(100, 650, 880, 26, 13, 'rgba(255,255,255,0.18)');
+    ctx.setLineDash([30, 22]); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(120, 663); ctx.lineTo(960, 663); ctx.stroke(); ctx.setLineDash([]);
+    emoji('🪨', 540, 620, 70);
+    ctx.restore();
+  }
+  const walk = clamp((t - 82.8) / 2.6);
+  const jump = walk > 0.38 && walk < 0.62 ? Math.sin(((walk - 0.38) / 0.24) * Math.PI) * 90 : 0;
+  withT(160 + 760 * walk, 580 - jump, popS(t, 82.6, 0.45), 0, popA(t, 82.6), () => emoji('🚶', 0, 0, 100));
+  words('Hata yapınca da *yoluna *devam *edebilen', 540, 790, t, 83.5, { size: 50, weight: 900, accent: C.mint, per: 0.14 });
+}
+
+// 13) "Sen başaramadığında benim için hiçbir şey değişmiyor"
+function sLove(t) {
+  quoteCard('Sen başaramadığında benim için herhangi bir şey *değişmiyor.', 540, 400, 860, 270, t, 86.1, { size: 50, accent: C.coral, per: 0.13 });
+  withT(540, 640, popS(t, 89.85, 0.55), 0, popA(t, 89.85), () => {
+    shadow(true, 30, 10); rrect(-400, -70, 800, 140, 70, C.coral); shadow(false);
+    text('Seni öyle de böyle de seviyorum ❤️', 0, 3, 44, C.white, 900);
+  });
+  withT(540, 790, popS(t, 92.3, 0.45), 0, popA(t, 92.3), () => text('...seveceğim.', 0, 0, 48, C.muted, 800));
+  hearts(540, 700, t, 90.6, 8, 2.4, 0.9);
+}
+
+// 14) Söz + davranış tutarlı olmalı
+function sConsistency(t) {
+  const aA = phase(t, 93.1, 102.45);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    withT(540, 275, popS(t, 93.25, 0.5), 0, popA(t, 93.25), () => pill('Yalnız bir ayrıntı önemli', '⚠️', 42, C.yellow, C.ink));
+    [[290, '💬', 'Söz', '“Seni seviyorum”', 95.0, C.mint], [790, '😒', 'Davranış', 'Hayal kırıklığı', 98.55, C.coral]].forEach(([x, em, h, l, t0, col]) => {
+      withT(x, 540, popS(t, t0, 0.55), 0, popA(t, t0), () => {
+        shadow(true, 30, 12); rrect(-210, -165, 420, 330, 40, 'rgba(255,255,255,0.08)'); shadow(false);
+        rrect(-210, -165, 420, 330, 40, null, col, 4);
+        emoji(em, 0, -60, 100);
+        text(h, 0, 35, 30, C.muted, 800);
+        text(l, 0, 90, 38, col, 900);
+      });
+    });
+    withT(540, 540, popS(t, 99.0, 0.45), 0, popA(t, 99.0), () => { circle(0, 0, 44, C.white); text('≠', 0, 2, 64, C.coral, 900); });
+    withT(540, 790, popS(t, 100.65, 0.5), 0, popA(t, 100.65), () => {
+      shadow(true); text('Mesaj inandırıcılığını kaybeder 💔', 0, 0, 46, C.white, 900); shadow(false);
+    });
+    ctx.restore();
+  }
+  if (t < 102.45) return;
+  words('Sözünüzü *davranışınızla destekleyin', 540, 275, t, 102.6, { size: 48, weight: 900, accent: C.mint, per: 0.15 });
+  const eq = [[200, '💬', 'Söz', 102.9], [540, '🤲', 'Davranış', 103.6], [880, '✅', 'Tutarlılık', 104.4]];
+  eq.forEach(([x, em, l, t0], i) => {
+    withT(x, 520, popS(t, t0, 0.5), 0, popA(t, t0), () => {
+      emoji(em, 0, -30, 110); text(l, 0, 75, 38, i === 2 ? C.mint : C.white, 900);
+    });
+  });
+  withT(370, 490, popS(t, 103.3, 0.4), 0, popA(t, 103.3), () => text('+', 0, 0, 80, C.yellow, 900));
+  withT(710, 490, popS(t, 104.1, 0.4), 0, popA(t, 104.1), () => text('=', 0, 0, 80, C.yellow, 900));
+}
+
+// 15) Hatanızı saklamayın, örnek olun, çabayı takdir edin
+function sModel(t) {
+  const aA = phase(t, 106.5, 112.95);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Evde hata yaptığınızda *saklamayın', 540, 275, t, 106.68, { size: 50, weight: 900, accent: C.coral, per: 0.14 });
+    withT(160, 520, popS(t, 108.3, 0.5), 0, popA(t, 108.3), () => emoji('🙋', 0, 0, 120));
+    quoteCard('Burada yanlış yaptım, şimdi *düzelteceğim.', 600, 520, 760, 230, t, 109.2, { size: 48, accent: C.mint, per: 0.14 });
+    withT(540, 760, popS(t, 111.95, 0.5), 0, popA(t, 111.95), () => pill('Ona örnek olun', '🪞', 44, C.mint, C.ink));
+    ctx.restore();
+  }
+  if (t < 112.95) return;
+  withT(540, 300, popS(t, 113.05, 0.5), 0, popA(t, 113.05), () => pill('Çabasını ve yeniden denemesini takdir edin', '👏', 34, C.white, C.ink));
+  withT(540, 580, popS(t, 115.85, 0.6), 0, popA(t, 115.85), () => {
+    shadow(true, 36, 14); rrect(-430, -150, 860, 300, 44, '#FFF1C2'); shadow(false);
+    emoji('⚠️', -330, -70, 70);
+    text('Mükemmeliyetçiliği besleyen şey', 30, -70, 40, C.ink, 800);
+    text('genelde', 0, 10, 40, '#6B7280', 800);
+    withT(0, 85, popS(t, 118.3, 0.5), 0, popA(t, 118.3), () => text('TAKDİRDİR', 0, 0, 76, C.coral, 900));
+  });
+}
+
+// 16) Sadece başarıyı değil, çabayı takdir edin
+function sPraise(t) {
+  const aA = phase(t, 119.2, 126.05);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Sadece şunlarda takdir etmeyin:', 540, 275, t, 119.3, { size: 48, weight: 900, per: 0.1 });
+    noWay('Yüksek not aldığında', '💯', 420, t, 119.75, 122.0, 42);
+    noWay('Kazandığında', '🏆', 540, t, 121.15, 122.2, 42);
+    withT(540, 720, popS(t, 123.0, 0.55), 0, popA(t, 123.0), () => pill('Denemeye devam etmesini fark edin', '👀', 40, C.mint, C.ink));
+    ctx.restore();
+  }
+  if (t < 126.05) return;
+  words('Şunu söylemek yerine...', 540, 275, t, 126.1, { size: 48, weight: 900, color: C.muted });
+  withT(540, 410, popS(t, 126.25, 0.5), 0, popA(t, 126.25) * (1 - 0.4 * prog(t, 127.6, 0.4)), () => speech('“Harikasın, çok zekisin!”', 46, 'rgba(255,255,255,0.9)', C.ink, -1));
+  if (t > 127.55) { font(46, 900); const w = ctx.measureText('“Harikasın, çok zekisin!”').width + 64; strike(540 - w / 2 - 10, 540 + w / 2 + 10, 412, t, 127.55); }
+  withT(540, 650, popS(t, 128.15, 0.55), 0, popA(t, 128.15), () => {
+    shadow(true, 36, 14); rrect(-440, -120, 880, 240, 50, C.mint); shadow(false);
+    emoji('✅', -380, -70, 50);
+    para('“Zorlandın ama farklı bir yol deneyerek *devam *ettin”', 20, 4, 760, t, 128.2, { size: 46, weight: 900, color: C.ink, accent: C.white, per: 0.16 });
+  });
+}
+
+// 17) Kaçınılması gereken ifadeler
+function sAvoid(t) {
+  words('Bu ifadeler *zorlaştırır', 540, 275, t, 132.9, { size: 54, weight: 900, accent: C.coral });
+  withT(390, 450, popS(t, 132.95, 0.5), -0.03, popA(t, 132.95), () => speech('❌ “Yine abartıyorsun”', 42, C.white, C.ink, -1));
+  withT(660, 600, popS(t, 134.1, 0.5), 0.03, popA(t, 134.1), () => speech('❌ “Her şeyi sorun ediyorsun”', 42, C.white, C.ink, 1));
+  withT(540, 780, popS(t, 137.4, 0.5), 0, popA(t, 137.4), () => pill('Yaşadığı güçlüğü artırabilir', '📈', 42, C.coral, C.white));
+}
+
+// 18) Bunun yerine: duyguyu yansıtın, birlikte düşünün
+function sInstead(t) {
+  words('Bunun *yerine 💬', 540, 275, t, 138.75, { size: 54, weight: 900, accent: C.mint });
+  quoteCard('İstediğin gibi olmayınca çok *üzülüyorsun.', 540, 420, 860, 190, t, 139.6, { size: 46, accent: C.mint, per: 0.13 });
+  withT(540, 600, popS(t, 142.0, 0.5), 0.02, popA(t, 142.0), () => speech('“Peki başaramasan ne olur ki?”', 44, C.yellow, C.ink, 1));
+  withT(540, 770, popS(t, 144.0, 0.5), -0.02, popA(t, 144.0), () => speech('“Ne farklı olur, ne değişir?”', 44, C.white, C.ink, -1));
+}
+
+// 19) Unutmayın: amaç hata yapmamak değil, kendini değersiz hissetmemek
+function sRemember(t) {
+  withT(540, 275, popS(t, 147.9, 0.5), 0, popA(t, 147.9), () => pill('Unutmayın', '💡', 46, C.yellow, C.ink));
+  noWay('Hiç hata yapmaması', '🚫', 430, t, 149.25, 150.85, 44);
+  withT(540, 640, popS(t, 151.45, 0.6), 0, popA(t, 151.45), () => {
+    shadow(true, 36, 14); rrect(-440, -120, 880, 240, 50, C.mint); shadow(false);
+    para('Hata yaptığında da kendini *değersiz *hissetmemeyi öğrenmesi 💛', 0, 4, 780, t, 151.5, { size: 48, weight: 900, color: C.ink, accent: C.white, per: 0.14 });
+  });
+}
+
+// 20) Kapanış: takipte kalın
+function sFollow(t) {
+  withT(540, 365, popS(t, 156.5, 0.6), 0, popA(t, 156.5), () => profilePic(0, 0, 100, t));
+  withT(540, 520, popS(t, 156.7, 0.5), 0, popA(t, 156.7), () => { shadow(true); text(USERNAME, 0, 0, 52, C.white, 900); shadow(false); });
+  withT(345, 595, popS(t, 156.77, 0.45), 0, popA(t, 156.77), () => pill('Çocuk gelişimi', '🌱', 30, 'rgba(255,255,255,0.12)', C.white));
+  withT(735, 595, popS(t, 157.42, 0.45), 0, popA(t, 157.42), () => pill('Çocuk psikolojisi', '🧠', 30, 'rgba(255,255,255,0.12)', C.white));
+  const TAP = 159.65;
+  const press = Math.sin(prog(t, TAP - 0.05, 0.3) * Math.PI);
+  withT(540, 705, popS(t, 158.3, 0.5), 0, popA(t, 158.3), () => {
+    const pulse = t < TAP ? 1 + 0.03 * Math.sin(t * 7) : 1;
+    ctx.scale(pulse, pulse);
+    followButton(0, 0, 380, 92, 40, prog(t, TAP + 0.05, 0.4), press, true);
+  });
+  tapHand(540, 705, t, TAP);
+  hearts(540, 705, t, TAP + 0.1, 8, 2.2, 0.35);
+  withT(540, 815, popS(t, 160.6, 0.45), 0, popA(t, 160.6), () => text('Sağlıkla kalın 💚', 0, 0, 52, C.mint, 900));
+}
+
+// ---------- videonun ortası: avatarın üstünde kompakt takip kartı ----------
+window.OVERLAY = t => followCardOverlay(t, MID_FOLLOW, 700, 0.3);
+</script>
+</body>
+</html>

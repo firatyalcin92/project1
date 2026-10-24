@@ -10,6 +10,44 @@ function preloadFollow(base) {
 }
 
 // ---------- ortak parçalar ----------
+// Görseli kutuyu dolduracak şekilde kırparak, yuvarlak köşeli çizer. (fx, fy): odak noktası, zoom ≥ 1
+function photo(img, cx, cy, w, h, r, zoom = 1, fx = 0.5, fy = 0.5) {
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const k = Math.max(w / iw, h / ih) * zoom;
+  const sw = w / k, sh = h / k;
+  const sx = clamp(fx * iw - sw / 2, 0, iw - sw), sy = clamp(fy * ih - sh / 2, 0, ih - sh);
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(cx - w / 2, cy - h / 2, w, h, r); ctx.clip();
+  ctx.drawImage(img, sx, sy, sw, sh, cx - w / 2, cy - h / 2, w, h);
+  ctx.restore();
+}
+
+function crossOut(x, y, r, p) {
+  if (p <= 0) return;
+  ctx.strokeStyle = C.coral; ctx.lineWidth = r * 0.22; ctx.lineCap = 'round';
+  const q1 = clamp(p * 2), q2 = clamp(p * 2 - 1);
+  ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x - r + 2 * r * q1, y - r + 2 * r * q1); ctx.stroke();
+  if (q2 > 0) { ctx.beginPath(); ctx.moveTo(x + r, y - r); ctx.lineTo(x + r - 2 * r * q2, y - r + 2 * r * q2); ctx.stroke(); }
+}
+
+function strike(x0, x1, y, t, t0) {
+  const p = eOut(prog(t, t0, 0.3));
+  if (p <= 0) return;
+  ctx.strokeStyle = C.coral; ctx.lineWidth = 12; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0, y + 3); ctx.lineTo(x0 + (x1 - x0) * p, y - 3); ctx.stroke();
+}
+
+function speech(label, size, bg, fg, tail = -1) {
+  font(size, 900);
+  const w = ctx.measureText(label).width + size * 1.4, h = size * 2.1;
+  shadow(true, 26, 10);
+  rrect(-w / 2, -h / 2, w, h, h / 2, bg);
+  ctx.beginPath(); ctx.moveTo(tail * w * 0.22 - 18, h / 2 - 4); ctx.lineTo(tail * w * 0.3, h / 2 + 26); ctx.lineTo(tail * w * 0.22 + 18, h / 2 - 4); ctx.closePath();
+  ctx.fillStyle = bg; ctx.fill();
+  shadow(false);
+  text(label, 0, 2, size, fg, 900);
+}
+
 function circle(x, y, r, fill) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); }
 
 // Dönen degrade halkalı profil fotoğrafı
@@ -104,6 +142,31 @@ function stepTitle(n, label, t, t0, col, size = 50) {
     circle(0, 0, 34, col); text(String(n), 0, 2, 40, C.ink, 900);
   });
   words(label, x0 + 84 + tw / 2, 275, t, t0 + 0.12, { size, weight: 900 });
+}
+
+// Metni maxW genişliğe göre satırlara bölüp kelime kelime gösterir ("*kelime" vurgulu)
+function para(str, cx, y, maxW, t, t0, o = {}) {
+  const { size = 50, weight = 800, per = 0.11 } = o;
+  const lineH = o.lineH || size * 1.25;
+  font(size, weight);
+  const lines = [];
+  let cur = '';
+  str.split(' ').forEach(w => {
+    const test = cur ? cur + ' ' + w : w;
+    if (cur && ctx.measureText(test.replace(/\*/g, '')).width > maxW) { lines.push(cur); cur = w; } else cur = test;
+  });
+  if (cur) lines.push(cur);
+  const y0 = y - ((lines.length - 1) * lineH) / 2;
+  let k = 0;
+  lines.forEach((l, i) => { words(l, cx, y0 + i * lineH, t, t0 + k * per, o); k += l.split(' ').length; });
+}
+
+// Üst bölümde klip kartı (TOP_CLIPS içindeki name)
+function clipCard(name, cx, cy, w, h, fy = 0.45, zoom = 1) {
+  const im = clipFrame(name);
+  shadow(true, 40, 16, 'rgba(0,0,0,0.45)'); rrect(cx - w / 2, cy - h / 2, w, h, 40, '#000'); shadow(false);
+  if (im) photo(im, cx, cy, w, h, 40, zoom, 0.5, fy);
+  rrect(cx - w / 2, cy - h / 2, w, h, 40, null, 'rgba(255,255,255,0.25)', 3);
 }
 
 function phase(t, s, e, fade = 0.3) { return Math.min(popA(t, s, fade), 1 - prog(t, e, fade)); }
