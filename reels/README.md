@@ -14,6 +14,7 @@
 | `v2/align.py`, `v2/script.txt`, `v2/words.js` | Seslendirme metninin sesle kelime düzeyinde hizalanması |
 | `v3/scene.html`, `v3/final_reels.mp4` | Video 3 — Planı çocuk yapsın, 3 soru yöntemi (68 sn), altyazısız, fotoğraf ve illüstrasyonlu |
 | `v4/scene.html`, `v4/clips/`, `v4/final_reels.mp4` | Video 4 — Mükemmeliyetçi çocuklar (162 sn), altyazısız; hazır çocuk klipleri üstte kart içinde (`TOP_CLIPS`) ve altta avatarın yerinde (`BOTTOM_CLIPS`) |
+| `v5/scene.html`, `v5/clips/`, `v5/final_reels.mp4` | Video 5 — Dikkat mi, odaklanma mı? + MOXO (100 sn), altyazısız; açılışta uzman isim levhası, son 15 sn'de üst panel küçülüp konuşmacı tam ekrana geçer (`FULLSCREEN_FROM`, `FULL(t)`) |
 
 ```bash
 # Video 1
@@ -24,6 +25,8 @@ NODE_PATH=$(npm root -g) node render.cjs --scene v2/scene.html v2/avatar.mp4 v2/
 NODE_PATH=$(npm root -g) node render.cjs --scene v3/scene.html v3/avatar.mp4 v3/final_reels.mp4
 # Video 4 (uzun video: dosya GitHub'ın 100 MB sınırının altında kalsın diye bit hızı sınırlı)
 REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v4/scene.html v4/avatar.mp4 v4/final_reels.mp4
+# Video 5
+REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v5/scene.html v5/avatar.mp4 v5/final_reels.mp4
 # hızlı kontrol: seçili anları preview/ altına PNG olarak kaydeder (o_*.png = alt bindirme katmanı)
 NODE_PATH=$(npm root -g) node render.cjs --scene v2/scene.html --preview 1,54.5,98
 ```

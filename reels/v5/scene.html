@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels Top Graphics v5</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+  #f { position: absolute; left: 0; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<canvas id="f" width="1080" height="1920"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script>
+// Video 5: Dikkat mi, odaklanma mı? + MOXO Dikkat Testi. Altyazı yok.
+// Açılışta klip, uzman girince isim levhası; son 15 sn'de üst panel küçülür, konuşmacı tam ekran olur.
+const DURATION = 100.32;
+const ZOOM_BUMPS = [[10.6, 12.8], [53.75, 54.95]];
+// Dikey kaynak (araç içi çekim); yüz bant içinde yukarıda kalsın diye y=495 (kaynakta 220. satır)
+const AVATAR = { chain: 'scale=1620:2880:flags=lanczos,crop=1620:1440:0:495', focusY: 0.45 };
+const AV_BAND = { y: 220, h: 640 }; // kaynak (720x1280) koordinatlarında alt bölüm bandı
+const NAME_TAG = 5.6;   // uzmanın ekrana ilk girdiği an
+const MID_FOLLOW = 49.3;
+const OVERLAYS = [[NAME_TAG, NAME_TAG + 5.3], [MID_FOLLOW, MID_FOLLOW + 4.7]];
+const FULLSCREEN_FROM = 85.3; // son 15 saniye
+const OUTRO_LEN = 2.6;        // küçülme/büyüme geçiş süresi
+const CHUNKS = []; // altyazı kapalı
+
+const BOTTOM_CLIPS = [
+  { src: 'clips/dalgin.mp4', start: 0, end: 5.6, from: 2.0, focusY: 0.1 },
+  { src: 'clips/okuma.mp4', start: 12.9, end: 17.9, from: 1.0, focusY: 0.25 },
+  { src: 'clips/dalgin.mp4', start: 39.4, end: 44.6, from: 14.0, focusY: 0.1 },
+  { src: 'clips/beyin.mp4', start: 44.6, end: 48.9, from: 1.0, focusY: 0.4 },
+];
+const TOP_CLIPS = [
+  { name: 'beyin', src: 'clips/beyin.mp4', from: 6.0, start: 76.0, end: 82.5 },
+  { name: 'avatarFull', src: 'avatar.mp4', from: FULLSCREEN_FROM, start: FULLSCREEN_FROM, end: DURATION },
+];
+
+window.preload = () => preloadFollow('../');
+
+function chipLabel(label, col, y = 200) {
+  withT(540, y, 1, 0, 1, () => {
+    font(30, 900);
+    const w = ctx.measureText(label).width + 50;
+    rrect(-w / 2, -26, w, 52, 26, col);
+    text(label, 0, 2, 30, C.ink, 900);
+  });
+}
+
+// ---------- sahneler ----------
+const SCENES = [
+  { s: -0.4, e: 5.6, acc: C.sky, acc2: C.lilac, draw: sHook },
+  { s: 5.6, e: 12.8, acc: C.yellow, acc2: C.coral, draw: sWhich },
+  { s: 12.8, e: 25.6, acc: C.sky, acc2: C.mint, draw: sAttention },
+  { s: 25.6, e: 35.8, acc: C.mint, acc2: C.lilac, draw: sFocus },
+  { s: 35.8, e: 49.2, acc: C.coral, acc2: C.yellow, draw: sFocusExample },
+  { s: 49.2, e: 60.4, acc: C.lilac, acc2: C.sky, draw: sNotAlways },
+  { s: 60.4, e: 68.4, acc: C.yellow, acc2: C.mint, draw: sWhen },
+  { s: 68.4, e: 76.0, acc: C.sky, acc2: C.lilac, draw: sMoxo },
+  { s: 76.0, e: 82.4, acc: C.mint, acc2: C.sky, draw: sComputer },
+  { s: 82.4, e: 999, acc: C.lilac, acc2: C.coral, draw: sNoDiagnosis },
+];
+
+// 1) Aklı başka yerlere mi kayıyor?
+function sHook(t) {
+  words('Söylediğinizi yapmaya çalışıyor ama...', 540, 275, t, 0.14, { size: 46, weight: 800, color: C.muted, per: 0.1 });
+  withT(540, 580, popS(t, 0.3, 0.6), Math.sin(t * 1.5) * 0.05, popA(t, 0.3), () => { shadow(true, 40, 14); emoji('🧒', 0, 0, 170); shadow(false); });
+  ['🎮', '⚽', '🐶', '☁️', '📱'].forEach((em, i) => {
+    const t0 = 3.3 + i * 0.22;
+    const p = prog(t, t0, 2.2);
+    if (p <= 0) return;
+    const a = -Math.PI / 2 + (i - 2) * 0.55;
+    const r = 120 + 200 * eOut(p);
+    withT(540 + Math.cos(a) * r * 1.4, 560 + Math.sin(a) * r * 0.55, popS(t, t0, 0.45), Math.sin(t * 3 + i) * 0.2, popA(t, t0), () => emoji(em, 0, 0, 74));
+  });
+  words('Aklı *başka *yerlere mi kayıyor?', 540, 790, t, 3.3, { size: 58, weight: 900, accent: C.yellow, per: 0.14 });
+}
+
+// 2) Veremiyor mu, sürdüremiyor mu? Dikkat ≠ odaklanma
+function sWhich(t) {
+  const aA = phase(t, 5.6, 10.55);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Peki sorun hangisi?', 540, 275, t, 5.72, { size: 56, weight: 900 });
+    [[290, '🎯', 'Dikkatini', 'VEREMEMESİ', 6.3, C.sky], [790, '⏳', 'Dikkatini', 'SÜRDÜREMEMESİ', 8.4, C.mint]].forEach(([x, em, l1, l2, t0, col]) => {
+      withT(x, 540, popS(t, t0, 0.55), 0, popA(t, t0), () => {
+        shadow(true, 30, 12); rrect(-220, -180, 440, 360, 40, 'rgba(255,255,255,0.08)'); shadow(false);
+        rrect(-220, -180, 440, 360, 40, null, col, 4);
+        emoji(em, 0, -70, 110);
+        text(l1, 0, 45, 36, C.muted, 800);
+        text(l2, 0, 100, 42, col, 900);
+      });
+    });
+    withT(540, 540, popS(t, 7.95, 0.4), 0, popA(t, 7.95), () => { circle(0, 0, 42, C.yellow); text('mi?', 0, 2, 30, C.ink, 900); });
+    ctx.restore();
+  }
+  if (t < 10.55) return;
+  words('Çünkü...', 540, 275, t, 10.7, { size: 54, weight: 900 });
+  withT(540, 450, popS(t, 11.0, 0.5), 0, popA(t, 11.0), () => { shadow(true, 30, 10); text('DİKKAT', 0, 0, 96, C.sky, 900); shadow(false); });
+  withT(540, 560, popS(t, 12.05, 0.45), 0, popA(t, 12.05), () => { circle(0, 0, 50, C.white); text('≠', 0, 2, 70, C.coral, 900); });
+  withT(540, 670, popS(t, 11.45, 0.5), 0, popA(t, 11.45), () => { shadow(true, 30, 10); text('ODAKLANMA', 0, 0, 96, C.mint, 900); shadow(false); });
+  words('aynı şey *değil!', 540, 800, t, 12.1, { size: 50, weight: 900, accent: C.coral });
+}
+
+// 3) Dikkat: önemli olana yönelmek; örnek: her sese dönüp bakmak
+function sAttention(t) {
+  chipLabel('1 · DİKKAT', C.sky, 210);
+  const aA = phase(t, 12.8, 18.0);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('*Önemli olana yönelmek', 540, 300, t, 13.5, { size: 54, weight: 900, accent: C.sky });
+    // spot ışığı
+    const sp = popA(t, 13.6, 0.5);
+    if (sp > 0) {
+      const g = ctx.createRadialGradient(540, 560, 10, 540, 560, 230);
+      g.addColorStop(0, `rgba(255,236,170,${0.45 * sp})`); g.addColorStop(1, 'rgba(255,236,170,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(540, 360); ctx.lineTo(300, 720); ctx.lineTo(780, 720); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(540, 560, 230, 0, Math.PI * 2); ctx.fill();
+    }
+    withT(540, 380, popS(t, 13.6, 0.4), Math.PI, popA(t, 13.6), () => emoji('🔦', 0, 0, 70));
+    withT(540, 570, popS(t, 13.8, 0.5), 0, popA(t, 13.8), () => emoji('📖', 0, 0, 130));
+    const dim = 1 - 0.65 * prog(t, 15.2, 0.6);
+    [['🔔', 180, 470], ['📱', 900, 470], ['🚗', 170, 680], ['🐶', 910, 680]].forEach(([em, x, y], i) => {
+      withT(x, y, popS(t, 14.2 + i * 0.12, 0.45) * (1 - 0.25 * prog(t, 15.2, 0.6)), 0, popA(t, 14.2 + i * 0.12) * dim, () => emoji(em, 0, 0, 80));
+    });
+    words('diğer uyaranları *geri *planda bırakmak', 540, 800, t, 15.2, { size: 44, weight: 800, accent: C.muted, per: 0.14 });
+    ctx.restore();
+  }
+  if (t < 18.0) return;
+  words('Örneğin ders çalışırken...', 540, 300, t, 18.2, { size: 52, weight: 900 });
+  const turn = Math.sin(Math.max(0, t - 20.9) * 5) * 0.5 * popA(t, 20.9, 0.2);
+  withT(540, 520, popS(t, 18.4, 0.5), turn, popA(t, 18.4), () => { shadow(true, 40, 14); emoji('🧒', 0, 0, 150); shadow(false); });
+  [['🔔', 200, 430, 20.1], ['🚗', 880, 430, 20.6], ['🐶', 210, 620, 21.1], ['📢', 870, 620, 21.5]].forEach(([em, x, y, t0]) => {
+    const w = (t - t0) % 0.9;
+    withT(x, y, popS(t, t0, 0.4), 0, popA(t, t0), () => {
+      emoji(em, 0, 0, 70);
+      if (t > t0) { ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - w / 0.9)})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, 50 + 60 * (w / 0.9), 0, Math.PI * 2); ctx.stroke(); }
+    });
+  });
+  words('Her sese dönüp bakıyorsa 👀', 540, 710, t, 21.2, { size: 46, weight: 900, per: 0.14 });
+  withT(540, 810, popS(t, 22.7, 0.5), 0, popA(t, 22.7), () => pill('Dikkatini tutmakta zorlanıyor olabilir', '⚠️', 34, C.yellow, C.ink));
+}
+
+// 4) Odaklanma: başladığı işe dikkat vermeye devam edebilmek
+function sFocus(t) {
+  chipLabel('2 · ODAKLANMA', C.mint, 210);
+  para('Başladığı işe dikkat vermeye *devam *edebilmek', 540, 320, 900, t, 25.8, { size: 50, weight: 900, accent: C.mint, per: 0.12 });
+  // dikkat-zaman grafiği
+  const X0 = 150, X1 = 930, Y0 = 820, Y1 = 540;
+  const gA = popA(t, 29.6, 0.4);
+  if (gA <= 0) return;
+  ctx.save(); ctx.globalAlpha *= gA;
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(X0, Y1 - 40); ctx.lineTo(X0, Y0); ctx.lineTo(X1 + 20, Y0); ctx.stroke();
+  text('dikkat', X0 - 10, Y1 - 60, 26, C.muted, 800, 'left');
+  text('zaman ⏱️', X1 + 20, Y0 + 32, 26, C.muted, 800, 'right');
+  const curve = x => (x < 0.45 ? 1 : 1 - 0.85 * eInOut(clamp((x - 0.45) / 0.55)));
+  const p1 = prog(t, 29.9, 2.2), p2 = prog(t, 33.4, 2.0);
+  const draw = (from, to, col) => {
+    if (to <= from) return;
+    ctx.strokeStyle = col; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.beginPath();
+    for (let k = 0; k <= 40; k++) {
+      const x = from + (to - from) * (k / 40);
+      const px = X0 + 20 + (X1 - X0 - 20) * x, py = Y0 - (Y0 - Y1) * curve(x) * 0.95;
+      k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+  };
+  draw(0, 0.45 * p1, C.mint);
+  draw(0.45, 0.45 + 0.55 * p2, C.coral);
+  ctx.restore();
+  withT(330, Y1 - 55, popS(t, 30.3, 0.45), 0, popA(t, 30.3), () => pill('Başlangıçta dikkat var', '✅', 28, C.mint, C.ink));
+  withT(760, 720, popS(t, 33.8, 0.45), 0, popA(t, 33.8), () => pill('Sürdürmek zorlaşıyor', '📉', 28, C.coral, C.white));
+}
+
+// 5) Örnek: ödeve başlıyor, sonra kalemle oynuyor... → odaklanma sorunu
+function sFocusExample(t) {
+  const aA = phase(t, 35.8, 46.9);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    withT(540, 275, popS(t, 36.2, 0.5), 0, popA(t, 36.2), () => pill('Ödevine başlıyor', '📝', 44, C.white, C.ink));
+    withT(540, 380, popS(t, 38.5, 0.5), 0, popA(t, 38.5), () => { shadow(true); text('⏱️ birkaç dakika sonra...', 0, 0, 44, C.muted, 800); shadow(false); });
+    [['Kalemiyle oynuyor', '✏️', 39.5, 490], ['Etrafına bakıyor', '👀', 40.8, 590], ['Başka şeylerle ilgileniyor', '🧸', 42.35, 690]].forEach(([l, em, t0, y], i) => {
+      withT(540 + (i - 1) * 30, y, popS(t, t0, 0.45), (i - 1) * 0.02, popA(t, t0), () => pill(l, em, 40, C.coral, C.white));
+    });
+    words('→ dikkatini *sürdürmekte zorlanıyor', 540, 810, t, 44.6, { size: 46, weight: 900, accent: C.yellow, per: 0.13 });
+    ctx.restore();
+  }
+  if (t < 46.9) return;
+  words('İşte bu...', 540, 380, t, 47.05, { size: 60, weight: 900 });
+  withT(540, 560, popS(t, 47.7, 0.5) * (1 + 0.5 * (1 - eOut(prog(t, 47.7, 0.25)))), -0.05, popA(t, 47.7, 0.12), () => {
+    ctx.fillStyle = 'rgba(10,15,39,0.75)'; ctx.beginPath(); ctx.roundRect(-400, -80, 800, 160, 22); ctx.fill();
+    rrect(-400, -80, 800, 160, 22, null, C.yellow, 9);
+    text('ODAKLANMA SORUNU', 0, 4, 70, C.yellow, 900);
+  });
+}
+
+// 6) Her zaman dikkat sorunu mu? Hayır: uyku, kaygı, motivasyon, çevre
+function sNotAlways(t) {
+  const aA = phase(t, 49.2, 54.75);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    para('Bu örnekler her zaman *dikkat *sorunu mu?', 540, 380, 880, t, 49.3, { size: 60, weight: 900, accent: C.lilac, per: 0.15 });
+    withT(540, 640, popS(t, 53.8, 0.5), -0.04, popA(t, 53.8), () => {
+      shadow(true, 30, 10); rrect(-260, -70, 520, 140, 70, C.coral); shadow(false);
+      text('Elbette hayır! ✋', 0, 3, 54, C.white, 900);
+    });
+    ctx.restore();
+  }
+  if (t < 54.75) return;
+  words('Bunlar da etkileyebilir:', 540, 275, t, 54.85, { size: 50, weight: 900 });
+  [['😴', 'Uyku', 54.93, C.sky], ['😟', 'Kaygı', 55.18, C.lilac], ['🔋', 'Motivasyon', 55.56, C.yellow], ['🏡', 'Çevre', 56.41, C.mint]].forEach(([em, l, t0, col], i) => {
+    const x = 285 + (i % 2) * 510, y = 445 + Math.floor(i / 2) * 215;
+    withT(x, y, popS(t, t0, 0.5), 0, popA(t, t0), () => {
+      shadow(true, 26, 10); rrect(-230, -90, 460, 180, 36, 'rgba(255,255,255,0.08)'); shadow(false);
+      rrect(-230, -90, 460, 180, 36, null, col, 4);
+      emoji(em, -150, 0, 84);
+      text(l, -80, 2, 40, col, 900, 'left');
+    });
+  });
+  words('→ çocuğun *performansı', 540, 830, t, 57.7, { size: 46, weight: 900, accent: C.yellow });
+}
+
+// 7) Sık yaşanıyor ve okulu etkiliyorsa: daha yakından değerlendirin
+function sWhen(t) {
+  words('Eğer...', 540, 275, t, 60.6, { size: 56, weight: 900 });
+  [['Sık sık yaşanıyorsa', 61.16, 400], ['Okul hayatını etkiliyorsa', 62.16, 500]].forEach(([label, t0, y]) => {
+    withT(230, y, 1, 0, popA(t, t0, 0.25), () => {
+      const dx = -30 * (1 - eOut(prog(t, t0, 0.4)));
+      rrect(dx - 30, -30, 60, 60, 14, 'rgba(255,255,255,0.1)', C.yellow, 4);
+      tick(dx, 0, 46, prog(t, t0 + 0.25, 0.35), C.yellow);
+      text(label, dx + 58, 2, 46, C.white, 900, 'left');
+    });
+  });
+  withT(540, 680, popS(t, 64.6, 0.55), 0, popA(t, 64.6), () => {
+    shadow(true, 30, 12); rrect(-430, -95, 860, 190, 46, C.white); shadow(false);
+    emoji('🔍', -360, 0, 70);
+    para('Dikkat performansını *yakından değerlendirmek faydalı olabilir', 40, 2, 680, t, 64.7, { size: 40, weight: 900, color: C.ink, accent: '#2F8FE0', per: 0.13 });
+  });
+}
+
+// 8) Uluslararası alanda kullanılan MOXO Dikkat Testi
+function sMoxo(t) {
+  para('Dikkat performansını daha yakından anlamak için', 540, 290, 900, t, 68.5, { size: 44, weight: 800, color: C.muted, per: 0.1 });
+  withT(540, 430, popS(t, 71.7, 0.5), 0, popA(t, 71.7), () => pill('Uluslararası alanda kullanılan', '🌍', 38, C.sky, C.ink));
+  withT(540, 640, popS(t, 73.5, 0.6), 0, popA(t, 73.5), () => {
+    shadow(true, 40, 16); rrect(-340, -130, 680, 260, 44, C.white); shadow(false);
+    emoji('🧩', -230, 0, 110);
+    text('MOXO', 60, -30, 100, C.ink, 900);
+    text('Dikkat Testi', 60, 60, 46, '#2F8FE0', 900);
+  });
+}
+
+// 9) Bilgisayar tabanlı; dikkatin farklı alanları
+function sComputer(t) {
+  withT(540, 275, popS(t, 76.1, 0.5), 0, popA(t, 76.1), () => pill('Bilgisayar tabanlı test', '💻', 42, C.white, C.ink));
+  withT(540, 545, 0.9 + 0.1 * popS(t, 76.3, 0.6), 0, popA(t, 76.3), () => clipCard('beyin', 0, 0, 820, 360, 0.5, 1.0 + 0.04 * prog(t, 76.3, 6)));
+  words('Dikkatin *farklı *alanları hakkında bilgi', 540, 800, t, 79.1, { size: 46, weight: 900, accent: C.mint, per: 0.14 });
+}
+
+// 10) Tek başına tanı koymaz; genel durumla birlikte değerlendirilir
+function sNoDiagnosis(t) {
+  withT(540, 300, popS(t, 82.5, 0.5), 0, popA(t, 82.5), () => pill('Tek başına tanı koymaz', '⚖️', 46, C.yellow, C.ink));
+  withT(540, 560, popS(t, 84.3, 0.55), 0, popA(t, 84.3), () => {
+    shadow(true, 30, 12); rrect(-420, -120, 840, 240, 46, 'rgba(255,255,255,0.1)'); shadow(false);
+    rrect(-420, -120, 840, 240, 46, null, C.lilac, 4);
+    emoji('🧩', -330, 0, 90);
+    para('Sonuçlar çocuğun *genel *durumuyla birlikte değerlendirilir', 50, 2, 640, t, 84.4, { size: 42, weight: 900, accent: C.lilac, per: 0.1 });
+  });
+}
+
+// ---------- alt bölüm bindirmeleri: isim levhası + ortadaki takip kartı ----------
+function nameTag(t, start, cy) {
+  const u = t - start;
+  if (u < 0 || u > 5.3) return;
+  const a = eOut(prog(u, 0, 0.5)) * (1 - eInOut(prog(u, 4.8, 0.5)));
+  const dx = -80 * (1 - eOut(prog(u, 0, 0.6))) - 80 * eInOut(prog(u, 4.8, 0.5));
+  withT(60 + dx, cy, 1, 0, a, () => {
+    font(46, 900);
+    const w1 = ctx.measureText('Necla SAYGIN').width;
+    font(28, 800);
+    const w2 = ctx.measureText('Çocuk Psikolojisi & Dikkat Üzerine').width;
+    const w = Math.max(w1 + 190, w2) + 70;
+    const reveal = eOut(prog(u, 0.15, 0.6));
+    shadow(true, 30, 10, 'rgba(0,0,0,0.35)');
+    ctx.save(); ctx.beginPath(); ctx.rect(0, -80, w * reveal + 20, 160); ctx.clip();
+    rrect(0, -70, w, 140, 24, 'rgba(12,16,40,0.86)');
+    shadow(false);
+    rrect(0, -70, 12, 140, 6, C.yellow);
+    text('Pedagog', 38, -24, 30, C.yellow, 800, 'left');
+    text('Necla SAYGIN', 38 + 140, -24, 46, C.white, 900, 'left');
+    text('Çocuk Psikolojisi & Dikkat Üzerine', 38, 32, 28, 'rgba(255,255,255,0.8)', 800, 'left');
+    ctx.restore();
+  });
+}
+
+window.OVERLAY = t => {
+  nameTag(t, NAME_TAG, 760);
+  followCardOverlay(t, MID_FOLLOW, 760, 0.3);
+};
+
+// ---------- son 15 sn: üst panel küçülür, konuşmacı tam ekran ----------
+function avatarCamera(t, e) {
+  // Başlangıç: FFmpeg'deki alt bölümle aynı görüntü (zoompan: z = 1 + 0.03·t/DURATION)
+  const z = 1 + (0.03 * t) / DURATION;
+  const vw = 720 / z, vh = AV_BAND.h / z;
+  const c0 = { x: 360, y: AV_BAND.y + (AV_BAND.h - vh) * AVATAR.focusY + vh / 2 };
+  const s0 = 1080 / vw;
+  // Bitiş: kaynağın tamamı 1080x1920
+  const c1 = { x: 360, y: 640 }, s1 = 1.5;
+  const D = 960 * (1 - e), H = 1920 - D;
+  const s = s0 + (s1 - s0) * e;
+  const sw = 1080 / s, sh = H / s;
+  let cx = c0.x + (c1.x - c0.x) * e, cy = c0.y + (c1.y - c0.y) * e;
+  cy = clamp(cy, sh / 2, 1280 - sh / 2);
+  return { sx: cx - sw / 2, sy: cy - sh / 2, sw, sh, D, H };
+}
+
+function outroCard(t) {
+  // Yetkili uygulayıcı rozeti
+  withT(540, 1440, popS(t, 87.9, 0.55), 0, popA(t, 87.9) * (1 - prog(t, 92.3, 0.35)), () => {
+    shadow(true, 30, 10, 'rgba(0,0,0,0.35)'); rrect(-400, -85, 800, 170, 40, 'rgba(255,255,255,0.95)'); shadow(false);
+    emoji('🏅', -320, 0, 80);
+    text('Yetkili uygulayıcı', -250, -24, 42, C.ink, 900, 'left');
+    text('MOXO Dikkat Testi · Online', -250, 30, 32, '#2F8FE0', 800, 'left');
+  });
+  // Profil kartı: Takip Et + Mesaj
+  const u0 = 92.7;
+  const a = eOut(prog(t, u0, 0.45));
+  if (a <= 0) return;
+  withT(540, 1450 + 60 * (1 - a), 1, 0, a, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.35)'); rrect(-420, -120, 840, 240, 40, 'rgba(255,255,255,0.96)'); shadow(false);
+    profilePic(-330, -38, 50, t);
+    text(USERNAME, -255, -52, 36, '#111111', 800, 'left');
+    text('Pedagog Necla SAYGIN', -255, -12, 26, '#6B7280', 700, 'left');
+    const TAP_DM = 95.45, TAP_FOLLOW = 97.6;
+    followButton(-170, 70, 340, 66, 30, prog(t, TAP_FOLLOW + 0.05, 0.35), Math.sin(prog(t, TAP_FOLLOW - 0.05, 0.3) * Math.PI), false);
+    const pressDM = Math.sin(prog(t, TAP_DM - 0.05, 0.3) * Math.PI);
+    withT(200, 70, 1 - 0.08 * pressDM, 0, 1, () => {
+      const sent = t > TAP_DM + 0.05;
+      rrect(-170, -33, 340, 66, 18, sent ? '#DCFCE7' : '#EFEFEF');
+      text(sent ? '✓ Mesaj ✉️' : 'Mesaj ✉️', 0, 1, 30, '#111111', 800);
+    });
+    tapHand(200, 70, t, TAP_DM);
+    tapHand(-170, 70, t, TAP_FOLLOW);
+    hearts(-170, 40, t, TAP_FOLLOW + 0.1, 5, 1.3, 0.35);
+  });
+  withT(540, 1250, popS(t, 99.4, 0.45), 0, popA(t, 99.4), () => {
+    shadow(true, 24, 8, 'rgba(0,0,0,0.5)'); text('Sağlıkla kalın 💚', 0, 0, 64, C.white, 900); shadow(false);
+  });
+}
+
+window.FULL = function (t) {
+  const e = eInOut(prog(t, FULLSCREEN_FROM, OUTRO_LEN));
+  const g = ctx.createLinearGradient(0, 0, 0, 1920);
+  g.addColorStop(0, '#0A0F27'); g.addColorStop(1, '#1B1748');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1080, 1920);
+  const im = clipFrame('avatarFull');
+  const cam = avatarCamera(t, e);
+  if (im) ctx.drawImage(im, cam.sx, cam.sy, cam.sw, cam.sh, 0, cam.D, 1080, cam.H);
+  // üst panel: yukarı doğru küçülüp kaybolur
+  const k = 1 - e;
+  if (k > 0.01) {
+    const w = 1080 * k, h = 960 * k, x = (1080 - w) / 2, y = 0;
+    ctx.save();
+    ctx.globalAlpha = clamp(k * 1.6);
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, 48 * e); ctx.clip();
+    ctx.drawImage(topCanvas, x, y, w, h);
+    ctx.restore();
+  }
+  outroCard(t);
+};
+</script>
+</body>
+</html>

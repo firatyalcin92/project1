@@ -274,6 +274,22 @@ window.renderOverlay = function (t) {
   ctx = main;
 };
 
+// Tam ekran (1080x1920) tuval (#f): videoya özel FULL(t) tanımlıysa son bölümdeki kareleri çizer.
+// Üst bölümün o anki karesi (#c) FULL içinde kaynak olarak kullanılabilir.
+const fullCanvas = document.getElementById('f');
+const fctx = fullCanvas ? fullCanvas.getContext('2d') : null;
+const topCanvas = document.getElementById('c');
+window.renderFull = function (t) {
+  if (!fctx || !window.FULL) return;
+  const main = ctx;
+  ctx = fctx;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  shadow(false);
+  window.FULL(t);
+  ctx = main;
+};
+
 function loadImage(src) {
   return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
 }

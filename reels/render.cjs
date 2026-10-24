@@ -11,6 +11,8 @@
 //   OVERLAYS = [[başlangıç, bitiş], ...]         alt bölüme bindirilen saydam katmanın (OVERLAY) aktif olduğu aralıklar
 //   BOTTOM_CLIPS = [{ src, start, end, from, focusY }, ...]
 //                                                alt bölümde avatarın yerine oynatılan klipler (src sahne klasörüne göre)
+//   TOP_CLIPS = [{ name, src, from, start, end }, ...]  kare kare tuvale çizilen klipler (clipFrame(name))
+//   FULLSCREEN_FROM = saniye                     bu andan sonra kareler tamamen FULL(t) ile (1080x1920) çizilir
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -38,6 +40,7 @@ async function launch() {
     overlays: typeof OVERLAYS !== 'undefined' ? OVERLAYS : [],
     bottomClips: typeof BOTTOM_CLIPS !== 'undefined' ? BOTTOM_CLIPS : [],
     topClips: typeof TOP_CLIPS !== 'undefined' ? TOP_CLIPS : [],
+    fullFrom: typeof FULLSCREEN_FROM !== 'undefined' ? FULLSCREEN_FROM : null,
   }));
   if (config.topClips.length) await page.evaluate(base => { window.CLIP_BASE = base; }, extractTopClips(config.topClips));
   return { browser, page, config };
@@ -73,12 +76,29 @@ async function frame(page, t) {
   return page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1080, height: 960 } });
 }
 
+// Tam ekran kare: #f tuvali geçici olarak görünür yapılıp ekran görüntüsü alınır
+// (yerel görüntüler tuvali "kirlettiği" için toDataURL kullanılamaz)
+async function fullFrame(page, t) {
+  await page.evaluate(async tt => {
+    if (window.prepareFrame) await window.prepareFrame(tt);
+    window.renderFrame(tt);
+    window.renderFull(tt);
+    document.getElementById('f').style.visibility = 'visible';
+  }, t);
+  const buf = await page.screenshot({ type: 'jpeg', quality: 92, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+  await page.evaluate(() => { document.getElementById('f').style.visibility = 'hidden'; });
+  return buf;
+}
+
 async function preview(times) {
-  const { browser, page } = await launch();
+  const { browser, page, config } = await launch();
   fs.mkdirSync(path.join(__dirname, 'preview'), { recursive: true });
   for (const t of times) {
     fs.writeFileSync(path.join(__dirname, 'preview', `t_${t.toFixed(2)}.png`), await frame(page, t));
     fs.writeFileSync(path.join(__dirname, 'preview', `o_${t.toFixed(2)}.png`), await overlayFrame(page, t));
+    if (config.fullFrom !== null && t >= config.fullFrom) {
+      fs.writeFileSync(path.join(__dirname, 'preview', `f_${t.toFixed(2)}.jpg`), await fullFrame(page, t));
+    }
   }
   await browser.close();
 }
@@ -129,12 +149,31 @@ async function render(avatar, output) {
     avLabel = `av${k}`;
   }
 
+  // Son bölüm: tam ekran kareler (üst panelin küçülüp konuşmacının tam ekrana geçtiği kapanış)
+  let fullFilters = [], vLabel = 'v';
+  if (config.fullFrom !== null) {
+    const dir = path.join(ovDir, 'full');
+    fs.mkdirSync(dir);
+    const f0 = Math.floor(config.fullFrom * FPS);
+    for (let f = f0; f < frames; f++) {
+      fs.writeFileSync(path.join(dir, `${String(f - f0).padStart(5, '0')}.jpg`), await fullFrame(page, f / FPS));
+      if ((f - f0) % 100 === 0) process.stderr.write(`\ntam ekran kare ${f - f0}/${frames - f0}\n`);
+    }
+    ovInputs.push('-framerate', String(FPS), '-i', path.join(dir, '%05d.jpg'));
+    fullFilters = [
+      `[${nextInput++}:v]setpts=PTS+${(f0 / FPS).toFixed(3)}/TB,format=yuv420p,setsar=1[full]`,
+      `[vs][full]overlay=0:0:eof_action=pass:enable='gte(t,${(f0 / FPS).toFixed(3)})',format=yuv420p[v]`,
+    ];
+    vLabel = 'vs';
+  }
+
   const filter = [
     `[1:v]fps=${FPS},${av.chain},` +
       `zoompan=z='${zoomExpr(config.zoom, duration)}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)*${av.focusY}':d=1:s=1080x960:fps=${FPS},setsar=1[av]`,
     ...ovFilters,
     `[0:v]format=yuv420p,setsar=1[top]`,
-    `[top][${avLabel}]vstack=inputs=2,format=yuv420p[v]`,
+    `[top][${avLabel}]vstack=inputs=2,format=yuv420p[${vLabel}]`,
+    ...fullFilters,
     `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[a]`,
   ].join(';');
   const ff = spawn('ffmpeg', [
