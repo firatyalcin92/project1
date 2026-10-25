@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { LIMITS } from '~/lib/questions'
 import { buildPanel, createCouple, invitePreview, joinCouple } from '~/server/couples.server'
 import { readTicket } from '~/server/identity.server'
+import { adminStats } from '~/server/admin.server'
+import { betaStatus } from '~/server/beta.server'
 import { rateLimit } from '~/server/rate-limit.server'
 import { memberAuth } from './middleware'
 
@@ -47,6 +49,16 @@ export const invitePreviewFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     rateLimit('invite-preview', 30, TEN_MINUTES)
     return invitePreview(data.code)
+  })
+
+/** Test sürümü: bugün yeni mesele açılabilir mi? */
+export const betaStatusFn = createServerFn({ method: 'POST' }).handler(async () => betaStatus())
+
+export const adminStatsFn = createServerFn({ method: 'POST' })
+  .validator(z.object({ password: z.string().max(200) }))
+  .handler(async ({ data }) => {
+    rateLimit('admin', 20, TEN_MINUTES)
+    return adminStats(data.password)
   })
 
 export const getPanelFn = createServerFn({ method: 'POST' })

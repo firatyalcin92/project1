@@ -1,9 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { Wordmark } from '~/components/brand'
 import { IconArrowRight } from '~/components/icons'
 import { Disclaimer } from '~/components/safety'
 import { LinkButton } from '~/components/ui'
+import { betaStatusFn } from '~/functions/couple'
 import { useMember } from '~/lib/hooks'
 
 export const Route = createFileRoute('/')({
@@ -13,6 +15,7 @@ export const Route = createFileRoute('/')({
 function Landing() {
   const member = useMember()
   const navigate = useNavigate()
+  const beta = useQuery({ queryKey: ['beta'], queryFn: () => betaStatusFn(), staleTime: 60_000 }).data
 
   useEffect(() => {
     if (member) void navigate({ to: '/panel', replace: true })
@@ -36,6 +39,14 @@ function Landing() {
             İkinizi ayrı ayrı dinler, aranızdaki döngüyü gösterir ve birbirinize dönmenin yolunu açar.
           </p>
 
+          {beta?.beta ? (
+            <p className="mt-6 inline-flex rounded-full bg-sage-soft px-3 py-1 text-[13px] font-medium text-ink">
+              {beta.open
+                ? `Ücretsiz test sürümü · bugün ${beta.remaining} yer kaldı`
+                : 'Ücretsiz test sürümü · bugünlük kontenjan doldu, yarın yeniden açılacak'}
+            </p>
+          ) : null}
+
           <div className="mt-10 space-y-3">
             <LinkButton to="/olustur" size="lg" full>
               Başla <IconArrowRight size={18} />
@@ -55,7 +66,7 @@ function Landing() {
 
         <footer className="space-y-3 pb-4 text-[13px] text-ink-faint">
           <p>
-            Psk. Dan. Fırat YALÇIN tarafından tasarlandı · İlk mesele ücretsiz ·{' '}
+            Psk. Dan. Fırat YALÇIN tarafından tasarlandı ·{' '}
             <Link to="/gizlilik" className="underline underline-offset-2">
               Gizlilik
             </Link>

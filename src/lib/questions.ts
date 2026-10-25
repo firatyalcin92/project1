@@ -549,6 +549,26 @@ export type AnswerQuestionId = (typeof ANSWER_QUESTION_IDS)[number]
 
 /** Danışmanın his sorusundan önceki yansıtması da answers tablosunda saklanır. */
 export const REFLECTION_ANSWER_ID = 'yansima'
+/** 1. sorudan sonraki kısa içerik yansıtması */
+export const EVENT_REFLECTION_ID = 'yansima_olay'
+/** İlk 3 sorudan sonraki ayrıntılı geri bildirim */
+export const FEEDBACK_ID = 'geri_bildirim'
+/** İlk bölüm (ilk 3 soru) tamamlandı işareti */
+export const PART1_DONE_ID = 'bolum_bir'
+/** Rapordan sonraki kısa anket */
+export const SURVEY_ID = 'anket'
+
+/** Sunucunun kendi yazdığı satırlar: istemciden gelen cevaplarla karışmaz. */
+export const SYSTEM_ANSWER_IDS: readonly string[] = [
+  REFLECTION_ANSWER_ID,
+  EVENT_REFLECTION_ID,
+  FEEDBACK_ID,
+  PART1_DONE_ID,
+  SURVEY_ID,
+]
+
+/** İlk bölümün soruları; geri kalanı ikinci bölümde sorulur. */
+export const PART1_QUESTION_IDS = ['olay', 'dusunce', FEELINGS] as const
 
 export function allowedChipsFor(questionId: string): readonly string[] {
   if (questionId === FEELINGS || questionId === FEELING_DURING || questionId === FEELING_AFTER)
@@ -612,10 +632,9 @@ export function introMessage(partnerName: string) {
 
 export function privacyNotice(partnerName: string, solo: boolean, order: 'first' | 'second' | 'solo' = 'second') {
   if (solo) return 'Cevaplarınız kimseyle paylaşılmaz.'
+  void order
   const to = partnerName ? dative(partnerName) : 'eşinize'
-  if (order === 'first')
-    return `Yalnızca ilk sorudaki olay anlatımınızı ${partnerName || 'eşiniz'} görecek; diğer cevaplarınız ${to} gösterilmez.`
-  return `Cevaplarınız ${to} olduğu gibi gösterilmez.`
+  return `Yazdıklarınız ${to} gösterilmez; yalnızca raporu hazırlamak için kullanılır.`
 }
 
 // ---------------------------------------------------------------------------

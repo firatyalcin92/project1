@@ -2,7 +2,8 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { QueryError } from '~/components/boundaries'
-import { AnswerWizard, answerBody } from '~/components/dispute/answer-wizard'
+import { answerBody } from '~/components/dispute/answer-body'
+import { ChatWizard } from '~/components/dispute/chat-wizard'
 import { MyPerspectiveDisclosure, PerspectiveCard } from '~/components/dispute/perspective'
 import { ReconsiderForm } from '~/components/dispute/reconsider-form'
 import { MyReportView, SharedGate, SharedReportView } from '~/components/dispute/resolution'
@@ -12,6 +13,7 @@ import { ReadinessCard, readinessFromView } from '~/components/readiness'
 import { IconArrowRight, IconSparkle } from '~/components/icons'
 import { OfferSheet } from '~/components/offer'
 import { SaveAccountCard } from '~/components/save-account'
+import { SurveyCard } from '~/components/survey'
 import { AppShell, BottomBar } from '~/components/layout'
 import { Disclaimer, SafetyNote } from '~/components/safety'
 import { StepTrack } from '~/components/steps'
@@ -52,13 +54,18 @@ function DisputePage() {
         <QueryError error={query.error} onRetry={() => query.refetch()} />
       ) : (
         <div className="space-y-5 pb-6">
-          <StepTrack
-            step={displayStep!}
-            done={view!.status === 'completed'}
-            partnerName={view!.partner?.name}
-            solo={view!.mode === 'solo'}
-          />
-          {view!.partner ? <ReadinessCard readiness={readinessFromView(view!)} /> : null}
+          {/* Sohbet sırasında ekranda yalnızca konuşma olsun. */}
+          {chatting(view!) ? null : (
+            <>
+              <StepTrack
+                step={displayStep!}
+                done={view!.status === 'completed'}
+                partnerName={view!.partner?.name}
+                solo={view!.mode === 'solo'}
+              />
+              {view!.partner ? <ReadinessCard readiness={readinessFromView(view!)} /> : null}
+            </>
+          )}
           <Phase view={view!} onView={query.setView} reflecting={reflecting} setReflecting={setReflecting} />
         </div>
       )}
@@ -75,6 +82,10 @@ type PhaseProps = {
   setReflecting: (v: Reflecting) => void
 }
 
+/** Anlatma adımında, kişi henüz göndermediyse sohbet ekranı açıktır. */
+const chatting = (v: DisputeView) =>
+  (v.status === 'draft' || v.status === 'answers_in_progress') && !v.progress.meSubmitted
+
 function Phase({ view, onView, reflecting, setReflecting }: PhaseProps) {
   switch (view.status) {
     case 'draft':
@@ -82,7 +93,7 @@ function Phase({ view, onView, reflecting, setReflecting }: PhaseProps) {
       // Sırayla anlatım: ilk anlatan bitirmeden ikinci anlatan başlamaz.
       if (
         view.answerOrder === 'second' &&
-        !view.progress.partnerSubmitted &&
+        !view.progress.partnerPart1 &&
         !view.progress.meSubmitted &&
         !view.mine.whatHappened
       ) {
@@ -92,7 +103,7 @@ function Phase({ view, onView, reflecting, setReflecting }: PhaseProps) {
         <WaitingForPartner view={view} />
       ) : (
         <>
-          <AnswerWizard view={view} onView={onView} />
+          <ChatWizard view={view} onView={onView} />
           {view.canCancel ? <CancelDispute view={view} /> : null}
         </>
       )
@@ -115,8 +126,7 @@ function WaitingForFirst({ name }: { name: string }) {
     <Card className="animate-rise space-y-3 py-8 text-center">
       <h2 className="text-[22px] font-semibold">Önce {name} anlatıyor</h2>
       <p className="mx-auto max-w-sm leading-relaxed text-ink-soft">
-        {name} bitirdiğinde sıra size gelecek. Onun olay anlatımını okuyacak, eklemek ya da düzeltmek istediklerinizi
-        yazacaksınız. Bu ekran kendiliğinden ilerler; yeni bir başlık girmenize gerek yok.
+        Şu an {name} ile konuşuyorum. Bitirdiğinde sizi de dinlemek isteyeceğim; bu ekran kendiliğinden ilerler.
       </p>
     </Card>
   )
@@ -302,6 +312,8 @@ function Resolution({ view, onView }: { view: DisputeView; onView: (v: DisputeVi
         </div>
       </Disclosure>
 
+      <SurveyCard view={view} onView={onView} />
+
       <AfterReport solo={solo} freeDispute={view.freeDispute} />
 
       <Card className="space-y-3">
@@ -336,13 +348,14 @@ function AfterReport({ solo, freeDispute }: { solo: boolean; freeDispute: boolea
   const [open, setOpen] = useState(false)
   // Kaydedilince kart "kaydedildi" onayıyla yerinde kalsın.
   const [askSave, setAskSave] = useState(false)
-  const unsaved = panel.data ? !panel.data.account.saved : false
+  // Test sürümünde hesap kaydı ve üyelik teklifi gösterilmez.
+  const unsaved = panel.data ? !panel.data.account.saved && !panel.data.beta.on : false
   useEffect(() => {
     if (unsaved) setAskSave(true)
   }, [unsaved])
   if (askSave) return <SaveAccountCard />
   const m = panel.data?.membership
-  if (!freeDispute || !m || m.active || m.payments !== 'test') return null
+  if (!freeDispute || !m || m.active || m.payments !== 'test' || panel.data?.beta.on) return null
   const deal = yearlyDeal(m.prices)
   return (
     <Card className="space-y-3 border-honey/40 bg-honey-soft/40">

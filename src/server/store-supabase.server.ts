@@ -3,6 +3,7 @@ import { createClient, type PostgrestError } from '@supabase/supabase-js'
 import type { DisputeStatus } from '~/lib/status'
 import { MeseleError } from './errors.server'
 import type {
+  AdminSnapshot,
   AnswerRow,
   CoupleRow,
   DeletionRequestRow,
@@ -108,6 +109,35 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
         .order('created_at', { ascending: false })
       check(error, 'listDisputes')
       return (data ?? []) as DisputeRow[]
+    },
+
+    async countDisputesSince(iso) {
+      const { count, error } = await db
+        .from('disputes')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', iso)
+      check(error, 'countDisputesSince')
+      return count ?? 0
+    },
+
+    async adminSnapshot() {
+      const [d, m, c, s] = await Promise.all([
+        db
+          .from('disputes')
+          .select('id, couple_id, status, created_at')
+          .order('created_at', { ascending: false })
+          .limit(2000),
+        db.from('couple_members').select('couple_id, role').limit(5000),
+        db.from('couples').select('id, mode').limit(5000),
+        db.from('answers').select('selected_tags, updated_at').eq('question_id', 'anket').limit(2000),
+      ])
+      check(d.error ?? m.error ?? c.error ?? s.error, 'adminSnapshot')
+      return {
+        disputes: (d.data ?? []) as AdminSnapshot['disputes'],
+        members: (m.data ?? []) as AdminSnapshot['members'],
+        couples: (c.data ?? []) as AdminSnapshot['couples'],
+        surveys: (s.data ?? []) as AdminSnapshot['surveys'],
+      }
     },
 
     async getDispute(id) {

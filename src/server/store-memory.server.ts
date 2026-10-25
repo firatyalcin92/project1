@@ -135,6 +135,26 @@ export function createMemoryStore(): Store {
         .map(clone)
     },
 
+    async countDisputesSince(iso) {
+      return [...t.disputes.values()].filter((d) => d.created_at >= iso).length
+    },
+
+    async adminSnapshot() {
+      return {
+        disputes: [...t.disputes.values()].map(({ id, couple_id, status, created_at }) => ({
+          id,
+          couple_id,
+          status,
+          created_at,
+        })),
+        members: [...t.members.values()].map(({ couple_id, role }) => ({ couple_id, role })),
+        couples: [...t.couples.values()].map(({ id, mode }) => ({ id, mode })),
+        surveys: [...t.answers.values()]
+          .filter((a) => a.question_id === 'anket')
+          .map(({ selected_tags, updated_at }) => ({ selected_tags, updated_at })),
+      }
+    },
+
     async getDispute(id) {
       const d = t.disputes.get(id)
       return d ? clone(d) : null

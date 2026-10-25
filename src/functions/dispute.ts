@@ -7,11 +7,14 @@ import {
   createDispute,
   ensurePerspectives,
   ensureReports,
+  finishPart1,
   getDisputeView,
   listDisputeSummaries,
   reflectAnswers,
+  reflectEvent,
   saveAnswers,
   saveReconsideration,
+  submitSurvey,
 } from '~/server/disputes.server'
 import { rateLimit } from '~/server/rate-limit.server'
 import { memberAuth } from './middleware'
@@ -48,25 +51,55 @@ export const getDisputeFn = createServerFn({ method: 'POST' })
   .validator(disputeId)
   .handler(async ({ data, context }) => getDisputeView(context.member, data.disputeId))
 
+const answersInput = z.object({
+  disputeId: z.uuid(),
+  whatHappened: z.string().max(LIMITS.text * 2),
+  answers: z
+    .array(
+      z.object({
+        questionId: z.enum(ANSWER_QUESTION_IDS),
+        text: z.string().max(LIMITS.text * 2),
+        tags: z.array(z.string().max(32)).max(64),
+      }),
+    )
+    .max(ANSWER_QUESTION_IDS.length),
+  submit: z.boolean(),
+})
+
 export const saveAnswersFn = createServerFn({ method: 'POST' })
+  .middleware([memberAuth])
+  .validator(answersInput)
+  .handler(async ({ data, context }) => saveAnswers(context.member, data))
+
+/** İlk 3 soru bitti: kaydet, ilk bölümü tamamla, ayrıntılı geri bildirimi üret. */
+export const finishPart1Fn = createServerFn({ method: 'POST' })
+  .middleware([memberAuth])
+  .validator(answersInput)
+  .handler(async ({ data, context }) => {
+    rateLimit('reflect', 30, 10 * 60 * 1000)
+    return finishPart1(context.member, data)
+  })
+
+/** 1. sorudan sonra kısa içerik yansıtması */
+export const reflectEventFn = createServerFn({ method: 'POST' })
+  .middleware([memberAuth])
+  .validator(z.object({ disputeId: z.uuid(), whatHappened: z.string().max(LIMITS.text * 2) }))
+  .handler(async ({ data, context }) => {
+    rateLimit('reflect', 30, 10 * 60 * 1000)
+    return reflectEvent(context.member, data)
+  })
+
+export const submitSurveyFn = createServerFn({ method: 'POST' })
   .middleware([memberAuth])
   .validator(
     z.object({
       disputeId: z.uuid(),
-      whatHappened: z.string().max(LIMITS.text * 2),
-      answers: z
-        .array(
-          z.object({
-            questionId: z.enum(ANSWER_QUESTION_IDS),
-            text: z.string().max(LIMITS.text * 2),
-            tags: z.array(z.string().max(32)).max(64),
-          }),
-        )
-        .max(ANSWER_QUESTION_IDS.length),
-      submit: z.boolean(),
+      rating: z.number().int().min(1).max(5),
+      again: z.boolean(),
+      recommend: z.enum(['evet', 'belki', 'hayir']),
     }),
   )
-  .handler(async ({ data, context }) => saveAnswers(context.member, data))
+  .handler(async ({ data, context }) => submitSurvey(context.member, data))
 
 export const reflectAnswersFn = createServerFn({ method: 'POST' })
   .middleware([memberAuth])

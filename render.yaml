@@ -27,3 +27,11 @@ services:
       # Ödeme altyapısı bağlanana kadar: "test" → üyelik ödeme alınmadan denenebilir
       - key: MESELE_PAYMENTS
         value: test
+      # Ücretsiz test sürümü: her çift 1 mesele, tüm uygulamada günde en fazla 3 yeni mesele
+      - key: MESELE_BETA
+        value: "1"
+      - key: MESELE_DAILY_LIMIT
+        value: "3"
+      # /yonetim sayfasının şifresi (test sonuçları)
+      - key: MESELE_ADMIN_PASSWORD
+        sync: false

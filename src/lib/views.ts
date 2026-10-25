@@ -33,6 +33,9 @@ export type ActiveDisputeSummary = DisputeSummary & {
   partnerDone: boolean
   /** Sırayla anlatım: önce partner anlatıyor, sıra henüz bende değil */
   waitingForFirst: boolean
+  /** İlk bölüm (ilk 3 soru) tamamlandı mı */
+  mePart1: boolean
+  partnerPart1: boolean
 }
 
 export type OverviewStatus = 'locked' | 'available' | 'generating' | 'ready'
@@ -76,6 +79,8 @@ export type PanelView = {
   deletion: DeletionView
   /** Hesap kaydedildi mi (Apple / Google / e-posta)? Kaydedilmediyse kayıtlar yalnızca bu cihazda. */
   account: { saved: boolean; email: string | null }
+  /** Ücretsiz test sürümü: her çift bir mesele, günlük toplam kontenjan */
+  beta: { on: boolean; canCreate: boolean; reason: string | null }
 }
 
 export type AnswerDraft = { text: string; tags: string[] }
@@ -85,6 +90,10 @@ export type MyAnswersView = {
   answers: Record<AnswerQuestionId, AnswerDraft>
   /** Danışmanın 3. sorudan önceki yansıtması */
   reflection: string
+  /** 1. sorudan sonraki kısa yansıtma */
+  eventReflection: string
+  /** İlk 3 sorudan sonraki ayrıntılı geri bildirim */
+  feedback: string
   /** Anlatılana göre yapay zekânın önerdiği hisler ve ihtiyaçlar (kişi kendisi seçer) */
   suggestions: { feelings: string[]; needs: string[] }
   submittedAt: string | null
@@ -122,6 +131,9 @@ export type DisputeView = {
     partnerSubmitted: boolean
     /** Partner anlatmaya başladı mı (içerik değil, yalnızca durum) */
     partnerStarted: boolean
+    /** İlk bölüm (ilk 3 soru) tamamlandı mı */
+    mePart1: boolean
+    partnerPart1: boolean
     meReconsidered: boolean
     partnerReconsidered: boolean
   }
@@ -144,6 +156,8 @@ export type DisputeView = {
       report: SharedReport | null
     } | null
   } | null
+  /** Rapordan sonraki kısa anket (doldurulduysa) */
+  survey: { rating: number; again: boolean; recommend: 'evet' | 'belki' | 'hayir' } | null
 }
 
 export type OverviewStats = {

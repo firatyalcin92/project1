@@ -51,6 +51,24 @@ export const ReflectionSchema = z.object({
 
 export type Reflection = z.infer<typeof ReflectionSchema>
 
+/** 1. sorudan sonraki kısa içerik yansıtması */
+export const EventReflectionSchema = z.object({
+  reflection: z
+    .string()
+    .min(1)
+    .describe('Anlatılan olayın 1-2 cümlelik, "siz" hitaplı içerik yansıtması. Soru sorma, yorum ya da tavsiye verme.'),
+})
+
+/** İlk 3 sorudan sonraki ayrıntılı terapötik geri bildirim */
+export const FeedbackSchema = z.object({
+  feedback: z
+    .string()
+    .min(1)
+    .describe(
+      'Kişinin ilk 3 cevabına 4-6 cümlelik, "siz" hitaplı terapötik geri bildirim: içerik yansıtma, duygu yansıtma ve normalleştirme. Kişi anlaşıldığını hissetmeli. Tavsiye verme, soru sorma, kimseyi suçlama; paragrafları boş satırla ayırabilirsin.',
+    ),
+})
+
 // ---------------------------------------------------------------------------
 // 2. Adım: "[Partner]'ın Gözünden"
 // ---------------------------------------------------------------------------

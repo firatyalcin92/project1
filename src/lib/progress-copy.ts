@@ -1,4 +1,4 @@
-import { genitive } from './turkish'
+import { accusative, alsoAfter, genitive } from './turkish'
 import type { ActiveDisputeSummary } from './views'
 
 /** Paneldeki aktif mesele kartının kişiselleştirilmiş durum cümlesi. */
@@ -13,11 +13,21 @@ export function activeLine(
     case 'answers_in_progress':
       if (a.waitingForFirst)
         return {
-          text: `${p} anlatıyor. Bitirdiğinde sıra size gelecek.`,
+          text: `Şu an ${p} ile konuşuyorum. Bitirdiğinde sizi de dinleyeceğim.`,
           cta: 'Meseleyi açın',
           waiting: true,
         }
-      if (!a.meDone && a.partnerDone)
+      if (!a.meDone && a.mePart1 && !a.partnerPart1 && !solo)
+        return {
+          text: partnerName
+            ? `${accusative(p)} dinliyorum; bitince sizinle devam edeceğiz.`
+            : 'İlk 3 soruyu yanıtladınız. Şimdi partnerinizi davet edin.',
+          cta: 'Meseleyi açın',
+          waiting: true,
+        }
+      if (!a.meDone && a.mePart1)
+        return { text: `${p} ${alsoAfter(p)} anlattı. Son 4 soruyla tamamlayalım.`, cta: 'Devam edin', waiting: false }
+      if (!a.meDone && (a.partnerDone || a.partnerPart1))
         return {
           text: `${p} anlattı. Sıra sizde.`,
           cta: 'Anlatmaya başlayın',

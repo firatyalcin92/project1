@@ -14,6 +14,8 @@ export type ErrorCode =
   | 'INTERNAL'
   /** Bu işlem için kayıtlı hesap gerekir (ör. üyelik) */
   | 'ACCOUNT_REQUIRED'
+  /** Test sürümünde günlük kontenjan doldu */
+  | 'QUOTA_FULL'
   /** Ücretsiz mesele kullanıldı; devam etmek için üyelik gerekir */
   | 'PAYMENT_REQUIRED'
 

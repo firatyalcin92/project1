@@ -98,7 +98,7 @@ function PanelBody({ data, onDeleted }: { data: PanelView; onDeleted: (v: Delete
 
       {!solo && !data.partner ? <InviteLine data={data} /> : null}
 
-      {!data.account.saved && data.completedCount >= 1 ? <SaveAccountCard /> : null}
+      {!data.account.saved && !data.beta.on && data.completedCount >= 1 ? <SaveAccountCard /> : null}
 
       {overviewOpen ? (
         <Link
@@ -154,13 +154,21 @@ function NewDisputeCard({ data }: { data: PanelView }) {
       void navigate({ to: '/mesele/$id', params: { id } })
     },
   })
+  if (data.beta.on && !data.beta.canCreate) {
+    return (
+      <Card className="animate-rise space-y-2 text-center">
+        <p className="font-display text-xl font-semibold">Ücretsiz test sürümü</p>
+        <p className="text-sm leading-relaxed text-ink-soft">{data.beta.reason}</p>
+      </Card>
+    )
+  }
   return (
     <Card className="animate-rise space-y-4 text-center">
       <p className="font-display text-xl font-semibold">Aranızda bir mesele mi var?</p>
       <Button full size="lg" loading={mutation.isPending} onClick={() => mutation.mutate()}>
         <IconPlus size={18} /> Yeni mesele
       </Button>
-      {!m.active && !m.nextDisputeFree ? (
+      {!data.beta.on && !m.active && !m.nextDisputeFree ? (
         <p className="text-[13px] text-ink-faint">İlk sorudan sonra üyelikle devam edebilirsiniz.</p>
       ) : null}
       {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
@@ -220,7 +228,12 @@ function RecentList({ data }: { data: PanelView }) {
 function ResolvedOffer({ data }: { data: PanelView }) {
   const m = data.membership
   const eligible =
-    !data.active && !m.active && m.payments === 'test' && m.disputesUsed === m.freeLimit && data.completedCount >= 1
+    !data.beta.on &&
+    !data.active &&
+    !m.active &&
+    m.payments === 'test' &&
+    m.disputesUsed === m.freeLimit &&
+    data.completedCount >= 1
   const [show, setShow] = useState(false)
   useEffect(() => {
     if (!eligible || offerSeen('cozum', data.me.id)) return

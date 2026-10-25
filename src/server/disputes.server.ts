@@ -12,6 +12,12 @@ import {
   QUESTIONS,
   RECONSIDER_QUESTIONS,
   REFLECTION_ANSWER_ID,
+  EVENT_REFLECTION_ID,
+  FEEDBACK_ID,
+  PART1_DONE_ID,
+  PART1_QUESTION_IDS,
+  SURVEY_ID,
+  SYSTEM_ANSWER_IDS,
   STRONGEST_FEELING,
   allowedChipsFor,
   feelingCount,
@@ -20,8 +26,11 @@ import {
   type ReflectionId,
   FEELING_CHIPS,
   NEED_CHIPS,
+  THOUGHTS,
 } from '~/lib/questions'
 import {
+  EventReflectionSchema,
+  FeedbackSchema,
   MyReportSchema,
   PerspectiveSchema,
   ReflectionSchema,
@@ -47,13 +56,18 @@ import type {
   ReconsiderationView,
 } from '~/lib/views'
 import { PAYWALL_MESSAGE, disputeAccess } from './account.server'
+import { assertBetaCanCreate } from './beta.server'
+import { accusative } from '~/lib/turkish'
 import { requireDispute, type AuthedMember } from './auth.server'
 import { fail } from './errors.server'
 import { generateJson } from './mesele.server'
 import {
+  buildEventReflectionPrompt,
+  buildFeedbackPrompt,
   buildMyReportPrompt,
   buildPerspectivePrompt,
   buildReflectionPrompt,
+  describeMember,
   buildSharedReportPrompt,
   buildSoloReportPrompt,
   type HistoryItem,
@@ -156,6 +170,25 @@ function emptyReflections(): ReconsiderationView['items'] {
   return Object.fromEntries(RECONSIDER_QUESTIONS.map((q) => [q.id, { text: '' }])) as ReconsiderationView['items']
 }
 
+/** İlk 3 soru tamamlandı mı? (geri bildirim işareti satırı) */
+function part1Done(memberId: string, b: Pick<Bundle, 'answers' | 'entries'>) {
+  return (
+    b.answers.some((a) => a.member_id === memberId && a.question_id === PART1_DONE_ID) ||
+    // Eski meseleler: tüm anlatım gönderildiyse ilk bölüm de tamamdır.
+    b.entries.some((e) => e.member_id === memberId && e.submitted_at)
+  )
+}
+
+export type SurveyAnswer = { rating: number; again: boolean; recommend: 'evet' | 'belki' | 'hayir' }
+
+function surveyFromTags(tags: readonly string[]): SurveyAnswer | null {
+  const get = (k: string) => tags.find((t) => t.startsWith(`${k}:`))?.slice(k.length + 1)
+  const rating = Number(get('puan'))
+  const recommend = get('oneri')
+  if (!(rating >= 1 && rating <= 5) || !['evet', 'belki', 'hayir'].includes(recommend ?? '')) return null
+  return { rating, again: get('tekrar') === 'evet', recommend: recommend as SurveyAnswer['recommend'] }
+}
+
 function partnerNameOf(b: Bundle, member: AuthedMember) {
   if (b.couple.mode === 'solo') return b.couple.partner_name
   return b.members.find((m) => m.id !== member.id)?.display_name ?? b.couple.partner_name
@@ -195,13 +228,19 @@ function buildView(
   // Yalnızca KENDİ cevapları döner.
   const answers = emptyAnswers()
   let reflection = ''
+  let eventReflection = ''
+  let feedback = ''
+  let survey: DisputeView['survey'] = null
   let suggestions = { feelings: [] as string[], needs: [] as string[] }
   for (const a of b.answers) {
     if (a.member_id !== member.id) continue
     if (a.question_id === REFLECTION_ANSWER_ID) {
       reflection = a.text_answer
       suggestions = suggestionsFromTags(a.selected_tags)
-    } else if ((ANSWER_QUESTION_IDS as readonly string[]).includes(a.question_id)) {
+    } else if (a.question_id === EVENT_REFLECTION_ID) eventReflection = a.text_answer
+    else if (a.question_id === FEEDBACK_ID) feedback = a.text_answer
+    else if (a.question_id === SURVEY_ID) survey = surveyFromTags(a.selected_tags)
+    else if ((ANSWER_QUESTION_IDS as readonly string[]).includes(a.question_id)) {
       answers[a.question_id as AnswerQuestionId] = { text: a.text_answer, tags: a.selected_tags }
     }
   }
@@ -251,19 +290,21 @@ function buildView(
     // Kilit yalnızca anlatma adımında anlamlıdır; gönderilmiş anlatımlar sonraki adımlara geçer.
     paywall: access.paywall && isAnswerPhase(d.status) && !myEntry?.submitted_at,
     answerOrder: order,
-    // Yalnızca 1. soru: ilk anlatan bitirdiyse ikinci anlatan onun olay anlatımını görür.
-    partnerEvent: order === 'second' && partnerEntry?.submitted_at ? partnerEntry.what_happened || null : null,
+    // v4: herkes olayı kendi gözünden anlatır; partnerin anlatımı gösterilmez.
+    partnerEvent: null,
     me: toInfo(me),
     partner: partner ? toInfo(partner) : null,
     partnerName: partnerNameOf(b, member),
     progress: {
       meSubmitted: Boolean(myEntry?.submitted_at),
       partnerSubmitted: Boolean(partnerEntry?.submitted_at),
+      mePart1: part1Done(member.id, b),
+      partnerPart1: partner ? part1Done(partner.id, b) : false,
       // Yalnızca "başladı mı" bilgisi; içerik asla.
       partnerStarted: Boolean(
         partner &&
         (partnerEntry?.what_happened.trim() ||
-          b.answers.some((a) => a.member_id === partner.id && a.question_id !== REFLECTION_ANSWER_ID)),
+          b.answers.some((a) => a.member_id === partner.id && !SYSTEM_ANSWER_IDS.includes(a.question_id))),
       ),
       meReconsidered: Boolean(myRec?.submitted_at),
       partnerReconsidered: Boolean(partnerRec?.submitted_at),
@@ -276,6 +317,8 @@ function buildView(
       whatHappened: myEntry?.what_happened ?? '',
       answers,
       reflection,
+      eventReflection,
+      feedback,
       suggestions,
       submittedAt: myEntry?.submitted_at ?? null,
     },
@@ -287,6 +330,7 @@ function buildView(
       submittedAt: myRec?.submitted_at ?? null,
     },
     report,
+    survey,
   }
 }
 
@@ -311,16 +355,22 @@ export async function activeSummary(
   let meDone = false
   let partnerDone = false
   let waitingForFirst = false
+  let mePart1 = false
+  let partnerPart1 = false
   if (phase === 1) {
-    const entries = await store.getEntries([active.id])
-    meDone = entries.some((e) => e.member_id === member.id && e.submitted_at)
-    partnerDone = entries.some((e) => e.member_id !== member.id && e.submitted_at)
-    const [couple, members] = await Promise.all([
+    const [entries, answers, couple, members] = await Promise.all([
+      store.getEntries([active.id]),
+      store.getAnswers([active.id]),
       store.getCouple(active.couple_id),
       store.listMembers(active.couple_id),
     ])
+    meDone = entries.some((e) => e.member_id === member.id && e.submitted_at)
+    partnerDone = entries.some((e) => e.member_id !== member.id && e.submitted_at)
+    const partner = members.find((m) => m.id !== member.id)
+    mePart1 = part1Done(member.id, { answers, entries })
+    partnerPart1 = partner ? part1Done(partner.id, { answers, entries }) : false
     const second = couple ? orderOf(member.id, { couple, dispute: active, members }) === 'second' : false
-    waitingForFirst = second && !partnerDone && !entries.some((e) => e.member_id === member.id)
+    waitingForFirst = second && !partnerPart1 && !entries.some((e) => e.member_id === member.id)
   } else if (phase === 3) {
     const recs = await store.getReconsiderations([active.id])
     meDone = recs.some((r) => r.member_id === member.id && r.submitted_at)
@@ -328,7 +378,7 @@ export async function activeSummary(
   } else {
     meDone = partnerDone = true
   }
-  return { ...summarize(active, member.id), meDone, partnerDone, waitingForFirst }
+  return { ...summarize(active, member.id), meDone, partnerDone, waitingForFirst, mePart1, partnerPart1 }
 }
 
 /** Başlık sorulmaz: ilk anlatanın 1. sorusundan yapay zekâ kısa bir ad çıkarır. */
@@ -357,6 +407,7 @@ export async function createDispute(member: AuthedMember, title?: string): Promi
   const existing = await store.listDisputes(member.coupleId)
   const open = existing.find((d) => d.status !== 'completed')
   if (open) fail('CONFLICT', `Önce açık olan "${open.title}" meselesini tamamlayalım.`)
+  await assertBetaCanCreate(member.coupleId)
   // Ücretsiz hak bitse de mesele açılır; 1. sorudan sonrası için üyelik istenir (saveAnswers).
   const d = await store.createDispute({
     couple_id: member.coupleId,
@@ -393,11 +444,15 @@ async function assertCanAnswer(member: AuthedMember, disputeId: string) {
   const entries = await store.getEntries([d.id])
   const entry = entries.find((e) => e.member_id === member.id)
   if (entry?.submitted_at) fail('CONFLICT', 'Anlatımınızı zaten gönderdiniz.')
-  // Sırayla anlatım: ikinci anlatan, ilk anlatan bitirene kadar başlayamaz (önceden taslağı varsa dokunulmaz).
-  const [couple, members] = await Promise.all([store.getCouple(d.couple_id), store.listMembers(d.couple_id)])
+  // Sırayla anlatım: ikinci anlatan, ilk anlatan ilk 3 soruyu bitirene kadar başlayamaz (önceden taslağı varsa dokunulmaz).
+  const [couple, members, answers] = await Promise.all([
+    store.getCouple(d.couple_id),
+    store.listMembers(d.couple_id),
+    store.getAnswers([d.id]),
+  ])
   if (couple && orderOf(member.id, { couple, dispute: d, members }) === 'second' && !entry) {
     const first = members.find((m) => m.id !== member.id)
-    const firstDone = entries.some((e) => e.member_id === first?.id && e.submitted_at)
+    const firstDone = Boolean(first && part1Done(first.id, { answers, entries }))
     if (!firstDone) {
       fail(
         'CONFLICT',
@@ -459,10 +514,11 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
   if (input.submit) {
     const olay = QUESTIONS.find((q) => q.id === 'olay')!
     const find = (id: string) => answers.find((x) => x.questionId === id)
-    const second = (await loadBundle(d).then((b) => orderOf(member.id, b))) === 'second'
-    const agreed = second && Boolean(find(EVENT_AGREE)?.tags.includes(AGREE_TAG))
-    // İkinci anlatan ilk anlatımı aynen onaylayabilir ya da kısa da olsa ekleme yapar.
-    if (!agreed && whatHappened.length < (second ? 10 : olay.minLength))
+    const bundle = await loadBundle(d)
+    const order = orderOf(member.id, bundle)
+    // Eski meseleler: ikinci anlatan ilk anlatımı aynen onaylamış olabilir.
+    const agreed = order === 'second' && Boolean(find(EVENT_AGREE)?.tags.includes(AGREE_TAG))
+    if (!agreed && whatHappened.length < olay.minLength)
       fail('VALIDATION', 'Olayı biraz daha anlatır mısınız? Birkaç cümle yeterli.')
     for (const q of QUESTIONS) {
       if (q.id === 'olay') continue
@@ -476,6 +532,15 @@ export async function saveAnswers(member: AuthedMember, input: SaveAnswersInput)
     if (!feelings || feelingCount(feelings) < FEELING_MIN)
       fail('VALIDATION', 'Hissettiklerinizden en az birini seçer misiniz?')
     if (find(STRONGEST_FEELING)?.tags.length !== 1) fail('VALIDATION', 'Sizi en çok etkileyen hissi seçer misiniz?')
+    // İlk anlatan son 4 soruyu, partneri ilk 3 soruyu bitirdikten sonra gönderir.
+    if (order === 'first') {
+      const partner = bundle.members.find((m) => m.id !== member.id)
+      if (!partner || !part1Done(partner.id, bundle))
+        fail(
+          'CONFLICT',
+          `Önce ${partner ? accusative(partner.display_name) : 'partnerinizi'} de dinlemem gerekiyor; sonra sizinle devam edeceğiz.`,
+        )
+    }
   }
 
   if (input.submit && d.title === DEFAULT_TITLE) await store.setDisputeTitle(d.id, dateTitle())
@@ -509,16 +574,7 @@ export async function reflectAnswers(
   const d = await assertCanAnswer(member, input.disputeId)
   if ((await disputeAccess(d)).paywall) fail('PAYMENT_REQUIRED', PAYWALL_MESSAGE)
   const bundle = await loadBundle(d)
-  let whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
-  // İkinci anlatan: ilk anlatanın olay anlatımı ortak zemindir; kendi eklemesi varsa ona eklenir.
-  if (orderOf(member.id, bundle) === 'second') {
-    const first = bundle.entries.find((e) => e.member_id !== member.id && e.submitted_at)
-    if (first?.what_happened)
-      whatHappened = [first.what_happened, whatHappened && `Kendi eklemesi: ${whatHappened}`]
-        .filter(Boolean)
-        .join('\n\n')
-        .slice(0, LIMITS.text)
-  }
+  const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
   const thought = input.thought.trim().slice(0, LIMITS.text)
   if (whatHappened.length < 20 || thought.length < 3) {
     fail('VALIDATION', 'Önce ilk iki soruyu biraz anlatır mısınız?')
@@ -569,6 +625,127 @@ export async function reflectAnswers(
       ...suggestedNeeds.map((x) => `n:${x}`),
     ]),
   }
+}
+
+/** 1. sorudan sonra: anlatılanı kısaca geri yansıtan 1-2 cümle (hızlı model). */
+export async function reflectEvent(
+  member: AuthedMember,
+  input: { disputeId: string; whatHappened: string },
+): Promise<{ reflection: string }> {
+  const d = await assertCanAnswer(member, input.disputeId)
+  const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
+  if (whatHappened.length < 20) fail('VALIDATION', 'Olayı biraz daha anlatır mısınız?')
+  const bundle = await loadBundle(d)
+  const prompt = buildEventReflectionPrompt({
+    name: member.name,
+    partnerName: partnerNameOf(bundle, member) ?? '',
+    whatHappened,
+  })
+  const { reflection } = await generateJson({
+    task: 'event_reflection',
+    schema: EventReflectionSchema,
+    system: prompt.system,
+    user: prompt.user,
+    speed: 'fast',
+    mockContext: { owner: member.name },
+  })
+  const store = await getStore()
+  await store.upsertAnswers([
+    {
+      dispute_id: d.id,
+      member_id: member.id,
+      question_id: EVENT_REFLECTION_ID,
+      text_answer: reflection.slice(0, LIMITS.reflection),
+      selected_tags: [],
+      visibility: 'partner',
+    },
+  ])
+  return { reflection }
+}
+
+/**
+ * İlk 3 sorudan sonra: cevaplar kaydedilir, ilk bölüm tamamlanır ve danışman ayrıntılı
+ * bir geri bildirim verir. Geri bildirim üretilemezse bölüm yine de tamamlanmış sayılır.
+ */
+export async function finishPart1(member: AuthedMember, input: SaveAnswersInput): Promise<DisputeView> {
+  const d = await assertCanAnswer(member, input.disputeId)
+  if ((await disputeAccess(d)).paywall) fail('PAYMENT_REQUIRED', PAYWALL_MESSAGE)
+  const store = await getStore()
+  const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
+  const answers = normalizeAnswers(input.answers).filter(
+    (a) => (PART1_QUESTION_IDS as readonly string[]).includes(a.questionId) || a.questionId === THOUGHTS,
+  )
+  const find = (id: string) => answers.find((x) => x.questionId === id)
+  if (whatHappened.length < 20) fail('VALIDATION', 'Olayı biraz daha anlatır mısınız? Birkaç cümle yeterli.')
+  if ((find('dusunce')?.text.length ?? 0) < 5) fail('VALIDATION', 'O an aklınızdan geçeni biraz açar mısınız?')
+  if (!find('dusunce')?.tags.length) fail('VALIDATION', 'Lütfen o an ne yaptığınızı seçin.')
+  const feelings = find(FEELINGS)
+  if (!feelings || feelingCount(feelings) < FEELING_MIN)
+    fail('VALIDATION', 'Hissettiklerinizden en az birini seçer misiniz?')
+
+  await store.upsertEntry({
+    dispute_id: d.id,
+    member_id: member.id,
+    what_happened: whatHappened,
+    event_visibility: 'partner',
+  })
+  const row = (question_id: string, text_answer: string, selected_tags: string[] = []) => ({
+    dispute_id: d.id,
+    member_id: member.id,
+    question_id,
+    text_answer,
+    selected_tags,
+    visibility: 'partner' as const,
+  })
+  await store.upsertAnswers([
+    ...answers.map((a) => row(a.questionId, a.text, a.tags)),
+    row(PART1_DONE_ID, '', ['tamam']),
+  ])
+  await store.syncProgress(d.id)
+
+  const bundle = await loadBundle(d)
+  const me = bundle.members.find((m) => m.id === member.id)!
+  const prompt = buildFeedbackPrompt({
+    name: member.name,
+    partnerName: partnerNameOf(bundle, member) ?? '',
+    solo: bundle.couple.mode === 'solo',
+    narrative: describeMember(materialFor(me, bundle), partnerNameOf(bundle, member) ?? '', {
+      includeReconsideration: false,
+    }),
+  })
+  try {
+    const { feedback } = await generateJson({
+      task: 'feedback',
+      schema: FeedbackSchema,
+      system: prompt.system,
+      user: prompt.user,
+      mockContext: { owner: member.name, partner: partnerNameOf(bundle, member) ?? '' },
+    })
+    await store.upsertAnswers([row(FEEDBACK_ID, feedback.slice(0, LIMITS.text))])
+  } catch (e) {
+    console.error('[mesele] geri bildirim üretilemedi', e)
+  }
+  return getDisputeView(member, d.id)
+}
+
+/** Rapordan sonraki 3 soruluk anket (tekrar gönderilirse güncellenir). */
+export async function submitSurvey(member: AuthedMember, input: { disputeId: string } & SurveyAnswer) {
+  const d = await requireDispute(member, input.disputeId)
+  if (d.status !== 'completed') fail('CONFLICT', 'Anket rapordan sonra açılır.')
+  if (!(Number.isInteger(input.rating) && input.rating >= 1 && input.rating <= 5))
+    fail('VALIDATION', 'Puan 1-5 arası olmalı.')
+  const store = await getStore()
+  await store.upsertAnswers([
+    {
+      dispute_id: d.id,
+      member_id: member.id,
+      question_id: SURVEY_ID,
+      text_answer: '',
+      selected_tags: [`puan:${input.rating}`, `tekrar:${input.again ? 'evet' : 'hayir'}`, `oneri:${input.recommend}`],
+      visibility: 'partner',
+    },
+  ])
+  return getDisputeView(member, d.id)
 }
 
 const FEELING_IDS: readonly string[] = FEELING_CHIPS.map((c) => c.id)

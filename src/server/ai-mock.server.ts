@@ -19,6 +19,14 @@ export function mockGenerate(task: AiTask, ctx: Record<string, unknown>): unknow
         suggestedNeeds: ['duyulmak', 'onemsenmek'],
         reflection: `${s(ctx.owner, 'Siz')}, anlattıklarınızı okudum. O an söylediklerinizin karşılık bulmadığını ve içinizde “yine aynı yerdeyiz” duygusunun büyüdüğünü hissediyorum. Bu sizin için kolay bir an olmamış.`,
       }
+    case 'event_reflection':
+      return {
+        reflection: `Anladığım kadarıyla ${s(ctx.owner, 'siz')}, küçük bir konuşma olarak başlayan şey kısa sürede büyüyen bir tartışmaya dönüşmüş ve sonunda ikiniz de birbirinizden uzaklaşmışsınız.`,
+      }
+    case 'feedback':
+      return {
+        feedback: `${s(ctx.owner, 'Siz')}, anlattıklarınızdan o akşam söylediklerinizin karşılık bulmadığını, içinizden "yine aynı yerdeyiz" diye geçtiğini anlıyorum. Sesinizin yükselmesi, aslında duyulmak için verdiğiniz bir çaba gibi görünüyor.\n\nSeçtiğiniz hislerin arasında öfke var, ama onun hemen altında bir kırgınlık ve yalnızlık duygusu da seziliyor. Böyle bir anda hem kızgın hem kırgın olmak çok anlaşılır; bu iki duygu sık sık birlikte gelir.`,
+      }
     case 'perspective':
       return mockPerspective(s(ctx.narrator, 'Partnerin'), s(ctx.reader, 'Sen'))
     case 'shared_report':

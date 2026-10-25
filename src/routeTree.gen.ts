@@ -19,6 +19,7 @@ import { Route as MeselelerRouteImport } from './routes/meseleler'
 import { Route as OlusturRouteImport } from './routes/olustur'
 import { Route as PanelRouteImport } from './routes/panel'
 import { Route as UyelikRouteImport } from './routes/uyelik'
+import { Route as YonetimRouteImport } from './routes/yonetim'
 import { Route as MeseleIdRouteImport } from './routes/mesele.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -71,6 +72,11 @@ const UyelikRoute = UyelikRouteImport.update({
   path: '/uyelik',
   getParentRoute: () => rootRouteImport,
 } as any)
+const YonetimRoute = YonetimRouteImport.update({
+  id: '/yonetim',
+  path: '/yonetim',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MeseleIdRoute = MeseleIdRouteImport.update({
   id: '/mesele/$id',
   path: '/mesele/$id',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/olustur': typeof OlusturRoute
   '/panel': typeof PanelRoute
   '/uyelik': typeof UyelikRoute
+  '/yonetim': typeof YonetimRoute
   '/mesele/$id': typeof MeseleIdRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/olustur': typeof OlusturRoute
   '/panel': typeof PanelRoute
   '/uyelik': typeof UyelikRoute
+  '/yonetim': typeof YonetimRoute
   '/mesele/$id': typeof MeseleIdRoute
 }
 export interface FileRoutesById {
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/olustur': typeof OlusturRoute
   '/panel': typeof PanelRoute
   '/uyelik': typeof UyelikRoute
+  '/yonetim': typeof YonetimRoute
   '/mesele/$id': typeof MeseleIdRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/olustur'
     | '/panel'
     | '/uyelik'
+    | '/yonetim'
     | '/mesele/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/olustur'
     | '/panel'
     | '/uyelik'
+    | '/yonetim'
     | '/mesele/$id'
   id:
     | '__root__'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/olustur'
     | '/panel'
     | '/uyelik'
+    | '/yonetim'
     | '/mesele/$id'
   fileRoutesById: FileRoutesById
 }
@@ -170,6 +182,7 @@ export interface RootRouteChildren {
   OlusturRoute: typeof OlusturRoute
   PanelRoute: typeof PanelRoute
   UyelikRoute: typeof UyelikRoute
+  YonetimRoute: typeof YonetimRoute
   MeseleIdRoute: typeof MeseleIdRoute
 }
 
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UyelikRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/yonetim': {
+      id: '/yonetim'
+      path: '/yonetim'
+      fullPath: '/yonetim'
+      preLoaderRoute: typeof YonetimRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mesele/$id': {
       id: '/mesele/$id'
       path: '/mesele/$id'
@@ -266,6 +286,7 @@ const rootRouteChildren: RootRouteChildren = {
   OlusturRoute: OlusturRoute,
   PanelRoute: PanelRoute,
   UyelikRoute: UyelikRoute,
+  YonetimRoute: YonetimRoute,
   MeseleIdRoute: MeseleIdRoute,
 }
 export const routeTree = rootRouteImport

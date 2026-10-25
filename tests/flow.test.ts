@@ -4,18 +4,24 @@ import { authenticateMember } from '~/server/auth.server'
 import { buildPanel, createCouple, invitePreview, joinCouple, signIn } from '~/server/couples.server'
 import {
   approveSharedReport,
+  cancelDispute,
   createDispute,
   ensurePerspectives,
   ensureReports,
+  finishPart1,
   getDisputeView,
   reflectAnswers,
+  reflectEvent,
   saveAnswers,
   saveReconsideration,
+  submitSurvey,
 } from '~/server/disputes.server'
 import type { AiTask } from '~/server/mesele.server'
 import { ensureOverview, getOverview } from '~/server/overview.server'
 import { createMemoryStore } from '~/server/store-memory.server'
 import { approveDeletion, dismissDeletion, purchase, requestDeletion } from '~/server/account.server'
+import { adminStats } from '~/server/admin.server'
+import { betaStatus } from '~/server/beta.server'
 import { finishOAuth, issueTicket, readTicket, sendEmailCode, verifyEmailCode } from '~/server/identity.server'
 import { __setStoreForTests, getStore } from '~/server/store.server'
 
@@ -36,6 +42,7 @@ beforeEach(() => {
   __setStoreForTests(createMemoryStore())
   calls = []
   vi.stubEnv('MESELE_AI_PROVIDER', 'openai')
+  vi.stubEnv('MESELE_BETA', '0')
   vi.stubEnv('OPENAI_API_KEY', 'sk-test')
   vi.stubGlobal(
     'fetch',
@@ -85,6 +92,20 @@ async function grantMembership(coupleId: string, memberId: string) {
 async function saveAccount(member: Awaited<ReturnType<typeof authenticateMember>> | null, email: string) {
   await sendEmailCode(email)
   return signIn(await verifyEmailCode(email, '123456'), member, issueTicket)
+}
+
+/** İki bölümlü anlatım: ikisi de ilk 3 soruyu bitirir, sonra ikinci ve ilk anlatan gönderir. */
+async function tellBoth(
+  ma: Awaited<ReturnType<typeof authenticateMember>>,
+  mb: Awaited<ReturnType<typeof authenticateMember>>,
+  id: string,
+  rawA?: string,
+  rawB?: string,
+) {
+  await finishPart1(ma, fullAnswers(id, rawA))
+  await finishPart1(mb, fullAnswers(id, rawB))
+  await saveAnswers(mb, fullAnswers(id, rawB))
+  return saveAnswers(ma, fullAnswers(id, rawA))
 }
 
 async function pair() {
@@ -184,6 +205,10 @@ describe('çift akışı: ham cevaplar partnere dönmez, analiz hepsini kullanı
     const reflectionCall = calls.find((c) => c.task === 'reflection')!
     expect(reflectionCall.body.model).toBe('gpt-4o-mini')
 
+    await finishPart1(ma, fullAnswers(id, RAW_A))
+    // İlk anlatan, partneri ilk 3 soruyu bitirmeden gönderemez
+    await expect(saveAnswers(ma, fullAnswers(id, RAW_A))).rejects.toThrow(/Ayşe.*dinlemem gerekiyor/)
+    await finishPart1(mb, fullAnswers(id, RAW_B))
     const afterA = await saveAnswers(ma, fullAnswers(id, RAW_A))
     expect(afterA.status).toBe('answers_in_progress')
     expect(afterA.mine.reflection).toBe(r.reflection)
@@ -216,11 +241,10 @@ describe('çift akışı: ham cevaplar partnere dönmez, analiz hepsini kullanı
     const viewB = await getDisputeView(mb, id)
     expect(viewA.status).toBe('perspectives_ready')
     expect(viewA.partnerView?.perspective?.headline).toBeTruthy()
-    // Sırayla anlatım: yalnızca ilk anlatanın olay anlatımı ikinciye gösterilir; başka hiçbir ham cevap.
+    // Kimse diğerinin hiçbir ham cevabını görmez (olay anlatımı dahil).
     expect(JSON.stringify(viewA)).not.toContain('AYSE-HAM-CEVAP')
-    expect(viewB.partnerEvent).toBe(RAW_A)
-    expect(viewA.partnerEvent).toBeNull()
-    expect(JSON.stringify({ ...viewB, partnerEvent: null })).not.toContain('FIRAT-HAM-CEVAP')
+    expect(viewB.partnerEvent).toBeNull()
+    expect(JSON.stringify(viewB)).not.toContain('FIRAT-HAM-CEVAP')
     expect(viewA.mine.whatHappened).toBe(RAW_A)
 
     await saveReconsideration(ma, reflections(id))
@@ -255,8 +279,7 @@ describe('çift akışı: ham cevaplar partnere dönmez, analiz hepsini kullanı
   it('üretim başarısız olursa kilit bırakılır ve tekrar denenebilir', async () => {
     const { ma, mb } = await pair()
     const { id } = await createDispute(ma, 'Tatil')
-    await saveAnswers(ma, fullAnswers(id))
-    await saveAnswers(mb, fullAnswers(id))
+    await tellBoth(ma, mb, id)
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response('boom', { status: 400 })),
@@ -327,8 +350,7 @@ describe('Genel Görüş', () => {
     await grantMembership(ma.coupleId, ma.id)
     for (let i = 0; i < 5; i++) {
       const { id } = await createDispute(ma, `Mesele ${i + 1}`)
-      await saveAnswers(ma, fullAnswers(id))
-      await saveAnswers(mb, fullAnswers(id))
+      await tellBoth(ma, mb, id)
       await ensurePerspectives(ma, id)
       await saveReconsideration(ma, reflections(id))
       await saveReconsideration(mb, reflections(id))
@@ -392,13 +414,13 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     __setStoreForTests(store)
     const { ma, mb } = await pair()
     const { id } = await createDispute(ma, 'Akşam yemeği')
-    await saveAnswers(
-      ma,
-      feelingAnswers(id, {
+    await saveAnswers(ma, {
+      ...feelingAnswers(id, {
         hisler: { text: RAW_OTHER, tags: ['ofkelendim', 'yalniz', 'diger'] },
         en_etkili: { text: RAW_WHY, tags: ['yalniz'] },
       }),
-    )
+      submit: false,
+    })
 
     const rows = (await store.getAnswers([id])).filter((r) => r.member_id === ma.id)
     const row = (q: string) => rows.find((r) => r.question_id === q)
@@ -414,7 +436,7 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
   })
 
   it('geçersiz seçimler ayıklanır: tek en etkili his, seçilmemiş his kabul edilmez', async () => {
-    const { ma } = await pair()
+    const { ma, mb } = await pair()
     const { id } = await createDispute(ma, 'Tatil')
     const set = (o: Record<string, { text: string; tags: string[] }>) =>
       saveAnswers(ma, { ...feelingAnswers(id, o), submit: false })
@@ -471,28 +493,34 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
       tags: ['kirildim', 'uzuldum', 'yalniz', 'guvensiz', 'ofkelendim', 'kaygilandim', 'utanmis'],
     })
     expect(v.mine.answers.en_etkili.tags).toEqual([]) // kesilen his seçilemez
-    v = await submit({ hisler: { text: '', tags: ['kirildim'] }, en_etkili: { text: '', tags: ['kirildim'] } })
+    // Geçerli cevaplar: ilk anlatan, partneri ilk 3 soruyu bitirince gönderebilir
+    const ok = feelingAnswers(id, {
+      hisler: { text: '', tags: ['kirildim'] },
+      en_etkili: { text: '', tags: ['kirildim'] },
+    })
+    await expect(saveAnswers(ma, ok)).rejects.toThrow(/Ayşe’yi de dinlemem gerekiyor/)
+    await finishPart1(ma, ok)
+    await finishPart1(mb, fullAnswers(id))
+    v = await saveAnswers(ma, ok)
     expect(v.mine.submittedAt).toBeTruthy()
   })
 
   it('yapay zekâ istemleri hisleri ve en çok etkileyen hissi kullanır; ortak rapor döngü kırma rehberini içerir', async () => {
     const { ma, mb } = await pair()
     const { id } = await createDispute(ma, 'Ev işleri')
-    await saveAnswers(
-      ma,
-      feelingAnswers(id, {
-        hisler: { text: RAW_OTHER, tags: ['ofkelendim', 'kirildim', 'yalniz', 'diger'] },
-        en_etkili: { text: RAW_WHY, tags: ['yalniz'] },
-      }),
+    const fa = feelingAnswers(id, {
+      hisler: { text: RAW_OTHER, tags: ['ofkelendim', 'kirildim', 'yalniz', 'diger'] },
+      en_etkili: { text: RAW_WHY, tags: ['yalniz'] },
+    })
+    const fb = feelingAnswers(
+      id,
+      { hisler: { text: '', tags: ['kaygilandim'] }, en_etkili: { text: '', tags: ['kaygilandim'] } },
+      RAW_B,
     )
-    await saveAnswers(
-      mb,
-      feelingAnswers(
-        id,
-        { hisler: { text: '', tags: ['kaygilandim'] }, en_etkili: { text: '', tags: ['kaygilandim'] } },
-        RAW_B,
-      ),
-    )
+    await finishPart1(ma, fa)
+    await finishPart1(mb, fb)
+    await saveAnswers(mb, fb)
+    await saveAnswers(ma, fa)
     await ensurePerspectives(ma, id)
     const fromA = calls.find((c) => c.task === 'perspective' && c.user.includes('FIRAT-HAM-CEVAP'))!
     expect(fromA.user).toContain(
@@ -564,8 +592,7 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
 /** Bir meseleyi iki taraf için de sonuna kadar götürür. */
 async function completeDispute(ma: Awaited<ReturnType<typeof pair>>['ma'], mb: typeof ma, title: string) {
   const { id } = await createDispute(ma, title)
-  await saveAnswers(ma, fullAnswers(id, RAW_A))
-  await saveAnswers(mb, fullAnswers(id, RAW_B))
+  await tellBoth(ma, mb, id, RAW_A, RAW_B)
   await ensurePerspectives(ma, id)
   await saveReconsideration(ma, reflections(id))
   await saveReconsideration(mb, reflections(id))
@@ -597,6 +624,7 @@ describe('üyelik: bir mesele ücretsiz, sonrası çift düzeyinde üyelik', () 
     await expect(
       reflectAnswers(mb, { disputeId: id, whatHappened: RAW_B, thought: 'Yine beni dinlemiyor' }),
     ).rejects.toThrow(/\[PAYMENT_REQUIRED\]/)
+    await expect(finishPart1(mb, fullAnswers(id))).rejects.toThrow(/\[PAYMENT_REQUIRED\]/)
 
     // Ödeme altyapısı yokken satın alma kapalı
     await expect(purchase(ma, { period: 'monthly' })).rejects.toThrow(/\[ACCOUNT_REQUIRED\]/)
@@ -615,6 +643,8 @@ describe('üyelik: bir mesele ücretsiz, sonrası çift düzeyinde üyelik', () 
     expect((await buildPanel(mb)).membership).toMatchObject({ active: true, purchasedByMe: false })
     // Kilit kalktı: aynı meseleye kaldığı yerden devam
     expect(await getDisputeView(mb, id)).toMatchObject({ paywall: false })
+    await finishPart1(mb, fullAnswers(id))
+    await finishPart1(ma, fullAnswers(id))
     const done = await saveAnswers(mb, fullAnswers(id))
     expect(done.progress.meSubmitted).toBe(true)
   })
@@ -808,49 +838,40 @@ describe('meseleler arası bağlam ve hazır olma durumu', () => {
   })
 })
 
-describe('sırayla anlatım: önce açan anlatır, diğeri onun olay anlatımını görüp ekler', () => {
-  it('ikinci anlatan ilk anlatan bitirmeden başlayamaz; bitince olay anlatımını görür', async () => {
+describe('iki bölümlü sırayla anlatım: önce açan ilk 3 soruyu yanıtlar, sonra partner', () => {
+  it('ikinci anlatan, ilk anlatan ilk 3 soruyu bitirince başlar; kimse diğerinin anlatımını görmez', async () => {
     const { ma, mb } = await pair()
     const { id } = await createDispute(ma, 'Kutlama')
-    const vb0 = await getDisputeView(mb, id)
-    expect(vb0.answerOrder).toBe('second')
-    expect(vb0.partnerEvent).toBeNull()
+    expect((await getDisputeView(mb, id)).answerOrder).toBe('second')
     await expect(saveAnswers(mb, fullAnswers(id, RAW_B))).rejects.toThrow(/Önce Fırat anlatmayı bitirmeli/)
 
-    // Taslak hâlinde görünmez
-    await saveAnswers(ma, { ...fullAnswers(id, RAW_A), submit: false })
-    expect((await getDisputeView(mb, id)).partnerEvent).toBeNull()
-    await saveAnswers(ma, fullAnswers(id, RAW_A))
+    // 1. sorudan sonra kısa yansıtma, 3 sorudan sonra geri bildirim
+    const ev = await reflectEvent(ma, { disputeId: id, whatHappened: RAW_A })
+    expect(ev.reflection).toMatch(/Anladığım kadarıyla/)
+    await expect(finishPart1(ma, { ...fullAnswers(id, RAW_A), answers: [] })).rejects.toThrow(/\[VALIDATION\]/)
+    const va = await finishPart1(ma, fullAnswers(id, RAW_A))
+    expect(va.progress).toMatchObject({ mePart1: true, partnerPart1: false, meSubmitted: false })
+    expect(va.mine.eventReflection).toBe(ev.reflection)
+    expect(va.mine.feedback).toBeTruthy()
+    expect(calls.find((c) => c.task === 'feedback')!.user).toContain(RAW_A)
+    expect((await buildPanel(ma)).active).toMatchObject({ mePart1: true, partnerPart1: false })
+    expect((await buildPanel(mb)).active).toMatchObject({ mePart1: false, partnerPart1: true, waitingForFirst: false })
+
     const vb = await getDisputeView(mb, id)
-    expect(vb.partnerEvent).toBe(RAW_A)
+    expect(vb.partnerEvent).toBeNull()
+    expect(JSON.stringify(vb)).not.toContain('FIRAT-HAM')
     expect((await buildPanel(mb)).active?.waitingForFirst).toBe(false)
 
-    // Aynen onaylayabilir: kendi olay metni boş kalabilir
-    const agreeing = {
-      ...fullAnswers(id, ''),
-      answers: [...fullAnswers(id, '').answers, { questionId: 'olay_onay' as const, text: '', tags: ['onay'] }],
-    }
-    const done = await saveAnswers(mb, agreeing)
+    // Ayşe kendi gözünden anlatır; ilk bölümden sonra beklemeden son 4 soruya geçer
+    await finishPart1(mb, fullAnswers(id, RAW_B))
+    expect((await getDisputeView(ma, id)).progress.partnerPart1).toBe(true)
+    await saveAnswers(mb, fullAnswers(id, RAW_B))
+    const done = await saveAnswers(ma, fullAnswers(id, RAW_A))
     expect(done.status).toBe('both_answers_completed')
+    expect(JSON.stringify(await getDisputeView(ma, id))).not.toContain('AYSE-HAM')
     await ensurePerspectives(ma, id)
     const forA = calls.find((c) => c.task === 'perspective' && c.user.includes('Ayşe (Partner B) anlatıyor'))!
-    expect(forA.user).toContain('partnerinin olay anlatımını okudu ve aynen onayladı')
-  })
-
-  it('ikinci anlatan onaylamazsa kısa da olsa ekleme yazmalı; ekleme istemde ayrı etiketlenir', async () => {
-    const { ma, mb } = await pair()
-    const { id } = await createDispute(ma, 'Kutlama')
-    await saveAnswers(ma, fullAnswers(id, RAW_A))
-    expect((await buildPanel(mb)).active?.waitingForFirst).toBe(false)
-    await expect(saveAnswers(mb, fullAnswers(id, 'kısa'))).rejects.toThrow(/\[VALIDATION\]/)
-    const adding = fullAnswers(id, 'Ben biraz farklı hatırlıyorum')
-    await saveAnswers(mb, {
-      ...adding,
-      answers: [...adding.answers, { questionId: 'olay_onay' as const, text: '', tags: [] }],
-    })
-    await ensurePerspectives(ma, id)
-    const forA = calls.find((c) => c.task === 'perspective' && c.user.includes('Ayşe (Partner B) anlatıyor'))!
-    expect(forA.user).toContain('kendi eklediği / düzelttiği')
+    expect(forA.user).toContain('kendi anlatımı')
   })
 
   it('panelde ikinci partner sırasını bekler', async () => {
@@ -876,5 +897,53 @@ describe('sırayla anlatım: önce açan anlatır, diğeri onun olay anlatımın
     expect(v.mine.answers.ihtiyac.tags).toEqual(['duyulmak', 'anlasilmak', 'onemsenmek', 'saygi', 'takdir'])
     await expect(saveAnswers(ma, { ...withNeeds([]), submit: true })).rejects.toThrow(/ihtiyaç/)
     await ensurePerspectives(ma, id).catch(() => {})
+  })
+})
+
+describe('ücretsiz test sürümü', () => {
+  it('her çift bir mesele; tüm uygulamada günde en fazla 3 mesele', async () => {
+    vi.stubEnv('MESELE_BETA', '1')
+    const p1 = await pair()
+    expect(await betaStatus()).toMatchObject({ beta: true, limit: 3, remaining: 3, open: true })
+    const { id } = await createDispute(p1.ma)
+    // Ücretsiz: ödeme kilidi yok
+    expect(await getDisputeView(p1.ma, id)).toMatchObject({ paywall: false, freeDispute: true })
+    expect((await buildPanel(p1.ma)).beta).toMatchObject({ on: true, canCreate: false })
+    await cancelDispute(p1.ma, id).catch(() => {})
+    await expect(createDispute(p1.ma)).resolves.toBeTruthy() // iptal edilen sayılmaz
+
+    await expect(createDispute(p1.mb)).rejects.toThrow(/\[CONFLICT\]/)
+    const p2 = await pair()
+    await createDispute(p2.ma)
+    const p3 = await pair()
+    await createDispute(p3.ma)
+    // 4. çift: kontenjan doldu (iptal edilen mesele silindiği için sayılmaz)
+    expect(await betaStatus()).toMatchObject({ remaining: 0, open: false })
+    const p4 = await pair()
+    expect((await buildPanel(p4.ma)).beta).toMatchObject({ on: true, canCreate: false })
+    await expect(createDispute(p4.ma)).rejects.toThrow(/\[QUOTA_FULL\]/)
+  })
+
+  it('rapordan sonra 3 soruluk anket; yönetim sayacı kişisel içerik göstermez', async () => {
+    const { ma, mb } = await pair()
+    const id = await completeDispute(ma, mb, 'Anket')
+    await expect(submitSurvey(ma, { disputeId: id, rating: 6, again: true, recommend: 'evet' })).rejects.toThrow()
+    const v = await submitSurvey(ma, { disputeId: id, rating: 4, again: true, recommend: 'belki' })
+    expect(v.survey).toEqual({ rating: 4, again: true, recommend: 'belki' })
+    expect((await getDisputeView(mb, id)).survey).toBeNull()
+    await submitSurvey(mb, { disputeId: id, rating: 5, again: false, recommend: 'evet' })
+
+    await expect(adminStats('x')).rejects.toThrow(/\[CONFIG\]/)
+    vi.stubEnv('MESELE_ADMIN_PASSWORD', 'gizli')
+    await expect(adminStats('yanlis')).rejects.toThrow(/\[UNAUTHORIZED\]/)
+    const st = await adminStats('gizli')
+    expect(st.disputes).toMatchObject({ total: 1, couple: 1, partnerJoined: 1, completed: 1 })
+    expect(st.survey).toMatchObject({
+      count: 2,
+      avgRating: 4.5,
+      againPercent: 50,
+      recommend: { evet: 1, belki: 1, hayir: 0 },
+    })
+    expect(JSON.stringify(st)).not.toContain('HAM')
   })
 })

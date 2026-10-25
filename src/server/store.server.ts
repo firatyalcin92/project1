@@ -126,6 +126,13 @@ export type SubscriptionRow = {
   created_at: string
 }
 
+export type AdminSnapshot = {
+  disputes: Pick<DisputeRow, 'id' | 'couple_id' | 'status' | 'created_at'>[]
+  members: Pick<MemberRow, 'couple_id' | 'role'>[]
+  couples: Pick<CoupleRow, 'id' | 'mode'>[]
+  surveys: Pick<AnswerRow, 'selected_tags' | 'updated_at'>[]
+}
+
 export type DeletionRequestRow = {
   id: string
   couple_id: string
@@ -155,6 +162,10 @@ export interface Store {
   linkMemberAuth(memberId: string, userId: string, email: string | null): Promise<'ok' | 'taken'>
 
   listDisputes(coupleId: string): Promise<DisputeRow[]>
+  /** Tüm uygulamada bu andan sonra açılan mesele sayısı (test sürümü kontenjanı) */
+  countDisputesSince(iso: string): Promise<number>
+  /** Yönetim sayacı için özet veri */
+  adminSnapshot(): Promise<AdminSnapshot>
   getDispute(id: string): Promise<DisputeRow | null>
   createDispute(input: { couple_id: string; created_by: string; title: string }): Promise<DisputeRow>
   deleteDispute(id: string): Promise<void>

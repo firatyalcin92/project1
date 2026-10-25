@@ -6,6 +6,7 @@ import type { AuthedMember } from './auth.server'
 import { generateCoupleCode, generateMemberToken, hashMemberToken } from './crypto.server'
 import { fail } from './errors.server'
 import { deletionFor, membershipFor } from './account.server'
+import { ONE_PER_COUPLE_MESSAGE, QUOTA_MESSAGE, betaStatus } from './beta.server'
 import type { Identity } from './identity.server'
 import { activeSummary, summarize } from './disputes.server'
 import { overviewStatus } from './overview.server'
@@ -178,6 +179,13 @@ export async function signIn(
   return { status: 'no_account', ticket: ticketFor(identity), email: identity.email }
 }
 
+async function panelBeta(disputeCount: number): Promise<PanelView['beta']> {
+  const s = await betaStatus()
+  if (!s.beta) return { on: false, canCreate: true, reason: null }
+  if (disputeCount >= 1) return { on: true, canCreate: false, reason: ONE_PER_COUPLE_MESSAGE }
+  return { on: true, canCreate: s.open, reason: s.open ? null : QUOTA_MESSAGE }
+}
+
 export async function buildPanel(member: AuthedMember): Promise<PanelView> {
   const store = await getStore()
   const [couple, members, disputes] = await Promise.all([
@@ -207,5 +215,6 @@ export async function buildPanel(member: AuthedMember): Promise<PanelView> {
     membership: await membershipFor(member.coupleId, member.id),
     deletion: await deletionFor(member.coupleId, member.id),
     account: { saved: Boolean(me.auth_user_id), email: me.email },
+    beta: await panelBeta(disputes.length),
   }
 }

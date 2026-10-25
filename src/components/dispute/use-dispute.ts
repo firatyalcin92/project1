@@ -11,8 +11,10 @@ function pollInterval(v: DisputeView | undefined): number | false {
   if (v.generation.active || v.status === 'both_answers_completed' || v.status === 'reconsideration_completed')
     return 3500
   if (v.status === 'draft' || v.status === 'answers_in_progress') {
-    const waitingForFirst = v.answerOrder === 'second' && !v.progress.partnerSubmitted && !v.mine.whatHappened
-    return v.progress.meSubmitted || waitingForFirst ? 5000 : false
+    const waitingForFirst = v.answerOrder === 'second' && !v.progress.partnerPart1 && !v.mine.whatHappened
+    // İlk anlatan ilk 3 soruyu bitirdi, partnerini bekliyor
+    const waitingForPartnerPart1 = v.answerOrder === 'first' && v.progress.mePart1 && !v.progress.partnerPart1
+    return v.progress.meSubmitted || waitingForFirst || waitingForPartnerPart1 ? 5000 : false
   }
   if (v.status === 'perspectives_ready' || v.status === 'reconsideration_in_progress')
     return v.progress.meReconsidered ? 5000 : 15000

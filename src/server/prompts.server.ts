@@ -370,6 +370,38 @@ Ne oldu: ${quote(input.whatHappened)}
   return { system: SYSTEM_PROMPT, user }
 }
 
+/** 1. sorudan hemen sonra: kısa içerik yansıtması. */
+export function buildEventReflectionPrompt(input: { name: string; partnerName: string; whatHappened: string }): Prompt {
+  const user = `GÖREV: ${input.name} az önce bir tartışmayı anlattı. Bir terapistin seansta yaptığı gibi, anlatılanı 1-2 cümleyle kendi kelimelerinle geri yansıt (içerik yansıtma).
+- "Siz" diye seslen; "Anladığım kadarıyla…" gibi doğal bir girişle başlayabilirsin.
+- Olayın özünü ve varsa ${genitive(input.name)} o anki durumunu kısaca söyle. Yorum yapma, tavsiye verme, soru sorma, kimseyi suçlama.
+- Partner adı: ${input.partnerName || 'eşi'}.
+
+Ne oldu: ${quote(input.whatHappened)}`
+  return { system: SYSTEM_PROMPT, user }
+}
+
+/** İlk 3 sorudan sonra: ayrıntılı terapötik geri bildirim. */
+export function buildFeedbackPrompt(input: {
+  name: string
+  partnerName: string
+  solo: boolean
+  narrative: string
+}): Prompt {
+  const p = input.partnerName || 'eşi'
+  const user = `GÖREV: ${input.name} ilk üç soruyu yanıtladı (ne oldu, o an ne düşündü ve ne yaptı, neler hissetti). Bir çift terapistinin seansta yaptığı gibi ${dative(input.name)} 4-6 cümlelik bir geri bildirim ver.
+- Amaç: ${input.name} gerçekten duyulduğunu ve anlaşıldığını hissetsin.
+- İçerik yansıtma: olayı ve o anki düşüncesini kısaca, kendi kelimelerinle söyle.
+- Duygu yansıtma: seçtiği hisleri liste hâlinde sayma; aralarındaki bağı (ör. öfkenin altındaki kırgınlık) nazikçe adlandır.
+- Normalleştirme: böyle bir anda bunları hissetmenin anlaşılır olduğunu söyle.
+- Davranışını yargılama; tavsiye verme, soru sorma, ${dative(p)} suç yükleme.
+- "Siz" diye seslen, sade ve sıcak bir dil kullan. En fazla iki paragraf.
+${input.solo ? `- ${p} uygulamayı kullanmıyor; onun adına kesin konuşma.` : ''}
+
+${input.narrative}`
+  return { system: SYSTEM_PROMPT, user }
+}
+
 /** 2. Adım: "{narrator}'ın Gözünden" — okuyucu partnerdir. */
 export function buildPerspectivePrompt(input: {
   title: string

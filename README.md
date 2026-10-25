@@ -236,6 +236,18 @@ konuşma rehberi). Ortak rapor ve Genel Görüş yalnızca çift modundadır.
 dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı aynası, güçlü yanlar, büyüme alanları,
 önümüzdeki yol) ve iki partnerin paylaşılan çip seçimlerinin dağılımı. 5 yeni mesele sonra güncellenebilir.
 
+## Ücretsiz test sürümü (şu anki durum)
+
+- `MESELE_BETA=1` (varsayılan): ödeme ve teklif ekranları gizli, her şey ücretsiz. Her çift **bir** mesele açabilir;
+  tüm uygulamada günde en fazla `MESELE_DAILY_LIMIT` (varsayılan 3) yeni mesele açılır (İstanbul saatiyle gece yarısı
+  yenilenir). Böylece yapay zekâ harcaması günde ~30 TL ile sınırlı kalır.
+- Anlatım **sohbet** biçimindedir (`src/components/dispute/chat-wizard.tsx`): çizim terapist avatarı soruları tek tek
+  sorar, 1. sorudan sonra kısa içerik yansıtması, 2. sorudan sonra duygu yansıtması, ilk 3 sorudan sonra ayrıntılı
+  geri bildirim verir. İlk anlatan burada partnerini bekler; partner kendi ilk 3 sorusundan sonra beklemeden son 4
+  soruya geçer; ilk anlatan da ardından son 4 soruyu yanıtlar. Kimse diğerinin cevaplarını görmez.
+- Rapordan sonra 3 soruluk anket (puan, tekrar kullanır mı, önerir mi). Sonuçlar `/yonetim` sayfasında
+  (`MESELE_ADMIN_PASSWORD` ile); kişisel içerik gösterilmez.
+
 ## Hesaplar: Apple / Google / e-posta kodu
 
 Uygulama **hesapsız başlar**: kişi adını yazar ve hemen ilk soruya geçer. Oturum, cihazdaki gizli bir token'dır

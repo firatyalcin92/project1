@@ -85,14 +85,16 @@ function SettingsBody({ data, onDeleted }: { data: PanelView; onDeleted: (v: { m
       {!solo && !data.partner ? <InvitePartner data={data} /> : null}
 
       <nav className="divide-y divide-line border-y border-line">
-        <Row to="/uyelik">
-          <span>
-            Üyelik
-            <span className="block text-[13px] font-normal text-ink-faint">
-              {membershipLine(data.membership, data.partnerName)}
+        {data.beta.on ? null : (
+          <Row to="/uyelik">
+            <span>
+              Üyelik
+              <span className="block text-[13px] font-normal text-ink-faint">
+                {membershipLine(data.membership, data.partnerName)}
+              </span>
             </span>
-          </span>
-        </Row>
+          </Row>
+        )}
         <Row to="/meseleler">Tüm meseleler</Row>
         {solo ? null : <Row to="/genel-gorus">Genel Görüş</Row>}
         <Row to="/gizlilik">Gizlilik</Row>

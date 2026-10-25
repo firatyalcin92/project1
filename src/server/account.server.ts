@@ -12,6 +12,7 @@ import {
 } from '~/lib/plans'
 import type { DeletionView, MembershipView } from '~/lib/views'
 import type { AuthedMember } from './auth.server'
+import { betaMode } from './beta.server'
 import { fail } from './errors.server'
 import { getStore, type DisputeRow } from './store.server'
 
@@ -49,6 +50,8 @@ export function isFreeDispute(d: Pick<DisputeRow, 'id'>, all: Pick<DisputeRow, '
 
 /** Bu meselede 1. sorudan sonrası için üyelik gerekiyor mu? */
 export async function disputeAccess(d: DisputeRow) {
+  // Test sürümünde her şey ücretsiz.
+  if (betaMode()) return { free: true, paywall: false }
   const store = await getStore()
   const [sub, all] = await Promise.all([
     store.getActiveSubscription(d.couple_id, nowIso()),
