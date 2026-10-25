@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels Top Graphics v6</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script>
+// Video 6: Yemek yemeyen çocuk — 3 öneri. Altyazı yok.
+// Konuşmacı başta ~14 sn görünür, sonra en fazla 4,5 sn'lik kısa görünümler; aradaki süre hazır kliplerle dolar.
+const DURATION = 148.28;
+const ZOOM_BUMPS = [[121.6, 123.9], [139.2, 141.6]];
+// Kaynak 1916x2872; sağ alttaki filigran (masanın altında) kırpma dışında kalır.
+const AVATAR = { chain: 'crop=1400:1245:258:450,scale=1620:1440:flags=lanczos', focusY: 0.4 };
+const MID_FOLLOW = 71.5;
+const END_FOLLOW = 143.4;
+const OVERLAYS = [[0.4, 5.7], [MID_FOLLOW, MID_FOLLOW + 4.7], [END_FOLLOW, END_FOLLOW + 4.7]];
+const CHUNKS = []; // altyazı kapalı
+
+// Alt bölüm akışı: 'A' = konuşmacı, diğerleri klip [kaynak, başlangıç, bitiş, klipteki başlangıç, dikey odak]
+const BOTTOM_PLAN = [
+  ['A', 0, 14.4],
+  ['kahvalti', 14.4, 18.6, 0.3, 0.3], ['cigneme', 18.6, 21.0, 0.5, 0.0], ['kahvalti', 21.0, 24.7, 6.2, 0.3],
+  ['A', 24.7, 28.9],
+  ['makarna', 28.9, 35.3, 1.0, 0.55],
+  ['A', 35.3, 38.3],
+  ['kahvalti', 38.3, 41.3, 2.0, 0.3], ['makarna', 41.3, 50.6, 5.1, 0.5],
+  ['A', 50.6, 54.5],
+  ['makarna', 54.5, 58.6, 14.5, 0.45],
+  ['A', 58.6, 62.9],
+  ['cigneme', 62.9, 66.3, 0.0, 0.0], ['salata', 66.3, 71.4, 9.0, 0.2], ['salata', 71.4, 76.2, 14.0, 0.25], ['makarna', 76.2, 80.8, 3.5, 0.5],
+  ['A', 80.8, 84.6],
+  ['salata', 84.6, 89.5, 24.0, 0.25], ['salata', 89.5, 94.4, 10.5, 0.2], ['salata', 94.4, 99.2, 28.0, 0.3],
+  ['kahvalti', 99.2, 103.5, 1.0, 0.3], ['makarna', 103.5, 107.9, 16.5, 0.5],
+  ['A', 107.9, 112.3],
+  ['makarna', 112.3, 116.3, 9.5, 0.45], ['kahvalti', 116.3, 120.9, 3.5, 0.32],
+  ['A', 120.9, 125.4],
+  ['cigneme', 125.4, 129.6, 0.2, 0.02], ['salata', 129.6, 132.7, 30.0, 0.25], ['kahvalti', 132.7, 138.4, 4.2, 0.3],
+  ['A', 138.4, 142.6],
+  ['makarna', 142.6, 148.28, 2.0, 0.55],
+];
+// Klipten klibe düz kesme, konuşmacıya geçişte yumuşak geçiş
+const BOTTOM_CLIPS = BOTTOM_PLAN.map((p, i) => {
+  if (p[0] === 'A') return null;
+  const prev = BOTTOM_PLAN[i - 1], next = BOTTOM_PLAN[i + 1];
+  return {
+    src: `clips/${p[0]}.mp4`, start: p[1], end: p[2], from: p[3], focusY: p[4],
+    fadeIn: !prev || prev[0] === 'A', fadeOut: !!next && next[0] === 'A',
+  };
+}).filter(Boolean);
+
+window.preload = () => preloadFollow('../');
+
+function bubbleAt(label, x, y, t, t0, tail, bg = C.white, size = 36, rot = 0) {
+  withT(x, y, popS(t, t0, 0.45), rot, popA(t, t0), () => speech(label, size, bg, C.ink, tail));
+}
+
+function checkRow(label, em, x, y, t, t0, col = C.mint, size = 42) {
+  withT(x, y, 1, 0, popA(t, t0, 0.25), () => {
+    const dx = -30 * (1 - eOut(prog(t, t0, 0.4)));
+    withT(dx, 0, popS(t, t0, 0.45), 0, 1, () => emoji(em, 0, 0, size * 1.4));
+    text(label, dx + size * 1.2, 2, size, C.white, 900, 'left');
+  });
+}
+
+// ---------- sahneler ----------
+const SCENES = [
+  { s: -0.4, e: 7.6, acc: C.coral, acc2: C.lilac, draw: sHook },
+  { s: 7.6, e: 11.7, acc: C.yellow, acc2: C.mint, draw: sThree },
+  { s: 11.7, e: 15.8, acc: C.coral, acc2: C.yellow, draw: sTip1 },
+  { s: 15.8, e: 30.5, acc: C.coral, acc2: C.lilac, draw: sQuotes },
+  { s: 30.5, e: 35.3, acc: C.mint, acc2: C.yellow, draw: sPeace },
+  { s: 35.3, e: 41.2, acc: C.sky, acc2: C.mint, draw: sOwnPlate },
+  { s: 41.2, e: 50.6, acc: C.yellow, acc2: C.coral, draw: sFun },
+  { s: 50.6, e: 58.6, acc: C.lilac, acc2: C.mint, draw: sCode },
+  { s: 58.6, e: 62.9, acc: C.yellow, acc2: C.coral, draw: sTip2 },
+  { s: 62.9, e: 76.2, acc: C.mint, acc2: C.yellow, draw: sSteps },
+  { s: 76.2, e: 80.8, acc: C.sky, acc2: C.mint, draw: sFamiliar },
+  { s: 80.8, e: 86.0, acc: C.mint, acc2: C.sky, draw: sTip3 },
+  { s: 86.0, e: 103.5, acc: C.mint, acc2: C.yellow, draw: sBroccoli },
+  { s: 103.5, e: 109.2, acc: C.sky, acc2: C.lilac, draw: sKnowFirst },
+  { s: 109.2, e: 121.0, acc: C.coral, acc2: C.yellow, draw: sNeeds },
+  { s: 121.0, e: 142.6, acc: C.yellow, acc2: C.coral, draw: sWarning },
+  { s: 142.6, e: 999, acc: C.mint, acc2: C.sky, draw: sRemember },
+];
+
+// 1) Yemek yemeyen çocuk: tükenmiş anneler
+function sHook(t) {
+  words('Annelerin kendini *tükenmiş hissettiği konu:', 540, 275, t, 0.1, { size: 44, weight: 900, accent: C.coral, per: 0.12 });
+  // pil boşalıyor
+  withT(540, 440, popS(t, 0.8, 0.5), 0, popA(t, 0.8), () => {
+    rrect(-120, -55, 240, 110, 22, null, C.white, 8); rrect(122, -22, 16, 44, 6, C.white);
+    const lvl = 1 - eInOut(prog(t, 1.2, 2.2));
+    const col = lvl > 0.5 ? C.mint : lvl > 0.25 ? C.yellow : C.coral;
+    rrect(-106, -41, 212 * Math.max(0.05, lvl), 82, 12, col);
+  });
+  withT(540, 640, popS(t, 3.75, 0.55), 0, popA(t, 3.75), () => {
+    shadow(true, 30, 12); rrect(-450, -80, 900, 160, 80, C.white); shadow(false);
+    emoji('🍽️', -370, 0, 76);
+    text('Yemek yemeyen, zor yiyen çocuk', 45, 2, 42, C.ink, 900);
+  });
+  withT(540, 800, popS(t, 5.7, 0.5), 0, popA(t, 5.7), () => { shadow(true); text('Yaşayan bilir... 😮‍💨', 0, 0, 50, C.yellow, 900); shadow(false); });
+}
+
+// 2) 3 öneri
+function sThree(t) {
+  words('Danışanlarımda işe yarayan', 540, 275, t, 8.25, { size: 50, weight: 900, per: 0.12 });
+  withT(540, 470, popS(t, 10.2, 0.6), 0, popA(t, 10.2), () => {
+    shadow(true, 50, 0, 'rgba(255,201,60,0.6)'); text('3', 0, 0, 220, C.yellow, 900); shadow(false);
+  });
+  [['🕊️', 270, 10.6], ['🍗', 540, 10.8], ['👩‍🍳', 810, 11.0]].forEach(([em, x, t0], i) => {
+    withT(x, 720, popS(t, t0, 0.45), (i - 1) * 0.1, popA(t, t0), () => {
+      shadow(true, 24, 8); rrect(-80, -80, 160, 160, 36, 'rgba(255,255,255,0.1)'); shadow(false);
+      emoji(em, 0, 0, 90);
+    });
+  });
+  withT(540, 600, popS(t, 10.4, 0.5), 0, popA(t, 10.4), () => text('öneri', 0, 0, 50, C.white, 900));
+}
+
+// 3) 1. öneri: sofrayı savaş alanı olmaktan çıkarın
+function sTip1(t) {
+  stepTitle(1, 'Sofrayı savaş alanı olmaktan çıkarın', t, 11.75, C.coral, 42);
+  withT(540, 540, popS(t, 12.4, 0.55), 0, popA(t, 12.4), () => { shadow(true, 40, 14); emoji('🍽️', 0, 0, 180); shadow(false); });
+  withT(540, 540, popS(t, 13.0, 0.45), 0, popA(t, 13.0), () => {
+    emoji('⚔️', 0, -10, 150);
+  });
+  withT(540, 540, 1, 0, popA(t, 14.3, 0.2), () => crossOut(0, 0, 130, prog(t, 14.35, 0.45)));
+}
+
+// 4) Tanıdık sözler
+function sQuotes(t) {
+  bubbleAt('“Hadi oğlum bir kaşık daha, söz son bu!”', 540, 300, t, 15.9, -1, C.white, 34, -0.02);
+  bubbleAt('“Aç ağzını, uçak geliyor! ✈️”', 540, 445, t, 18.7, 1, C.yellow, 36, 0.02);
+  bubbleAt('“Bunu yemezsen kalkmak yok, tablet de yok!”', 540, 590, t, 21.1, -1, C.white, 32, -0.015);
+  bubbleAt('“Beni seviyorsan bir kaşık daha ye”', 540, 735, t, 24.8, 1, '#FFD9DD', 36, 0.02);
+  const qa = popA(t, 29.1, 0.25);
+  if (qa > 0) {
+    ctx.save(); ctx.globalAlpha *= qa * 0.88; ctx.fillStyle = '#0A0F27'; ctx.fillRect(0, 0, W, TOP); ctx.restore();
+    withT(540, 480, popS(t, 29.1, 0.55), 0, qa, () => { shadow(true, 40, 14); emoji('🤔', 0, 0, 170); shadow(false); });
+    withT(540, 680, popS(t, 29.3, 0.5), 0, qa, () => { shadow(true); text('Tanıdık geldi mi?', 0, 0, 72, C.yellow, 900); shadow(false); });
+  }
+}
+
+// 5) Savaş alanından keyifli alana
+function sPeace(t) {
+  withT(300, 470, popS(t, 30.9, 0.5), 0, popA(t, 30.9) * (1 - 0.5 * prog(t, 32.2, 0.4)), () => {
+    shadow(true, 30, 12); rrect(-190, -150, 380, 300, 40, 'rgba(255,255,255,0.08)'); shadow(false);
+    emoji('⚔️', 0, -30, 110); text('Savaş alanı', 0, 95, 38, C.coral, 900);
+  });
+  withT(300, 470, 1, 0, 1, () => crossOut(0, -20, 90, prog(t, 32.2, 0.45)));
+  const ap = eOut(prog(t, 32.5, 0.5));
+  if (ap > 0) { ctx.fillStyle = C.white; ctx.globalAlpha = ap; ctx.beginPath(); ctx.moveTo(510, 445); ctx.lineTo(570, 470); ctx.lineTo(510, 495); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }
+  withT(780, 470, popS(t, 33.0, 0.55), 0, popA(t, 33.0), () => {
+    shadow(true, 30, 12); rrect(-190, -150, 380, 300, 40, 'rgba(52,211,153,0.18)'); shadow(false);
+    rrect(-190, -150, 380, 300, 40, null, C.mint, 4);
+    emoji('🥳', 0, -30, 110); text('Keyifli alan', 0, 95, 38, C.mint, 900);
+  });
+  words('Sofraları *keyifli alanlara dönüştürelim', 540, 760, t, 33.5, { size: 46, weight: 900, accent: C.mint, per: 0.15 });
+}
+
+// 6) Değişimi hemen beklemeyin, kendi tabağınıza odaklanın
+function sOwnPlate(t) {
+  withT(540, 275, popS(t, 35.45, 0.5), 0, popA(t, 35.45), () => pill('Değişimi hemen beklemeyin', '⏳', 42, C.white, C.ink));
+  // iki tabak: sizinki parlak, onunki soluk
+  withT(340, 550, popS(t, 38.4, 0.55), 0, popA(t, 38.4), () => {
+    const g = ctx.createRadialGradient(0, 0, 20, 0, 0, 200); g.addColorStop(0, 'rgba(255,201,60,0.35)'); g.addColorStop(1, 'rgba(255,201,60,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 200, 0, Math.PI * 2); ctx.fill();
+    emoji('🍽️', 0, 0, 170); text('Sizin tabağınız', 0, 140, 34, C.yellow, 900);
+  });
+  withT(780, 560, popS(t, 38.7, 0.5), 0, popA(t, 38.7) * (1 - 0.5 * prog(t, 40.3, 0.5)), () => {
+    emoji('🥣', 0, 0, 120); text('Onun tabağı', 0, 110, 30, C.muted, 800);
+  });
+  // gözler sizin tabağa döner
+  const look = eInOut(prog(t, 40.3, 0.6));
+  withT(560, 400 - 10 * look, popS(t, 39.4, 0.45), 0, popA(t, 39.4), () => withT(0, 0, 1, (0.5 - look) * 0.6, 1, () => emoji('👀', 0, 0, 80)));
+  words('Kendi tabağınıza *odaklanın', 540, 800, t, 38.4, { size: 48, weight: 900, accent: C.yellow, per: 0.15 });
+}
+
+// 7) Sevdiği yiyeceklerle başlayın, iştahla yiyin, eğlenin
+function sFun(t) {
+  words('Sofrada...', 540, 275, t, 41.4, { size: 54, weight: 900 });
+  [['Sevdiği yiyeceklerle başlayın', '❤️', 41.4, 410, C.coral, C.white], ['Yemesini istediğinizi iştahla yiyin', '😋', 44.4, 555, C.yellow, C.ink], ['Espri yapın, gülün, eğlenin', '😂', 48.2, 700, C.mint, C.ink]].forEach(([l, em, t0, y, bg, fg], i) => {
+    withT(540, y, popS(t, t0, 0.5), (i - 1) * 0.015, popA(t, t0), () => pill(l, em, 40, bg, fg));
+  });
+  if (t > 48.4) for (let i = 0; i < 4; i++) {
+    const tw = 0.6 + 0.4 * Math.sin(t * 6 + i * 1.7);
+    star([120, 960, 150, 940][i], [640, 640, 780, 780][i], 22 * tw * popS(t, 48.4 + i * 0.1, 0.4), C.yellow, t);
+  }
+}
+
+// 8) Kodu değiştirin: Sofra = eğlenceli aktivite
+function sCode(t) {
+  words('Çocuğun *kodunu değiştirin', 540, 275, t, 51.1, { size: 54, weight: 900, accent: C.lilac });
+  withT(540, 560, popS(t, 52.2, 0.55), 0, popA(t, 52.2), () => {
+    shadow(true, 40, 16); rrect(-440, -170, 880, 340, 30, '#0F172A'); shadow(false);
+    rrect(-440, -170, 880, 54, [30, 30, 0, 0], '#1E293B');
+    [C.coral, C.yellow, C.mint].forEach((c, i) => circle(-400 + i * 34, -143, 10, c));
+    const lines = [['SOFRA', 53.7, C.sky], ['= EĞLENCELİ', 56.1, C.yellow], ['  AKTİVİTE 🎉', 56.9, C.mint]];
+    ctx.font = '900 66px "JetBrains Mono", RD, "Noto Color Emoji"';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    let cursorX = -380, cursorY = -50;
+    lines.forEach(([l, t0, col], i) => {
+      const n = Math.floor(clamp((t - t0) / 0.06, 0, [...l].length));
+      if (n <= 0) return;
+      const s = [...l].slice(0, n).join('');
+      ctx.fillStyle = col; ctx.fillText(s, -380, -50 + i * 84);
+      cursorX = -380 + ctx.measureText(s).width + 8; cursorY = -50 + i * 84;
+    });
+    if (Math.floor(t * 2.5) % 2 === 0) { ctx.fillStyle = C.white; ctx.fillRect(cursorX, cursorY - 32, 8, 64); }
+  });
+}
+
+// 9) 2. öneri: sevdiği yiyeceklerden yola çıkın
+function sTip2(t) {
+  stepTitle(2, 'Sevdiği yiyeceklerden yola çıkın', t, 58.85, C.yellow, 44);
+  withT(540, 560, popS(t, 59.8, 0.6), Math.sin(t * 2) * 0.05, popA(t, 59.8), () => {
+    shadow(true, 50, 0, 'rgba(255,94,108,0.6)'); emoji('🍗', 0, 0, 190); shadow(false);
+  });
+  withT(680, 440, popS(t, 60.3, 0.45), 0.2, popA(t, 60.3), () => emoji('❤️', 0, 0, 80));
+}
+
+// 10) Çıtır tavuktan küçük adımlarla
+function sSteps(t) {
+  const aA = phase(t, 62.9, 68.1);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Çıtır tavuk seviyorsa...', 540, 275, t, 62.97, { size: 54, weight: 900 });
+    withT(300, 540, popS(t, 63.6, 0.5), 0, popA(t, 63.6), () => { emoji('🍗', 0, 0, 150); text('Sevdiği', 0, 120, 36, C.mint, 900); });
+    const jump = eOut(prog(t, 65.5, 0.4));
+    if (jump > 0) { ctx.strokeStyle = C.coral; ctx.lineWidth = 10; ctx.setLineDash([22, 16]); ctx.beginPath(); ctx.moveTo(400, 540); ctx.lineTo(400 + 270 * jump, 540); ctx.stroke(); ctx.setLineDash([]); }
+    withT(780, 540, popS(t, 66.3, 0.5), 0, popA(t, 66.3), () => { emoji('🥦', 0, 0, 150); text('Bir anda sebze', 0, 120, 34, C.coral, 900); });
+    withT(780, 540, 1, 0, 1, () => crossOut(0, 0, 100, prog(t, 67.3, 0.4)));
+    ctx.restore();
+  }
+  if (t < 68.1) return;
+  words('Benzer dokuda, *küçük *adımlarla', 540, 275, t, 68.3, { size: 50, weight: 900, accent: C.mint, per: 0.14 });
+  const foods = [['🍗', 69.2], ['🍤', 70.2], ['🥕', 71.5], ['🥦', 72.7]];
+  foods.forEach(([em, t0], i) => {
+    const x = 150 + i * 260, y = 560 - i * 40;
+    withT(x, y + 70, popS(t, t0, 0.4), 0, popA(t, t0), () => { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.ellipse(0, 0, 95, 26, 0, 0, Math.PI * 2); ctx.fill(); });
+    withT(x, y, popS(t, t0, 0.5), 0, popA(t, t0), () => emoji(em, 0, 0, 110));
+    if (i < 3) {
+      const a = eOut(prog(t, foods[i + 1][1] - 0.3, 0.35));
+      if (a > 0) { ctx.save(); ctx.globalAlpha *= a; emoji('👣', x + 130, y - 10, 46); ctx.restore(); }
+    }
+  });
+  withT(540, 790, popS(t, 73.8, 0.5), 0, popA(t, 73.8), () => pill('Yavaş yavaş, acele etmeden', '🐢', 40, C.white, C.ink));
+}
+
+// 11) Tamamen yabancı bir şey çıkmaz
+function sFamiliar(t) {
+  withT(540, 450, popS(t, 76.4, 0.55), 0, popA(t, 76.4), () => {
+    shadow(true, 36, 14); rrect(-300, -150, 600, 300, 50, 'rgba(255,255,255,0.1)'); shadow(false);
+    rrect(-300, -150, 600, 300, 50, null, C.sky, 4);
+    emoji('🤝', 0, -30, 120);
+    text('Tanıdık bir köprü', 0, 95, 40, C.sky, 900);
+  });
+  para('Karşısına tamamen *yabancı bir şey çıkmaz', 540, 730, 880, t, 76.9, { size: 50, weight: 900, accent: C.coral, per: 0.13 });
+}
+
+// 12) 3. öneri: hemen yemesini beklemeyin, mutfağa sokun
+function sTip3(t) {
+  stepTitle(3, 'Hemen yemesini beklemeyin', t, 80.95, C.mint, 46);
+  withT(540, 520, popS(t, 83.8, 0.6), 0, popA(t, 83.8), () => { shadow(true, 40, 14); emoji('👩‍🍳', -80, 0, 160); emoji('🧒', 90, 20, 130); shadow(false); });
+  withT(540, 740, popS(t, 84.3, 0.5), 0, popA(t, 84.3), () => pill('Sık sık mutfağa sokun', '🍳', 44, C.mint, C.ink));
+}
+
+// 13) Brokoli: yıka, elle, kokla, parçala, oyna → alışsın
+function sBroccoli(t) {
+  const aA = phase(t, 86.0, 96.75);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('Örneğin *brokoli', 540, 275, t, 86.2, { size: 56, weight: 900, accent: C.mint });
+    withT(540, 560, popS(t, 86.7, 0.6), Math.sin(t * 2) * 0.06, popA(t, 86.7), () => { shadow(true, 40, 14); emoji('🥦', 0, 0, 190); shadow(false); });
+    const acts = [['💧', 'Yıka', 90.45, -2.6], ['✋', 'Elle', 91.05, -1.6], ['👃', 'Kokla', 91.7, -0.55], ['✂️', 'Parçala', 93.2, 0.55], ['🎲', 'Oyna', 94.6, 1.6]];
+    acts.forEach(([em, l, t0, a], i) => {
+      const r = 290;
+      withT(540 + Math.sin(a) * r * 1.25, 560 - Math.cos(a) * r * 0.62 + 40, popS(t, t0, 0.45), 0, popA(t, t0), () => {
+        font(32, 900);
+        const w = ctx.measureText(l).width + 110;
+        shadow(true, 20, 8); rrect(-w / 2, -50, w, 100, 40, C.white); shadow(false);
+        emoji(em, -w / 2 + 42, 0, 48); text(l, -w / 2 + 78, 2, 32, C.ink, 900, 'left');
+      });
+    });
+    ctx.restore();
+  }
+  if (t < 96.75) return;
+  words('Amacımız...', 540, 275, t, 96.9, { size: 54, weight: 900 });
+  withT(540, 430, popS(t, 97.6, 0.5), 0, popA(t, 97.6) * (1 - 0.45 * prog(t, 98.9, 0.4)), () => pill('O anda brokoli yedirmek', '🥄', 42, 'rgba(255,255,255,0.9)', C.ink));
+  strike(170, 910, 432, t, 98.8);
+  withT(540, 600, popS(t, 99.35, 0.55), 0, popA(t, 99.35), () => pill('Bu yiyeceğe alışmasını sağlamak', '✅', 42, C.mint, C.ink));
+  withT(540, 770, popS(t, 101.8, 0.5), 0, popA(t, 101.8), () => { shadow(true); text('Onunla bol vakit geçirsin ⏰', 0, 0, 46, C.yellow, 900); shadow(false); });
+}
+
+// 14) Denemeden önce tanımaya ihtiyaç
+function sKnowFirst(t) {
+  para('Çocuklar yeni bir yiyeceği denemeden önce', 540, 300, 900, t, 103.6, { size: 46, weight: 800, color: C.muted, per: 0.1 });
+  [['👀', 'Tanı', 107.1, 280, C.sky], ['😋', 'Dene', 108.0, 800, C.mint]].forEach(([em, l, t0, x, col]) => {
+    withT(x, 560, popS(t, t0, 0.5), 0, popA(t, t0), () => {
+      shadow(true, 26, 10); rrect(-170, -150, 340, 300, 44, 'rgba(255,255,255,0.08)'); shadow(false);
+      rrect(-170, -150, 340, 300, 44, null, col, 4);
+      emoji(em, 0, -30, 110); text(l, 0, 90, 46, col, 900);
+    });
+  });
+  const ap = eOut(prog(t, 107.6, 0.5));
+  if (ap > 0) {
+    ctx.strokeStyle = C.white; ctx.lineWidth = 10; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(470, 560); ctx.lineTo(470 + 130 * ap, 560); ctx.stroke();
+    if (ap > 0.9) { ctx.fillStyle = C.white; ctx.beginPath(); ctx.moveTo(615, 560); ctx.lineTo(590, 540); ctx.lineTo(590, 580); ctx.closePath(); ctx.fill(); }
+  }
+  words('*tanımaya ihtiyaç duyar', 540, 800, t, 107.1, { size: 50, weight: 900, accent: C.sky });
+}
+
+// 15) Sizin ihtiyacınız / onun ihtiyacı
+function sNeeds(t) {
+  const aA = phase(t, 109.2, 116.3);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    [[290, '👩', 'Sizin ihtiyacınız', 'İyi bir anne olduğunu hissetmek', 109.3, C.coral], [790, '🧒', 'Onun ihtiyacı', 'Baskısız bir yemek düzeni', 112.8, C.mint]].forEach(([x, em, h, l, t0, col]) => {
+      withT(x, 500, popS(t, t0, 0.55), 0, popA(t, t0), () => {
+        shadow(true, 30, 12); rrect(-225, -230, 450, 460, 44, 'rgba(255,255,255,0.08)'); shadow(false);
+        rrect(-225, -230, 450, 460, 44, null, col, 4);
+        emoji(em, 0, -120, 120);
+        text(h, 0, 0, 34, col, 900);
+        para(l, 0, 100, 380, t, t0 + 0.4, { size: 36, weight: 900, per: 0.1 });
+      });
+    });
+    ctx.restore();
+  }
+  if (t < 116.3) return;
+  withT(540, 420, popS(t, 116.45, 0.55), 0, popA(t, 116.45), () => {
+    shadow(true, 30, 12); rrect(-430, -100, 860, 200, 50, C.white); shadow(false);
+    para('Önce siz onun *ihtiyacına uygun davranın', 0, 2, 780, t, 116.5, { size: 46, weight: 900, color: C.ink, accent: C.coral, per: 0.12 });
+  });
+  withT(540, 660, popS(t, 118.9, 0.55), 0, popA(t, 118.9), () => {
+    shadow(true, 30, 12); rrect(-430, -100, 860, 200, 50, C.coral); shadow(false);
+    para('sonra o size *böyle *hissettirecek 💛', 0, 2, 780, t, 118.9, { size: 44, weight: 900, color: C.white, accent: C.yellow, per: 0.12 });
+  });
+}
+
+// 16) Önemli: seçicilik değilse doktora
+function sWarning(t) {
+  const aA = phase(t, 121.0, 135.9);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    withT(540, 275, popS(t, 121.7, 0.5), 0, popA(t, 121.7), () => pill('Önemli bir nokta', '⚠️', 44, C.yellow, C.ink));
+    checkRow('Çiğneyemiyorsa', '🦷', 140, 400, t, 126.4);
+    checkRow('Besin çeşidi çok azsa', '🥗', 140, 500, t, 127.5);
+    checkRow('Kilo alımı / büyüme etkileniyorsa', '📏', 140, 600, t, 130.1, C.mint, 38);
+    checkRow('Sık öğürüyor, yutmakta zorlanıyorsa', '😖', 140, 700, t, 132.7, C.mint, 36);
+    ctx.restore();
+  }
+  if (t < 135.9) return;
+  withT(540, 330, popS(t, 136.0, 0.5), 0, popA(t, 136.0), () => {
+    shadow(true); text('Bu sadece seçicilik değil!', 0, 0, 56, C.coral, 900); shadow(false);
+  });
+  withT(540, 580, popS(t, 139.3, 0.6), 0, popA(t, 139.3), () => {
+    shadow(true, 36, 14); rrect(-420, -130, 840, 260, 50, C.white); shadow(false);
+    emoji('👩‍⚕️', -320, 0, 110);
+    text('Çocuk doktorundan', 60, -30, 48, C.ink, 900);
+    text('destek alın', 60, 35, 48, '#2F8FE0', 900);
+  });
+}
+
+// 17) Unutmayın
+function sRemember(t) {
+  withT(540, 275, popS(t, 142.7, 0.5), 0, popA(t, 142.7), () => pill('Unutmayın', '💡', 46, C.yellow, C.ink));
+  withT(540, 440, popS(t, 144.0, 0.5), 0, popA(t, 144.0) * (1 - 0.45 * prog(t, 145.4, 0.4)), () => pill('Tabağını bitirmesi', '🍽️', 44, 'rgba(255,255,255,0.9)', C.ink));
+  strike(250, 830, 442, t, 145.4);
+  withT(540, 640, popS(t, 146.0, 0.6), 0, popA(t, 146.0), () => {
+    shadow(true, 36, 14); rrect(-430, -100, 860, 200, 50, C.mint); shadow(false);
+    text('Yemekle sağlıklı bir ilişki 💚', 0, 2, 50, C.ink, 900);
+  });
+}
+
+// ---------- alt bölüm bindirmeleri ----------
+function nameTag(t, start, cy) {
+  const u = t - start;
+  if (u < 0 || u > 5.3) return;
+  const a = eOut(prog(u, 0, 0.5)) * (1 - eInOut(prog(u, 4.8, 0.5)));
+  const dx = -80 * (1 - eOut(prog(u, 0, 0.6))) - 80 * eInOut(prog(u, 4.8, 0.5));
+  withT(60 + dx, cy, 1, 0, a, () => {
+    font(28, 800);
+    const w = Math.max(ctx.measureText('Çocuk Psikolojisi & Dikkat Üzerine').width, 420) + 80;
+    const reveal = eOut(prog(u, 0.15, 0.6));
+    ctx.save(); ctx.beginPath(); ctx.rect(0, -80, w * reveal + 20, 160); ctx.clip();
+    shadow(true, 30, 10, 'rgba(0,0,0,0.35)'); rrect(0, -70, w, 140, 24, 'rgba(12,16,40,0.86)'); shadow(false);
+    rrect(0, -70, 12, 140, 6, C.yellow);
+    text('Pedagog', 38, -24, 30, C.yellow, 800, 'left');
+    text('Necla SAYGIN', 38 + 140, -24, 46, C.white, 900, 'left');
+    text('Çocuk Psikolojisi & Dikkat Üzerine', 38, 32, 28, 'rgba(255,255,255,0.8)', 800, 'left');
+    ctx.restore();
+  });
+}
+
+window.OVERLAY = t => {
+  nameTag(t, 0.5, 690);
+  followCardOverlay(t, MID_FOLLOW, 700, 0.3);
+  followCardOverlay(t, END_FOLLOW, 700, 0.3);
+};
+</script>
+</body>
+</html>

@@ -9,7 +9,7 @@
 //   ZOOM_BUMPS = [[başlangıç, bitiş], ...]      avatarın hafifçe yakınlaştığı vurgu anları
 //   AVATAR = { chain, focusY }                   avatarı 1620x1440'a getiren FFmpeg zinciri + yüzün dikey konumu
 //   OVERLAYS = [[başlangıç, bitiş], ...]         alt bölüme bindirilen saydam katmanın (OVERLAY) aktif olduğu aralıklar
-//   BOTTOM_CLIPS = [{ src, start, end, from, focusY }, ...]
+//   BOTTOM_CLIPS = [{ src, start, end, from, focusY, fadeIn?, fadeOut? }, ...]
 //                                                alt bölümde avatarın yerine oynatılan klipler (src sahne klasörüne göre)
 //   TOP_CLIPS = [{ name, src, from, start, end }, ...]  kare kare tuvale çizilen klipler (clipFrame(name))
 //   FULLSCREEN_FROM = saniye                     bu andan sonra kareler tamamen FULL(t) ile (1080x1920) çizilir
@@ -130,7 +130,11 @@ async function render(avatar, output) {
     ovFilters.push(
       `[${nextInput++}:v]trim=start=${c.from}:duration=${dur.toFixed(3)},setpts=PTS-STARTPTS+${c.start}/TB,fps=${FPS},` +
         `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:960:(iw-1080)/2:(ih-960)*${c.focusY},setsar=1,format=yuva420p,` +
-        `fade=t=in:st=${c.start}:d=0.35:alpha=1,fade=t=out:st=${(c.end - 0.35).toFixed(3)}:d=0.35:alpha=1[bc${k}]`,
+        [
+          c.fadeIn !== false ? `fade=t=in:st=${c.start}:d=0.35:alpha=1` : null,
+          c.fadeOut !== false ? `fade=t=out:st=${(c.end - 0.35).toFixed(3)}:d=0.35:alpha=1` : null,
+          'null',
+        ].filter(Boolean).join(',') + `[bc${k}]`,
     );
     ovFilters.push(`[${avLabel}][bc${k}]overlay=0:0:eof_action=pass:enable='between(t,${c.start},${c.end})'[avc${k}]`);
     avLabel = `avc${k}`;
