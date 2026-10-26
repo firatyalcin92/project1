@@ -1,12 +1,16 @@
 // Üretim için küçük Node sunucusu: `npm run build && npm start`
 // Statik dosyaları dist/client'tan sunar, geri kalan her şeyi TanStack Start'a devreder.
+import { fileURLToPath } from 'node:url'
 import { serve } from 'srvx'
 import { serveStatic } from 'srvx/static'
 import { diagnose } from './durum.mjs'
 
+// Yollar bu dosyaya göre çözülür (cPanel/Passenger çalışma klasörü farklı olabilir).
+const here = (p) => fileURLToPath(new URL(p, import.meta.url))
+
 // .env dosyasını (varsa) ortam değişkenlerine yükle. Platformun kendi değişkenleri önceliklidir.
 try {
-  process.loadEnvFile('.env')
+  process.loadEnvFile(here('./.env'))
 } catch {
   // .env yoksa sorun değil: değişkenler barındırma platformundan gelir.
 }
@@ -41,6 +45,6 @@ async function status(request, next) {
 serve({
   port: Number(process.env.PORT ?? 3000),
   hostname: process.env.HOST ?? '0.0.0.0',
-  middleware: [status, headers, serveStatic({ dir: './dist/client' })],
+  middleware: [status, headers, serveStatic({ dir: here('./dist/client') })],
   fetch: (request) => app.fetch(request),
 })

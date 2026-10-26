@@ -19,6 +19,7 @@ import {
 import type { AiTask } from '~/server/mesele.server'
 import { ensureOverview, getOverview } from '~/server/overview.server'
 import { createMemoryStore } from '~/server/store-memory.server'
+import { createSqliteStore } from '~/server/store-sqlite.server'
 import { approveDeletion, dismissDeletion, purchase, requestDeletion } from '~/server/account.server'
 import { adminStats, createAccessCodes, joinWaitlist } from '~/server/admin.server'
 import { admitDispute, betaStatus, claimJoinDevice, redeemAccessCode } from '~/server/beta.server'
@@ -40,7 +41,8 @@ const RAW_B = 'AYSE-HAM-CEVAP annemlerin gelişini son anda söylemesi beni deli
 
 beforeEach(() => {
   vi.unstubAllEnvs()
-  __setStoreForTests(createMemoryStore())
+  // MESELE_TEST_STORE=sqlite: aynı testler SQLite deposuyla da çalışır.
+  __setStoreForTests(process.env.MESELE_TEST_STORE === 'sqlite' ? createSqliteStore(':memory:') : createMemoryStore())
   calls = []
   vi.stubEnv('MESELE_AI_PROVIDER', 'openai')
   vi.stubEnv('MESELE_BETA', '0')

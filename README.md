@@ -418,6 +418,39 @@ Spesifikasyondaki tüm tablo ve sütunlar aynen korunmuştur. Akışın çalış
 | `reconsiderations`     | `updated_at`                                                | Taslak kaydı                                              |
 | `relationship_reports` | `dispute_count`, `status`, `status_locked_at`, `created_at` | Kaç meseleye dayandığı ve eşzamanlı üretim kilidi         |
 
+## cPanel'e kurulum (Supabase ve Render olmadan)
+
+Sunucu Node 22.5+ ile gelen yerleşik **SQLite** veritabanını kullanır: ayrı bir veritabanı kurmak gerekmez,
+veriler ev dizinindeki tek bir dosyada durur (`~/mesele-veri/mesele.db`). E-postayla giriş kodları cPanel'deki
+bir e-posta hesabından SMTP ile gönderilir. Google ile giriş bu kipte kapalıdır.
+
+**Paket:** `npm run paket:cpanel` → `paket/mesele-cpanel.zip`. İçindeki sunucu bağımlılıkları gömülüdür;
+cPanel'de *Run NPM Install* gerekmez.
+
+1. **Alt alan adı:** cPanel → *Alan Adları* → `mesele.firatyalcin.blog` oluşturun. (Daha önce DNS'e Render için
+   `mesele` CNAME kaydı eklediyseniz önce onu silin.)
+2. **E-posta hesabı:** cPanel → *E-posta Hesapları* → `mesele@firatyalcin.blog` (güçlü bir şifreyle).
+3. **Dosyalar:** *Dosya Yöneticisi* → ev dizininde (public_html'in dışında) `mesele` klasörü → zip'i yükleyin →
+   *Extract* → zip'i silin.
+4. **Node.js → Create Application:** sürüm 24, *Application mode* = Production, *Application root* = `mesele`,
+   *Application URL* = `mesele.firatyalcin.blog`, *Application startup file* = `app.js`. Ortam değişkenleri:
+
+   | Değişken | Değer |
+   | --- | --- |
+   | `OPENAI_API_KEY` | OpenAI anahtarı |
+   | `MESELE_ADMIN_PASSWORD` | /yonetim şifresi |
+   | `SMTP_HOST` | `mail.firatyalcin.blog` (E-posta Hesapları → *Connect Devices*'ta yazan sunucu) |
+   | `SMTP_PORT` | `465` |
+   | `SMTP_USER` | `mesele@firatyalcin.blog` |
+   | `SMTP_PASS` | e-posta hesabının şifresi |
+   | `MESELE_HASH_SALT` | isteğe bağlı, rastgele uzun bir metin |
+
+5. **SSL:** cPanel → *SSL/TLS Status* → alt alan adı için *Run AutoSSL*.
+6. Kontrol: `https://mesele.firatyalcin.blog/durum` → `"ok": true`, `"depo": "sqlite"`, `"eposta": "smtp"`.
+
+**Güncelleme:** yeni zip'i aynı klasöre yükleyip *Extract* (üzerine yaz) → Node.js sayfasında *Restart*.
+Veriler `~/mesele-veri` klasöründe olduğu için güncellemeden etkilenmez; yedek için bu klasörü indirin.
+
 ## Alan adı: mesele.firatyalcin.blog
 
 Kodda sabit bir adres yoktur (davet linkleri ve giriş dönüşleri açık olan adresten üretilir), bu yüzden yalnızca

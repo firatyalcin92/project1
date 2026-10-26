@@ -1,11 +1,21 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { signIn } from '~/server/couples.server'
-import { finishOAuth, issueTicket, oauthUrl, sendEmailCode, verifyEmailCode } from '~/server/identity.server'
+import {
+  authOptions,
+  finishOAuth,
+  issueTicket,
+  oauthUrl,
+  sendEmailCode,
+  verifyEmailCode,
+} from '~/server/identity.server'
 import { rateLimit } from '~/server/rate-limit.server'
 import { optionalMemberAuth } from './middleware'
 
 const TEN_MINUTES = 10 * 60 * 1000
+
+/** Açık giriş yöntemleri (Google düğmesi yalnızca açıksa görünür). */
+export const authOptionsFn = createServerFn({ method: 'POST' }).handler(async () => authOptions())
 
 /** Apple / Google: sağlayıcının onay sayfasının adresi (PKCE). */
 export const oauthStartFn = createServerFn({ method: 'POST' })

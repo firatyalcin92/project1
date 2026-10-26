@@ -1,11 +1,13 @@
 import '@tanstack/react-start/server-only'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
 import type { DisputeStatus } from '~/lib/status'
 import { MeseleError } from './errors.server'
 
 /**
- * Veri erişim katmanı. Üretimde Supabase (service role), yerel geliştirme ve
- * testlerde bellek içi depo kullanılır. Atomik durum geçişleri her iki
- * uygulamada da aynı anlamı taşır (bkz. supabase/migrations).
+ * Veri erişim katmanı. Üretimde tek dosyalık SQLite (varsayılan; cPanel vb.) ya da Supabase,
+ * yerel geliştirme ve testlerde bellek içi depo kullanılır. Atomik durum geçişleri hepsinde
+ * aynı anlamı taşır (bkz. supabase/migrations).
  */
 
 export type Role = 'A' | 'B'
@@ -154,7 +156,7 @@ export type DeletionRequestRow = {
 }
 
 export interface Store {
-  readonly kind: 'supabase' | 'memory'
+  readonly kind: 'supabase' | 'memory' | 'sqlite'
 
   createCouple(input: {
     code: string
@@ -282,20 +284,34 @@ export async function getStore(): Promise<Store> {
     return cached
   }
 
-  if (forceMemory || process.env.NODE_ENV !== 'production') {
+  if (forceMemory || (process.env.NODE_ENV !== 'production' && !process.env.MESELE_DB_PATH)) {
     if (!warned) {
       warned = true
-      console.warn(
-        '[mesele] SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY tanımlı değil: bellek içi depo kullanılıyor. Veriler sunucu yeniden başlayınca silinir.',
-      )
+      console.warn('[mesele] Bellek içi depo kullanılıyor. Veriler sunucu yeniden başlayınca silinir.')
     }
     const { getMemoryStore } = await import('./store-memory.server')
     cached = getMemoryStore()
     return cached
   }
 
-  throw new MeseleError('CONFIG', 'Sunucu yapılandırması eksik. Lütfen biraz sonra tekrar dene.')
+  try {
+    const { createSqliteStore } = await import('./store-sqlite.server')
+    cached = createSqliteStore(dbPath())
+    return cached
+  } catch (e) {
+    console.error('[mesele] SQLite veritabanı açılamadı:', e)
+    throw new MeseleError('CONFIG', 'Sunucu yapılandırması eksik. Lütfen biraz sonra tekrar dene.')
+  }
 }
+
+/** Veri klasörü: uygulama klasörünün DIŞINDA (güncelleme yüklenirken silinmesin). */
+export function dataDir() {
+  const fromDb = process.env.MESELE_DB_PATH?.trim()
+  if (fromDb) return dirname(fromDb)
+  return process.env.MESELE_DATA_DIR?.trim() || join(homedir(), 'mesele-veri')
+}
+
+export const dbPath = () => process.env.MESELE_DB_PATH?.trim() || join(dataDir(), 'mesele.db')
 
 /** Testler için. */
 export function __setStoreForTests(store: Store | null) {

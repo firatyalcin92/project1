@@ -18,7 +18,9 @@
     "cap:android": "cap open android",
     "assets": "npx -y -p playwright@1.56.1 node scripts/generate-assets.mjs",
     "format": "npx -y prettier@3.8.1 --write .",
-    "setup": "node scripts/setup-env.mjs"
+    "setup": "node scripts/setup-env.mjs",
+    "paket:cpanel": "node scripts/cpanel-paket.mjs",
+    "test:sqlite": "MESELE_TEST_STORE=sqlite vitest run tests/flow.test.ts"
   },
   "dependencies": {
     "@capacitor/core": "8.5.2",

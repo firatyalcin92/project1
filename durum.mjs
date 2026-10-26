@@ -1,5 +1,8 @@
-// Kurulum teşhisi: /durum adresi Supabase ve AI ayarlarının çalışıp çalışmadığını
-// gizli bilgi göstermeden söyler. Anahtarların kendisi asla yanıta yazılmaz.
+// Kurulum teşhisi: /durum adresi veritabanı (SQLite ya da Supabase), e-posta ve AI ayarlarının
+// çalışıp çalışmadığını gizli bilgi göstermeden söyler. Anahtarların kendisi asla yanıta yazılmaz.
+import { accessSync, constants, mkdirSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
 
 /** Anahtarın türünü (değerini değil) tahmin et. */
 export function keyKind(key) {
@@ -21,7 +24,10 @@ export function keyKind(key) {
 
 const ADVICE = {
   supabase_yok:
-    'SUPABASE_URL veya SUPABASE_SERVICE_ROLE_KEY tanımlı değil; veriler bellekte tutuluyor ve sunucu yeniden başlayınca silinir. Render → Environment bölümüne iki değişkeni ekleyin.',
+    'Kalıcı veritabanı ayarı yok; veriler bellekte tutuluyor ve sunucu yeniden başlayınca silinir. Üretimde NODE_ENV=production olmalı (SQLite kendiliğinden açılır).',
+  veritabani_acilamadi:
+    'SQLite veritabanı dosyası açılamadı ya da klasöre yazılamıyor. MESELE_DATA_DIR (ya da MESELE_DB_PATH) ev dizininizde yazılabilir bir klasörü göstermeli (ör. /home/kullanici/mesele-veri).',
+  ai_yok: 'OPENAI_API_KEY tanımlı değil; raporlar örnek (sahte) metinlerle üretilir. Ortam değişkenlerine OPENAI_API_KEY ekleyin.',
   adres_hatali:
     'SUPABASE_URL yalnızca https://xxxx.supabase.co biçiminde olmalı (sonunda /rest/v1 veya başka bir yol olmadan). Supabase → Project Settings → Data API → Project URL değerini kopyalayın.',
   adres_ulasilamiyor:
@@ -67,7 +73,11 @@ export async function diagnose(env = process.env, fetchImpl = fetch) {
 
   const done = (sorun, ayrinti = null) => ({ ...result, sorun, oneri: ADVICE[sorun], ayrinti })
 
-  if (!url || !key) return done('supabase_yok')
+  if (!url || !key) {
+    const sqlite = env.MESELE_STORE !== 'memory' && (env.NODE_ENV === 'production' || env.MESELE_DB_PATH)
+    if (!sqlite) return done('supabase_yok')
+    return diagnoseSqlite(env, result, done)
+  }
   result.depo = 'supabase'
   let base
   try {
@@ -129,5 +139,26 @@ export async function diagnose(env = process.env, fetchImpl = fetch) {
     return done('adres_ulasilamiyor')
   }
 
+  return { ...result, ok: true }
+}
+
+async function diagnoseSqlite(env, result, done) {
+  const dbPath = env.MESELE_DB_PATH?.trim() || join(env.MESELE_DATA_DIR?.trim() || join(homedir(), 'mesele-veri'), 'mesele.db')
+  result.depo = 'sqlite'
+  result.eposta = env.SUPABASE_URL ? 'supabase' : env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS ? 'smtp' : 'kapali'
+  result.uyarilar = []
+  if (result.eposta === 'kapali') result.uyarilar.push('E-postayla giriş kapalı: SMTP_HOST, SMTP_USER ve SMTP_PASS tanımlayın.')
+  try {
+    mkdirSync(dirname(dbPath), { recursive: true })
+    accessSync(dirname(dbPath), constants.W_OK)
+    const { DatabaseSync } = await import('node:sqlite')
+    const db = new DatabaseSync(dbPath)
+    const t = db.prepare("select count(*) n from sqlite_master where type = 'table' and name = 'couples'").get()
+    result.cift = t.n ? Number(db.prepare('select count(*) n from couples').get().n) : 0
+    db.close()
+  } catch (e) {
+    return done('veritabani_acilamadi', { mesaj: String(e?.message ?? e).slice(0, 200) })
+  }
+  if (result.ai !== 'openai' && result.ai !== 'lovable') return done('ai_yok')
   return { ...result, ok: true }
 }

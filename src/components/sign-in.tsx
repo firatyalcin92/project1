@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
-import { emailCodeSendFn, emailCodeVerifyFn, oauthStartFn } from '~/functions/auth'
+import { authOptionsFn, emailCodeSendFn, emailCodeVerifyFn, oauthStartFn } from '~/functions/auth'
 import { createPkce, persistSession, saveOAuthState, saveTicket } from '~/lib/auth-client'
 import { parseError } from '~/lib/errors'
 import type { SessionResult } from '~/lib/views'
@@ -46,6 +46,7 @@ export function SignInOptions({ onLinked }: { onLinked?: () => void }) {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [step, setStep] = useState<'buttons' | 'email' | 'code'>('buttons')
+  const options = useQuery({ queryKey: ['auth-options'], queryFn: () => authOptionsFn(), staleTime: 5 * 60_000 }).data
 
   const oauth = useMutation({
     mutationFn: async (provider: 'google' | 'apple') => {
@@ -66,6 +67,24 @@ export function SignInOptions({ onLinked }: { onLinked?: () => void }) {
     onSuccess: (r) => apply(r, { onLinked }),
   })
   const error = oauth.error ?? send.error ?? verify.error
+
+  if (options && !options.email) {
+    return <Notice tone="info">Hesapla giriş şu an kapalı. Uygulamayı hesapsız kullanmaya devam edebilirsiniz.</Notice>
+  }
+
+  if (step === 'buttons' && options && !options.google) {
+    return (
+      <div className="space-y-3">
+        <button
+          type="button"
+          className={cx(providerButton, 'border border-line-strong bg-surface text-ink')}
+          onClick={() => setStep('email')}
+        >
+          <IconMail size={18} /> E-posta ile devam et
+        </button>
+      </div>
+    )
+  }
 
   if (step === 'buttons') {
     return (
