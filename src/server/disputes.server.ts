@@ -748,6 +748,14 @@ export async function submitSurvey(member: AuthedMember, input: { disputeId: str
   return getDisputeView(member, d.id)
 }
 
+/** Metinde (ek almış hâlleri dahil) bu ad geçiyor mu? */
+function mentionsName(p: Perspective, name: string) {
+  const n = name.trim().toLocaleLowerCase('tr')
+  if (n.length < 2) return false
+  const text = [p.headline, p.story, p.beneath, p.need].join(' ').toLocaleLowerCase('tr')
+  return new RegExp(`(^|[^\\p{L}])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'u').test(text)
+}
+
 const FEELING_IDS: readonly string[] = FEELING_CHIPS.map((c) => c.id)
 const NEED_IDS: readonly string[] = NEED_CHIPS.map((c) => c.id)
 
@@ -791,14 +799,22 @@ export async function ensurePerspectives(member: AuthedMember, disputeId: string
           narrator: materialFor(narrator, bundle),
           reader: { name: reader.display_name },
         })
-        perspectives[narrator.id] = await generateJson({
-          task: 'perspective',
-          schema: PerspectiveSchema,
-          system: prompt.system,
-          user: prompt.user,
-          speed: 'fast',
-          mockContext: { narrator: narrator.display_name, reader: reader.display_name },
-        })
+        // Okuyana "sen" diye seslenilir; adı geçerse bir kez daha, daha açık bir uyarıyla yazdırılır.
+        const write = (extra = '') =>
+          generateJson({
+            task: 'perspective',
+            schema: PerspectiveSchema,
+            system: prompt.system,
+            user: prompt.user + extra,
+            mockContext: { narrator: narrator.display_name, reader: reader.display_name },
+          })
+        let p = await write()
+        if (mentionsName(p, reader.display_name)) {
+          p = await write(
+            `\n\nÖNCEKİ DENEMEDE "${reader.display_name}" adını kullandın. Bu kez adı HİÇ kullanma; ondan "sen / senin / sana" diye bahset.`,
+          )
+        }
+        perspectives[narrator.id] = p
       }),
     )
     const ok = await store.finishPerspectives(d.id, lock, perspectives)

@@ -418,7 +418,8 @@ Amaç: ${reader.name}, ${genitive(narrator.name)} o an ne yaşadığını savunm
 Kurallar:
 - ${genitive(narrator.name)} cevaplarını ASLA aynen alıntılama; anlamı koru ama ihtiyaç diline çevir. Suçlayıcı cümleleri "${narrator.name} o an … hissetti, … ihtiyaç duyuyordu" diline çevir.
 - ${reader.name} hakkında hüküm verme.
-- ${narrator.name} hakkında adıyla, üçüncü tekil şahısla yaz. ${dative(reader.name)} ise "sen" diye hitap et: ondan bahsederken adını kullanma, "sen / senin / sana" de (ör. "${reader.name} şunu dedi" değil, "senin söylediğin söz onu derinden etkiledi").
+- ${narrator.name} hakkında adıyla, üçüncü tekil şahısla yaz. Okuyan ${reader.name}; ona "sen" diye hitap et.
+- ÇOK ÖNEMLİ: "${reader.name}" adı metnin HİÇBİR yerinde (headline, story, beneath, need) geçmeyecek. Ondan her bahsettiğinde "sen / senin / sana / seni / seninle" kullan. Yanlış: "${genitive(reader.name)} tutumunu düşündü." Doğru: "Senin bu konudaki tutumunu düşündü." Yanlış: "${reader.name} bunu görmedi." Doğru: "Sen bunu görmedin."
 - Cümleler dilbilgisi açısından kusursuz ve doğal olsun; düşük, yarım ya da çeviri kokan cümle kurma. headline öznesi ve yüklemi tam tek bir cümle olsun.
 - ${genitive(narrator.name)} işaretlediği hisleri liste hâlinde sayma. Hislerini ve onu en çok etkileyen hissi, olayla ve ihtiyacıyla bağlantılı biçimde anlat. Bu hisleri ${genitive(reader.name)} niyetinin kanıtı gibi sunma.
 - ${narrator.name} ${genitive(reader.name)} ihtiyacını tahmin etmeye çalıştıysa, bunu bir çaba ve iyi niyet olarak story içinde kısaca anabilirsin.
@@ -459,11 +460,15 @@ Nasıl:
 4. Temel ihtiyaç kesişimi (needs) — İHTİYAÇ düzeyinde, "Kim haklı?" bölümündeki cümleleri ve kelimeleri TEKRAR ETMEDEN:
    - needs.a / needs.b: Her birinin "Kendi ihtiyacı (seçtikleri)" satırına ve en çok etkileyen hissine dayanan, ihtiyaç dilinde bir cümle. Seçtiği ihtiyaçları kendi kelimelerinle, bu olaya bağlayarak yaz.
    - commonGround: İki ihtiyacın buluştuğu nokta; yukarıda söylenmemiş yeni bir şey söyle.
-5. Ortak onarım adımları (repairSteps): TAM 3 adım, bu sırayla: (a) Yumuşak başlangıç: konuyu suçlamadan açan, bu meseleye özgü cümle; (b) Mola: sesler yükselince "20 dakika ara verelim, sonra dönelim" gibi ne zaman dönüleceğini söyleyen cümle; (c) Onarım girişimini kabul etmek: biri gerginliği azaltmaya çalıştığında (bir şaka, bir dokunuş, bir özür, bir çay getirmek) bunu geri çevirmeden karşılayan cümle. namingPhrase'i burada tekrar etme.
-6. tonight: İkisinin bu akşam evde, yapacakları işlerin arasında yapabileceği küçük, somut ve bu meseleye özgü bir adım (ör. ev işleri tartışmasında: "Bu akşam bulaşığı birlikte kaldırırken…"). Yürüyüş, dışarı çıkma gibi klişeler yok.
-7. Yeniden değerlendirme notları varsa, birbirlerini anlamak için attıkları adımları takdir et.
-8. Hisler: Döngünün "birincil duygu" katmanını, ikisinin işaretlediği hislerden ve onları en çok etkileyen histen kur. Hisleri liste hâlinde sayma; ikisinin duygularına eşit yer ver.
-9. Sizi tanıdıkça:
+5. Üç yaklaşımdan bakış (lenses): Her biri için önce bu meselenin yorumu (reading), sonra bu hafta uygulanacak alıştırma (practice). Kavramları sade dille açıkla; her cümle bu çiftin anlatılarındaki somut bir ana bağlansın. Genel ders anlatma.
+   - cbt (Bilişsel Davranışçı Terapi): Durum → otomatik düşünce → duygu → davranış zincirini İKİSİ için de kur (ör. "${a.name} '…' diye düşündüğünde … hissetti ve … yaptı"). Görülen bilişsel çarpıtmaları adlandır (zihin okuma, genelleme, felaketleştirme, meli-malı…). practice: kendi örnekleriyle bir düşünce kaydı (durum / otomatik düşünce / duygu / daha dengeli alternatif düşünce) ve küçük bir davranış denemesi.
+   - ta (Transaksiyonel Analiz): Hangi ego durumlarından konuştuklarını (Eleştirel ya da Besleyici Ebeveyn, Yetişkin, Özgür ya da Uyumlu Çocuk) ve çapraz işlemleri bu olaydaki somut cümlelerle göster; varsa psikolojik oyunu ya da drama üçgenini (Kurtarıcı–Kurban–Zulmeden) adlandır. practice: aynı anı Yetişkin–Yetişkin işlemine çeviren, ikisinin de kurabileceği somut cümleler ve bir alıştırma.
+   - gottman: Dört atlıdan hangilerinin (eleştiri, aşağılama, savunma, duvar örme) bu olayda göründüğünü somut anlarla belirt ve panzehirini ver (yumuşak başlangıç, takdir kültürü, sorumluluk almak, kendini sakinleştirme). Duygusal taşma ve kaçırılan onarım girişimlerini göster. practice: bu çifte özgü bir alıştırma (ör. geri dönüş saati belli bir mola, günlük stres konuşması, yumuşak başlangıç cümlesini birlikte yazmak).
+6. Ortak onarım adımları (repairSteps): 3-4 adım. HER adım bu meseledeki gerçek bir ana bağlı olsun (moment: anlatılardan bir ayrıntı), kimin atacağı belli olsun (who), somut bir davranış (action) ve o ana özgü bir cümle (phrase) içersin. Hazır kalıplar YASAK: "20 dakika ara verelim", "Şakanı beğendim", "Bu konu benim için önemli" gibi her çifte uyan cümleler kurma; cümlede bu meselenin konusu, eşyası, zamanı ya da bir ayrıntısı geçsin. Adımlar döngünün farklı anlarını kapsasın (başlarken, tırmanırken, sonrasında onarım). İki partnere eşit yük ver. namingPhrase'i ve lenses.practice'i burada tekrar etme.
+7. tonight: İkisinin bu akşam evde, yapacakları işlerin arasında yapabileceği küçük, somut ve bu meseleye özgü bir adım (ör. ev işleri tartışmasında: "Bu akşam bulaşığı birlikte kaldırırken…"). Yürüyüş, dışarı çıkma gibi klişeler yok.
+8. Yeniden değerlendirme notları varsa, birbirlerini anlamak için attıkları adımları takdir et.
+9. Hisler: Döngünün "birincil duygu" katmanını, ikisinin işaretlediği hislerden ve onları en çok etkileyen histen kur. Hisleri liste hâlinde sayma; ikisinin duygularına eşit yer ver.
+10. Sizi tanıdıkça:
 ${HISTORY_RULE}
 
 ${describeHistory(input.history ?? [], { includeMine: false })}

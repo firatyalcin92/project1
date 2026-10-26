@@ -101,6 +101,17 @@ export type Perspective = z.infer<typeof PerspectiveSchema>
 // 4. Adım: Ortak Rapor — Döngü Analizi ve İhtiyaç Aynası
 // ---------------------------------------------------------------------------
 
+const Lens = z.object({
+  reading: z
+    .string()
+    .min(1)
+    .describe('Bu yaklaşımla bu meselenin yorumu, 3-4 cümle; kavramları sade dille açıkla ve anlatılardaki somut anlara bağla.'),
+  practice: z
+    .string()
+    .min(1)
+    .describe('Bu yaklaşıma göre bu çiftin bu hafta uygulayacağı somut alıştırma: adım adım, kendi örnekleriyle, 2-4 cümle.'),
+})
+
 export const SharedReportSchema = z.object({
   opening: z.string().min(1).describe('İkisine birlikte seslenen, 2-3 cümlelik sıcak açılış.'),
   history: z
@@ -197,20 +208,36 @@ export const SharedReportSchema = z.object({
       .min(1)
       .describe('İkisinin de aslında aradığı ortak zemin (güven, görülmek, önemli olmak...).'),
   }),
+  lenses: z
+    .object({
+      cbt: Lens.describe('Bilişsel Davranışçı Terapi'),
+      ta: Lens.describe('Transaksiyonel Analiz'),
+      gottman: Lens.describe('Gottman yaklaşımı'),
+    })
+    .describe('Üç terapi yaklaşımından bu meseleye özgü bakış ve uygulanacak alıştırma.'),
   repairSteps: z
     .array(
       z.object({
-        title: z.string().min(1).describe('Kısa başlık'),
-        when: z.string().min(1).describe('Döngünün hangi anında kullanılacağı'),
-        phrase: z.string().min(1).describe('O an söylenecek tek cümle, tırnaksız'),
-        why: z.string().min(1).describe('Bu cümle neden işe yarar, tek cümle'),
+        title: z.string().min(1).describe('Kısa, bu meseleye özgü başlık (ör. "Mutfakta yükü adlandırmak")'),
+        who: z.enum(['A', 'B', 'ikisi']).describe('Bu adımı kim atar'),
+        moment: z
+          .string()
+          .min(1)
+          .describe('Bu meselede adımın atılacağı SOMUT an, anlatılardaki bir ayrıntıyla (ör. "Fatma yemeği yapmadığını söylediğinde").'),
+        action: z
+          .string()
+          .min(1)
+          .describe('O an yapılacak somut davranış, 1-2 cümle: ne yapılır, ne yapılmaz.'),
+        phrase: z
+          .string()
+          .min(1)
+          .describe('O an söylenecek cümle, tırnaksız; bu meseleye özgü bir ayrıntı içerir, hazır kalıp değildir.'),
+        why: z.string().min(1).describe('Bu adım bu çiftin döngüsünü neden kırar, 1-2 cümle.'),
       }),
     )
     .min(3)
-    .max(3)
-    .describe(
-      'Döngü yeniden başladığında kullanılacak tam 3 adım: yumuşak başlangıç, mola, onarım girişimini kabul etmek.',
-    ),
+    .max(4)
+    .describe('Bu meseleye özgü 3-4 onarım adımı; her biri anlatılardaki gerçek bir ana bağlı.'),
   tonight: z.string().min(1).describe('Bugün için somut, küçük bir yeniden bağlanma önerisi.'),
   closing: z.string().min(1).describe('Umut veren, kısa kapanış.'),
   safety: Safety,

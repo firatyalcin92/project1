@@ -570,7 +570,8 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     expect(shared.user).toContain(RAW_WHY)
     expect(shared.user).toMatch(/DÖNGÜ KIRMA REHBERİ/)
     expect(shared.user).toMatch(/çatışmanın biçimini değiştirmektir/)
-    expect(shared.user).toMatch(/Onarım girişimini kabul etmek/)
+    expect(shared.user).toMatch(/Hazır kalıplar YASAK/)
+    expect(shared.user).toMatch(/lenses/)
     expect(shared.user).toMatch(/short alanı ad olmadan 2-5 kelime/)
 
     await approveSharedReport(ma, id)

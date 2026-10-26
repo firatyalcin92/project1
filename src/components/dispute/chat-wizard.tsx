@@ -152,6 +152,7 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
   const [offerOpen, setOfferOpen] = useState(false)
   const chain = useRef<Promise<unknown>>(Promise.resolve())
   const bottomRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const step = STEPS[cursor]!
   const at = (s: Step) => cursor > STEPS.indexOf(s)
@@ -398,9 +399,20 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
   const shown = useStaggered(msgs)
   const allShown = shown >= msgs.length
 
+  const chipStep = step === 'davranis' || step === 'hisler' || step === 'en_etkili' || step === 'ihtiyac'
+
   useEffect(() => {
+    // Seçenekli adımlarda soru ekranın üstünde kalsın; seçenekler altında akar.
+    if (chipStep && allShown) {
+      const bots = listRef.current?.querySelectorAll('[data-bot]')
+      const last = bots?.[bots.length - 1]
+      if (last) {
+        last.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
+    }
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [shown, step, nudge])
+  }, [shown, step, nudge, chipStep, allShown])
 
   // ------------------------------------------------------------------
   // Cevap alanı
@@ -497,7 +509,7 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
 
   return (
     <div className="pb-4">
-      <div className="space-y-3" aria-live="polite">
+      <div ref={listRef} className="space-y-3" aria-live="polite">
         {msgs
           .slice(0, shown)
           .map((m) =>
@@ -521,7 +533,9 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
         </div>
       ) : null}
       <div ref={bottomRef} />
-      {composer ? (
+      {composer && chipStep ? (
+        <div className="mt-5">{composer}</div>
+      ) : composer ? (
         <div className="sticky bottom-0 z-20 -mx-4 mt-6 border-t border-line/70 bg-paper/95 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] backdrop-blur-md">
           {composer}
         </div>
@@ -560,7 +574,7 @@ function useStaggered(msgs: Msg[]) {
 
 function BotBubble({ text, typing }: { text: ReactNode; typing?: boolean }) {
   return (
-    <div className="flex animate-rise items-end gap-2.5">
+    <div data-bot className="flex scroll-mt-20 animate-rise items-end gap-2.5">
       <TherapistAvatar size={38} className="shrink-0" />
       <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-surface px-4 py-3 text-[16px] leading-relaxed whitespace-pre-line text-ink shadow-soft">
         {typing ? (
@@ -694,7 +708,7 @@ function ChipPanel({
   )
   return (
     <div className="space-y-3">
-      <div className="max-h-[46dvh] space-y-3 overflow-y-auto pr-1">
+      <div className="space-y-3">
         {suggestedCount ? (
           <>
             <p className="px-1 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">
@@ -713,7 +727,7 @@ function ChipPanel({
 
 function SendRow({ hint, canSend, onSend }: { hint: string; canSend: boolean; onSend: () => void }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="sticky bottom-0 z-20 -mx-4 flex items-center gap-3 border-t border-line/70 bg-paper/95 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] backdrop-blur-md">
       <p className="flex-1 text-[13px] text-ink-faint">{hint}</p>
       <Button onClick={onSend} disabled={!canSend}>
         Gönder <IconArrowRight size={18} />
@@ -758,7 +772,7 @@ function FeelingsPanel({
   const groups = suggestedFirst(FEELING_GROUPS, suggested)
   return (
     <div className="space-y-3">
-      <div className="max-h-[46dvh] space-y-3 overflow-y-auto pr-1">
+      <div className="space-y-3">
         {groups.map((g) => (
           <div key={g.id} className="space-y-1.5">
             <p className="px-1 text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">{g.label}</p>

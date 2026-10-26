@@ -410,6 +410,83 @@ function BreakCycle({ data, names }: { data: SharedReport['breakCycle']; names: 
   )
 }
 
+type RepairStep = SharedReport['repairSteps'][number] & { when?: string }
+
+/** Bu meseleye özgü onarım adımları: kim, hangi anda, ne yapar, ne söyler, neden. */
+function RepairSteps({ steps, names }: { steps: RepairStep[]; names: Record<Role, string> }) {
+  const whoLabel = (w: RepairStep['who'] | undefined) =>
+    w === 'A' ? names.A : w === 'B' ? names.B : w === 'ikisi' ? 'İkiniz' : null
+  return (
+    <Card className="space-y-5">
+      <SectionTitle eyebrow="Ortak çözüm ve onarım adımları" title="Döngü bir dahaki sefere başladığında" />
+      <ol className="space-y-6">
+        {steps.slice(0, 4).map((s, i) => (
+          <li key={i} className="space-y-2.5">
+            <p className="flex items-start gap-2.5 font-semibold">
+              <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-clay font-display text-sm text-on-clay">
+                {i + 1}
+              </span>
+              <span className="pt-0.5">{s.title}</span>
+            </p>
+            <div className="space-y-1.5 pl-9 text-[14px] leading-relaxed">
+              {s.moment ?? s.when ? (
+                <p className="text-ink-soft">
+                  <span className="font-semibold text-ink">Ne zaman: </span>
+                  {s.moment ?? s.when}
+                </p>
+              ) : null}
+              {whoLabel(s.who) ? (
+                <p className="text-ink-soft">
+                  <span className="font-semibold text-ink">Kim: </span>
+                  {whoLabel(s.who)}
+                </p>
+              ) : null}
+              {s.action ? (
+                <p className="text-ink-soft">
+                  <span className="font-semibold text-ink">Ne yapılır: </span>
+                  {s.action}
+                </p>
+              ) : null}
+            </div>
+            <div className="pl-9">
+              <Phrase text={s.phrase} />
+            </div>
+            <p className="pl-9 text-[14px] leading-relaxed text-ink-soft">
+              <span className="font-semibold text-ink">Neden işe yarar: </span>
+              {s.why}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  )
+}
+
+const LENS_TITLES = [
+  ['cbt', 'Bilişsel Davranışçı Terapiye göre'],
+  ['ta', 'Transaksiyonel Analize göre'],
+  ['gottman', 'Gottman yaklaşımına göre'],
+] as const
+
+/** Üç terapi yaklaşımından bu meseleye bakış ve bu hafta yapılacak alıştırma. */
+function Lenses({ lenses }: { lenses: SharedReport['lenses'] }) {
+  return (
+    <Card className="space-y-5">
+      <SectionTitle eyebrow="Üç yaklaşımdan bakış" title="Uzman gözüyle bu mesele" />
+      {LENS_TITLES.map(([key, title]) => (
+        <section key={key} className="space-y-2 rounded-2xl border border-line p-4">
+          <h4 className="font-semibold text-ink">{title}</h4>
+          <Paragraphs text={lenses[key].reading} className="text-[15px] text-ink-soft" />
+          <div className="rounded-xl bg-sage-soft px-3.5 py-2.5">
+            <p className="text-[12px] font-semibold tracking-[0.12em] text-ink-faint uppercase">Bu hafta deneyin</p>
+            <p className="mt-1 text-[15px] leading-relaxed text-ink">{lenses[key].practice}</p>
+          </div>
+        </section>
+      ))}
+    </Card>
+  )
+}
+
 export function SharedReportView({ report, view }: { report: SharedReport; view: DisputeView }) {
   const names = {
     A: view.me.role === 'A' ? view.me.name : (view.partner?.name ?? 'A'),
@@ -437,6 +514,11 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
 
       {/* Eski raporlarda bu bölüm yok. */}
       {report.breakCycle ? <BreakCycle data={report.breakCycle} names={names} /> : null}
+
+      <RepairSteps steps={report.repairSteps} names={names} />
+
+      {/* Eski raporlarda bu bölüm yok. */}
+      {report.lenses ? <Lenses lenses={report.lenses} /> : null}
 
       <Card className="space-y-2 border-sage/40 bg-sage-soft">
         <p className="flex items-center gap-2 font-semibold">
@@ -483,25 +565,6 @@ export function SharedReportView({ report, view }: { report: SharedReport; view:
             ))}
           </div>
           <p className="text-center font-display text-[18px] leading-relaxed text-ink">{report.needs.commonGround}</p>
-        </Card>
-
-        <Card className="space-y-4">
-          <SectionTitle eyebrow="Ortak çözüm ve onarım adımları" title="Döngü bir dahaki sefere başladığında" />
-          <ol className="space-y-4">
-            {report.repairSteps.slice(0, 3).map((s, i) => (
-              <li key={i} className="space-y-2">
-                <p className="flex items-center gap-2 font-semibold">
-                  <span className="inline-flex size-7 items-center justify-center rounded-full bg-clay font-display text-sm text-on-clay">
-                    {i + 1}
-                  </span>
-                  {s.title}
-                </p>
-                <p className="text-sm text-ink-faint">{s.when}</p>
-                <Phrase text={s.phrase} />
-                <p className="text-[14px] leading-relaxed text-ink-soft">{s.why}</p>
-              </li>
-            ))}
-          </ol>
         </Card>
 
         {report.history ? (
