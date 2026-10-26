@@ -18,7 +18,7 @@ export function SaveAccountCard({ lead }: { lead?: string }) {
       <div>
         <p className="font-semibold">Raporlarınızı kaybetmeyin</p>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-          {lead ?? 'Hesabınızı kaydedin; telefonunuz değişse de meseleleriniz ve raporlarınız sizinle gelir.'}
+          {lead ?? 'Hesabınızı kaydedin; başka bir cihazdan girdiğinizde de meseleleriniz ve raporlarınız sizinle gelsin.'}
         </p>
       </div>
       <SignInOptions onLinked={() => setDone(true)} />

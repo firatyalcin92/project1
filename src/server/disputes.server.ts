@@ -27,6 +27,7 @@ import {
   FEELING_CHIPS,
   NEED_CHIPS,
   THOUGHTS,
+  REACTION_CHIPS,
 } from '~/lib/questions'
 import {
   EventReflectionSchema,
@@ -56,7 +57,7 @@ import type {
   ReconsiderationView,
 } from '~/lib/views'
 import { PAYWALL_MESSAGE, disputeAccess } from './account.server'
-import { assertBetaCanCreate } from './beta.server'
+import { admitDispute } from './beta.server'
 import { accusative } from '~/lib/turkish'
 import { requireDispute, type AuthedMember } from './auth.server'
 import { fail } from './errors.server'
@@ -232,12 +233,17 @@ function buildView(
   let feedback = ''
   let survey: DisputeView['survey'] = null
   let suggestions = { feelings: [] as string[], needs: [] as string[] }
+  let reactions: string[] = []
   for (const a of b.answers) {
     if (a.member_id !== member.id) continue
     if (a.question_id === REFLECTION_ANSWER_ID) {
       reflection = a.text_answer
-      suggestions = suggestionsFromTags(a.selected_tags)
-    } else if (a.question_id === EVENT_REFLECTION_ID) eventReflection = a.text_answer
+      const s = suggestionsFromTags(a.selected_tags)
+      suggestions = { feelings: s.feelings, needs: s.needs }
+    } else if (a.question_id === EVENT_REFLECTION_ID) {
+      eventReflection = a.text_answer
+      reactions = suggestionsFromTags(a.selected_tags).reactions
+    }
     else if (a.question_id === FEEDBACK_ID) feedback = a.text_answer
     else if (a.question_id === SURVEY_ID) survey = surveyFromTags(a.selected_tags)
     else if ((ANSWER_QUESTION_IDS as readonly string[]).includes(a.question_id)) {
@@ -319,7 +325,7 @@ function buildView(
       reflection,
       eventReflection,
       feedback,
-      suggestions,
+      suggestions: { feelings: suggestions.feelings, needs: suggestions.needs, reactions },
       submittedAt: myEntry?.submitted_at ?? null,
     },
     partnerView,
@@ -407,7 +413,7 @@ export async function createDispute(member: AuthedMember, title?: string): Promi
   const existing = await store.listDisputes(member.coupleId)
   const open = existing.find((d) => d.status !== 'completed')
   if (open) fail('CONFLICT', `Önce açık olan "${open.title}" meselesini tamamlayalım.`)
-  await assertBetaCanCreate(member.coupleId)
+  await admitDispute(member.coupleId)
   // Ücretsiz hak bitse de mesele açılır; 1. sorudan sonrası için üyelik istenir (saveAnswers).
   const d = await store.createDispute({
     couple_id: member.coupleId,
@@ -620,10 +626,9 @@ export async function reflectAnswers(
   ])
   return {
     reflection,
-    suggestions: suggestionsFromTags([
-      ...suggestedFeelings.map((x) => `f:${x}`),
-      ...suggestedNeeds.map((x) => `n:${x}`),
-    ]),
+    suggestions: (({ feelings, needs }) => ({ feelings, needs }))(
+      suggestionsFromTags([...suggestedFeelings.map((x) => `f:${x}`), ...suggestedNeeds.map((x) => `n:${x}`)]),
+    ),
   }
 }
 
@@ -631,7 +636,7 @@ export async function reflectAnswers(
 export async function reflectEvent(
   member: AuthedMember,
   input: { disputeId: string; whatHappened: string },
-): Promise<{ reflection: string }> {
+): Promise<{ reflection: string; reactions: string[] }> {
   const d = await assertCanAnswer(member, input.disputeId)
   const whatHappened = input.whatHappened.trim().slice(0, LIMITS.text)
   if (whatHappened.length < 20) fail('VALIDATION', 'Olayı biraz daha anlatır mısınız?')
@@ -641,7 +646,7 @@ export async function reflectEvent(
     partnerName: partnerNameOf(bundle, member) ?? '',
     whatHappened,
   })
-  const { reflection } = await generateJson({
+  const { reflection, suggestedReactions } = await generateJson({
     task: 'event_reflection',
     schema: EventReflectionSchema,
     system: prompt.system,
@@ -656,11 +661,12 @@ export async function reflectEvent(
       member_id: member.id,
       question_id: EVENT_REFLECTION_ID,
       text_answer: reflection.slice(0, LIMITS.reflection),
-      selected_tags: [],
+      // Önerilen davranışlar yansıtmanın yanında saklanır (r:…).
+      selected_tags: suggestedReactions.map((x) => `r:${x}`),
       visibility: 'partner',
     },
   ])
-  return { reflection }
+  return { reflection, reactions: suggestionsFromTags(suggestedReactions.map((x) => `r:${x}`)).reactions }
 }
 
 /**
@@ -758,6 +764,7 @@ function mentionsName(p: Perspective, name: string) {
 
 const FEELING_IDS: readonly string[] = FEELING_CHIPS.map((c) => c.id)
 const NEED_IDS: readonly string[] = NEED_CHIPS.map((c) => c.id)
+const REACTION_IDS: readonly string[] = REACTION_CHIPS.map((c) => c.id)
 
 /** Yapay zekânın anlatılana göre önerdiği hisler ve ihtiyaçlar (yalnızca listedekiler). */
 function suggestionsFromTags(tags: readonly string[]) {
@@ -765,7 +772,7 @@ function suggestionsFromTags(tags: readonly string[]) {
     [...new Set(tags.filter((t) => t.startsWith(prefix)).map((t) => t.slice(prefix.length)))]
       .filter((id) => allowed.includes(id))
       .slice(0, 4)
-  return { feelings: pick('f:', FEELING_IDS), needs: pick('n:', NEED_IDS) }
+  return { feelings: pick('f:', FEELING_IDS), needs: pick('n:', NEED_IDS), reactions: pick('r:', REACTION_IDS) }
 }
 
 // ---------------------------------------------------------------------------

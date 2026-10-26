@@ -20,8 +20,8 @@ import type { AiTask } from '~/server/mesele.server'
 import { ensureOverview, getOverview } from '~/server/overview.server'
 import { createMemoryStore } from '~/server/store-memory.server'
 import { approveDeletion, dismissDeletion, purchase, requestDeletion } from '~/server/account.server'
-import { adminStats } from '~/server/admin.server'
-import { betaStatus } from '~/server/beta.server'
+import { adminStats, createAccessCodes, joinWaitlist } from '~/server/admin.server'
+import { admitDispute, betaStatus, claimJoinDevice, redeemAccessCode } from '~/server/beta.server'
 import { finishOAuth, issueTicket, readTicket, sendEmailCode, verifyEmailCode } from '~/server/identity.server'
 import { __setStoreForTests, getStore } from '~/server/store.server'
 
@@ -39,6 +39,7 @@ const RAW_A = 'FIRAT-HAM-CEVAP sen hep telefona gömülüyorsun beni hiç umursa
 const RAW_B = 'AYSE-HAM-CEVAP annemlerin gelişini son anda söylemesi beni deli etti'
 
 beforeEach(() => {
+  vi.unstubAllEnvs()
   __setStoreForTests(createMemoryStore())
   calls = []
   vi.stubEnv('MESELE_AI_PROVIDER', 'openai')
@@ -572,7 +573,7 @@ describe('his soruları (tek liste + en çok etkileyen)', () => {
     expect(shared.user).toMatch(/çatışmanın biçimini değiştirmektir/)
     expect(shared.user).toMatch(/Hazır kalıplar YASAK/)
     expect(shared.user).toMatch(/lenses/)
-    expect(shared.user).toMatch(/short alanı ad olmadan 2-5 kelime/)
+    expect(shared.user).toMatch(/short alanı ad olmadan 2-7 kelime/)
 
     await approveSharedReport(ma, id)
     const vb = await approveSharedReport(mb, id)
@@ -747,8 +748,8 @@ describe('mesele başlığı sorulmaz', () => {
     expect((await getDisputeView(mb, id)).title).toBe('Akşamki tartışma')
     // Anlatılana göre önerilen his ve ihtiyaçlar saklanır; yalnızca sahibine döner
     expect(r.suggestions).toEqual({ feelings: ['kirildim', 'gorulmedim'], needs: ['duyulmak', 'onemsenmek'] })
-    expect((await getDisputeView(ma, id)).mine.suggestions).toEqual(r.suggestions)
-    expect((await getDisputeView(mb, id)).mine.suggestions).toEqual({ feelings: [], needs: [] })
+    expect((await getDisputeView(ma, id)).mine.suggestions).toEqual({ ...r.suggestions, reactions: [] })
+    expect((await getDisputeView(mb, id)).mine.suggestions).toEqual({ feelings: [], needs: [], reactions: [] })
 
     const solo = await createCouple({ mode: 'solo', displayName: 'Deniz', partnerName: 'Can' })
     const ms = await authenticateMember(solo.token)
@@ -923,6 +924,66 @@ describe('ücretsiz test sürümü', () => {
     const p4 = await pair()
     expect((await buildPanel(p4.ma)).beta).toMatchObject({ on: true, canCreate: false })
     await expect(createDispute(p4.ma)).rejects.toThrow(/\[QUOTA_FULL\]/)
+  })
+
+  it('hak kişiye bağlı: çıkış yapıp yeni çift kursa da aynı cihaz / IP yeniden açamaz', async () => {
+    vi.stubEnv('MESELE_BETA', '1')
+    const keys = { device: 'd'.repeat(64), ip: 'e'.repeat(64) }
+    const p1 = await pair()
+    expect(await admitDispute(p1.ma.coupleId, keys)).toBe('free')
+    // "Çıkış yap" → aynı cihazdan yeni çift
+    const p2 = await pair()
+    await expect(admitDispute(p2.ma.coupleId, keys)).rejects.toThrow(/\[BETA_USED\]/)
+    // Başka cihaz ama aynı bağlantı (24 saat içinde)
+    await expect(admitDispute(p2.ma.coupleId, { device: 'f'.repeat(64), ip: keys.ip })).rejects.toThrow(/\[BETA_USED\]/)
+    // Partnerin katıldığı cihaz da hakkını kullanmış sayılır
+    const p3 = await pair()
+    await claimJoinDevice(p3.ma.coupleId, { device: 'a'.repeat(64), ip: null })
+    const p4 = await pair()
+    await expect(admitDispute(p4.ma.coupleId, { device: 'a'.repeat(64), ip: null })).rejects.toThrow(/\[BETA_USED\]/)
+    // ...ama kendi çiftinde o cihazdan mesele açılabilir
+    expect(await admitDispute(p3.ma.coupleId, { device: 'a'.repeat(64), ip: null })).toBe('free')
+    // Kontenjan yalnızca açılan ücretsiz meseleleri sayar
+    expect(await betaStatus()).toMatchObject({ remaining: 1 })
+  })
+
+  it('erişim kodu: yalnızca yönetici üretir, ilk çifte bağlanır, N mesele açtırır, kontenjandan düşmez', async () => {
+    vi.stubEnv('MESELE_BETA', '1')
+    await expect(createAccessCodes({ password: 'x', label: 'Ayşe', uses: 2, count: 1 })).rejects.toThrow(/\[CONFIG\]/)
+    vi.stubEnv('MESELE_ADMIN_PASSWORD', 'gizli')
+    await expect(createAccessCodes({ password: 'yanlis', label: '', uses: 2, count: 1 })).rejects.toThrow(
+      /\[UNAUTHORIZED\]/,
+    )
+    const { codes } = await createAccessCodes({ password: 'gizli', label: 'Ayşe ve Can', uses: 2, count: 1 })
+    expect(codes[0]).toMatch(/^MSL-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/)
+
+    const p1 = await pair()
+    await completeDispute(p1.ma, p1.mb, 'Ücretsiz')
+    await expect(createDispute(p1.ma)).rejects.toThrow(/\[CONFLICT\]/)
+    await expect(redeemAccessCode(p1.ma.coupleId, 'MSL-AAAA-BBBB-CCCC')).rejects.toThrow(/\[VALIDATION\]/)
+    // Küçük harf ve tiresiz yazılsa da çalışır
+    expect(await redeemAccessCode(p1.ma.coupleId, codes[0]!.toLowerCase().replace(/-/g, ' '))).toEqual({ usesLeft: 2 })
+    expect((await buildPanel(p1.ma)).beta).toMatchObject({ canCreate: true, codeUses: 2 })
+    // Başka bir çift aynı kodu kullanamaz
+    const p2 = await pair()
+    await expect(redeemAccessCode(p2.ma.coupleId, codes[0]!)).rejects.toThrow(/\[VALIDATION\]/)
+
+    await completeDispute(p1.ma, p1.mb, 'Kodla 1')
+    await createDispute(p1.ma)
+    expect((await buildPanel(p1.ma)).beta).toMatchObject({ canCreate: false, codeUses: 0 })
+    expect(await betaStatus()).toMatchObject({ remaining: 2 }) // yalnızca ücretsiz mesele sayıldı
+
+    const st = await adminStats('gizli')
+    expect(st.codes).toEqual([expect.objectContaining({ label: 'Ayşe ve Can', usesTotal: 2, usesLeft: 0, redeemed: true })])
+    expect(JSON.stringify(st)).not.toContain(codes[0]!)
+  })
+
+  it('ücretli sürüm bekleme listesi', async () => {
+    await expect(joinWaitlist('olmaz')).rejects.toThrow(/\[VALIDATION\]/)
+    await joinWaitlist('Ayse@Ornek.com ')
+    await joinWaitlist('ayse@ornek.com')
+    vi.stubEnv('MESELE_ADMIN_PASSWORD', 'gizli')
+    expect((await adminStats('gizli')).waitlist).toMatchObject({ count: 1, latest: [{ email: 'ayse@ornek.com' }] })
   })
 
   it('rapordan sonra 3 soruluk anket; yönetim sayacı kişisel içerik göstermez', async () => {

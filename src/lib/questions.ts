@@ -37,6 +37,8 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
       { id: 'uzuldum', label: 'Üzüldüm' },
       { id: 'hayal_kirikligi', label: 'Hayal kırıklığına uğradım' },
       { id: 'yalniz', label: 'Yalnız hissettim' },
+      { id: 'umutsuz', label: 'Umutsuzluğa kapıldım' },
+      { id: 'ihanet', label: 'İhanete uğramış gibi hissettim' },
     ],
   },
   {
@@ -45,6 +47,9 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
     chips: [
       { id: 'ofkelendim', label: 'Öfkelendim' },
       { id: 'kiskanclik', label: 'Kıskandım' },
+      { id: 'icerledim', label: 'İçerledim, kırgınlığı içimde tuttum' },
+      { id: 'sabrim_tukendi', label: 'Sabrım tükendi' },
+      { id: 'tiksinti', label: 'İğrendim, tiksindim' },
     ],
   },
   {
@@ -56,6 +61,8 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
       { id: 'guvensiz', label: 'Güvensiz hissettim' },
       { id: 'caresiz', label: 'Çaresiz hissettim' },
       { id: 'bunalmis', label: 'Bunaldım' },
+      { id: 'panik', label: 'Paniğe kapıldım' },
+      { id: 'sikismis', label: 'Sıkışmış, kapana kısılmış hissettim' },
     ],
   },
   {
@@ -67,6 +74,7 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
       { id: 'yetersiz', label: 'Yetersiz hissettim' },
       { id: 'degersiz', label: 'Değersiz hissettim' },
       { id: 'pismanlik', label: 'Pişman oldum' },
+      { id: 'mahcup', label: 'Mahcup oldum' },
     ],
   },
   {
@@ -77,12 +85,28 @@ export const FEELING_GROUPS: readonly FeelingGroup[] = [
       { id: 'ihmal', label: 'İhmal edilmiş hissettim' },
       { id: 'kucumsendim', label: 'Küçümsenmiş hissettim' },
       { id: 'reddedildim', label: 'Reddedilmiş hissettim' },
+      { id: 'ikinci_planda', label: 'İkinci planda kalmış hissettim' },
+      { id: 'saygisiz_hissettim', label: 'Saygısızlığa uğramış hissettim' },
+      { id: 'kullanilmis', label: 'Kullanılmış hissettim' },
     ],
   },
   {
     id: 'yorgunluk',
     label: 'Yorgunluk',
-    chips: [{ id: 'tukenmis', label: 'Yoruldum, tükendim' }],
+    chips: [
+      { id: 'tukenmis', label: 'Yoruldum, tükendim' },
+      { id: 'biktim', label: 'Bıktım' },
+      { id: 'hissizlestim', label: 'Hissizleştim, umursamaz oldum' },
+    ],
+  },
+  {
+    id: 'sevgi',
+    label: 'Sevgi ve özlem',
+    chips: [
+      { id: 'ozledim', label: 'Onu özledim' },
+      { id: 'hala_seviyorum', label: 'Kızgınlığıma rağmen onu sevdiğimi hissettim' },
+      { id: 'umut', label: 'Düzeleceğine dair umut taşıdım' },
+    ],
   },
 ]
 
@@ -184,6 +208,14 @@ export const REACTION_CHIPS = [
   { id: 'suclama', label: 'Suçladım, eleştirdim', pattern: 'elestiri' },
   { id: 'ironi', label: 'Alay ettim, iğneledim', pattern: 'asagilama' },
   { id: 'agladim', label: 'Ağladım', pattern: 'duygusal_tasma' },
+  { id: 'kustum', label: 'Küstüm, konuşmadım', pattern: 'geri_cekilme' },
+  { id: 'baska_seye', label: 'Telefona ya da başka bir şeye yöneldim', pattern: 'geri_cekilme' },
+  { id: 'gecmis', label: 'Eski meseleleri açtım', pattern: 'elestiri' },
+  { id: 'hakaret', label: 'Kırıcı, aşağılayıcı sözler söyledim', pattern: 'asagilama' },
+  { id: 'tehdit', label: 'Ayrılmakla ya da gitmekle tehdit ettim', pattern: 'tehdit' },
+  { id: 'kabul', label: 'Haklı olduğu yeri kabul ettim', pattern: 'onarim' },
+  { id: 'ozur', label: 'Özür diledim', pattern: 'onarim' },
+  { id: 'sakinlestirme', label: 'Ortamı yumuşatmaya çalıştım', pattern: 'onarim' },
   { id: 'firlattim', label: 'Bir şey fırlattım ya da kırdım', pattern: 'fiziksel_tasma' },
 ] as const satisfies readonly (Chip & { pattern: string })[]
 
@@ -195,6 +227,8 @@ export const PATTERN_LABEL: Record<string, string> = {
   elestiri: 'eleştiri',
   asagilama: 'alay / küçümseme',
   duygusal_tasma: 'duygusal taşma',
+  tehdit: 'ayrılık tehdidi',
+  onarim: 'onarım girişimi',
   fiziksel_tasma: 'fiziksel taşma — güvenlik işareti',
 }
 
@@ -341,6 +375,13 @@ export const NEED_CHIPS = [
   { id: 'guvence', label: 'Yalnız bırakılmayacağımı bilmek' },
   { id: 'birlikte', label: 'Birlikte karar vermek' },
   { id: 'huzur', label: 'Huzur, sakinlik' },
+  { id: 'ilgi', label: 'İlgi görmek, aranıp sorulmak' },
+  { id: 'ozur', label: 'Bir özür duymak' },
+  { id: 'sorumluluk', label: 'Onun da sorumluluk alması' },
+  { id: 'tutarlilik', label: 'Verilen sözlerin tutulması' },
+  { id: 'sadakat', label: 'Bağlılık, sadakat' },
+  { id: 'keyif', label: 'Birlikte keyifli vakit geçirmek' },
+  { id: 'fiziksel_yakinlik', label: 'Sarılmak, dokunulmak' },
 ] as const satisfies readonly Chip[]
 
 export const NEEDS_MAX = 5

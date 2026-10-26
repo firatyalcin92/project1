@@ -7,6 +7,7 @@ import { IconArrowRight, IconPlus, IconSettings, IconShare, IconSparkle } from '
 import { AppShell } from '~/components/layout'
 import { OfferSheet, markOfferSeen, offerSeen } from '~/components/offer'
 import { ReadinessCard, readinessFromSummary } from '~/components/readiness'
+import { AccessCodeForm } from '~/components/access-code'
 import { SaveAccountCard } from '~/components/save-account'
 import { Button, Card, LinkButton, Notice } from '~/components/ui'
 import { approveDeletionFn, dismissDeletionFn } from '~/functions/account'
@@ -159,6 +160,9 @@ function NewDisputeCard({ data }: { data: PanelView }) {
       <Card className="animate-rise space-y-2 text-center">
         <p className="font-display text-xl font-semibold">Ücretsiz test sürümü</p>
         <p className="text-sm leading-relaxed text-ink-soft">{data.beta.reason}</p>
+        <div className="pt-2">
+          <AccessCodeForm />
+        </div>
       </Card>
     )
   }
@@ -171,7 +175,13 @@ function NewDisputeCard({ data }: { data: PanelView }) {
       {!data.beta.on && !m.active && !m.nextDisputeFree ? (
         <p className="text-[13px] text-ink-faint">İlk sorudan sonra üyelikle devam edebilirsiniz.</p>
       ) : null}
+      {data.beta.codeUses > 0 ? (
+        <p className="text-[13px] text-ink-faint">Erişim kodunuzla {data.beta.codeUses} mesele hakkınız var.</p>
+      ) : null}
       {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
+      {mutation.isError && ['BETA_USED', 'QUOTA_FULL', 'CONFLICT'].includes(parseError(mutation.error).code) ? (
+        <AccessCodeForm startOpen />
+      ) : null}
     </Card>
   )
 }

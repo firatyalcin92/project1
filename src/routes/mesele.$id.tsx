@@ -44,7 +44,7 @@ function DisputePage() {
   const displayStep = view && view.step === 3 && !view.progress.meReconsidered && !reflecting ? 2 : view?.step
 
   return (
-    <AppShell back="/panel" title={view?.title ?? 'Mesele'}>
+    <AppShell className="md:max-w-2xl" back="/panel" title={view?.title ?? 'Mesele'}>
       {query.isPending ? (
         <div className="space-y-4" aria-busy>
           <div className="h-6 w-full animate-pulse rounded-xl bg-sunken" />

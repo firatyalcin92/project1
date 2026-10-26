@@ -21,6 +21,7 @@ export function mockGenerate(task: AiTask, ctx: Record<string, unknown>): unknow
       }
     case 'event_reflection':
       return {
+        suggestedReactions: ['savunma', 'ofke'],
         reflection: `Anladığım kadarıyla ${s(ctx.owner, 'siz')}, küçük bir konuşma olarak başlayan şey kısa sürede büyüyen bir tartışmaya dönüşmüş ve sonunda ikiniz de birbirinizden uzaklaşmışsınız.`,
       }
     case 'feedback':
@@ -80,10 +81,31 @@ function mockShared(a: string, b: string): SharedReport {
         },
         {
           partner: 'A',
-          short: 'odadan çıkıyor',
+          short: 'köşeye sıkışmış hissediyor',
           trigger: `${genitive(b)} ısrarı`,
           feeling: 'Köşeye sıkışmış hissetmek',
+          reaction: 'Savunmaya geçmek',
+        },
+        {
+          partner: 'A',
+          short: 'kapıyı çarpıp odadan çıkıyor',
+          trigger: 'Yükselen tartışma',
+          feeling: 'Bunalmışlık',
           reaction: 'Ortamı terk etmek',
+        },
+        {
+          partner: 'B',
+          short: 'yalnız ve değersiz hissediyor',
+          trigger: `${genitive(a)} gidişi`,
+          feeling: 'Terk edilmişlik',
+          reaction: 'Kırgınlığı içinde tutmak',
+        },
+        {
+          partner: 'B',
+          short: 'ertesi gün soğuk ve küs',
+          trigger: 'Konuşulmadan kalan kırgınlık',
+          feeling: 'Kızgınlık ve kırgınlık',
+          reaction: 'Mesafeli durmak, imalı konuşmak',
         },
       ],
       enemy: `Düşmanınız birbiriniz değil; "kapanan kapı ve çalan zil" döngüsü. Bu döngünün adını koyduğunuzda, ona karşı birlikte durabilirsiniz.`,

@@ -132,7 +132,7 @@ export function PurchasePanel({ data, onPurchased }: { data: PanelView; onPurcha
       ) : (
         <div className="space-y-3 rounded-2xl border border-line p-4">
           <p className="text-center text-sm leading-relaxed text-ink-soft">
-            Üyeliğiniz hesabınıza bağlanır; telefon değişse de kaybolmaz. Önce hesabınızı kaydedin:
+            Üyeliğiniz hesabınıza bağlanır; cihaz değişse de kaybolmaz. Önce hesabınızı kaydedin:
           </p>
           <SignInOptions onLinked={() => {}} />
         </div>

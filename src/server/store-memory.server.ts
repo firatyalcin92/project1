@@ -1,7 +1,9 @@
 import '@tanstack/react-start/server-only'
 import { GENERATION_LOCK_MS } from '~/lib/status'
 import type {
+  AccessCodeRow,
   AnswerRow,
+  BetaClaimKind,
   CoupleRow,
   DeletionRequestRow,
   DisputeRow,
@@ -31,6 +33,9 @@ type Tables = {
   relationship: Map<string, RelationshipReportRow>
   subscriptions: Map<string, SubscriptionRow>
   deletions: Map<string, DeletionRequestRow>
+  claims: { kind: BetaClaimKind; key_hash: string | null; couple_id: string | null; created_at: string }[]
+  codes: Map<string, AccessCodeRow>
+  waitlist: Map<string, string>
 }
 
 const now = () => new Date().toISOString()
@@ -60,6 +65,9 @@ export function createMemoryStore(): Store {
     relationship: new Map(),
     subscriptions: new Map(),
     deletions: new Map(),
+    claims: [],
+    codes: new Map(),
+    waitlist: new Map(),
   }
 
   const byDispute = <T extends { dispute_id: string }>(m: Map<string, T>, ids: string[]) =>
@@ -137,6 +145,79 @@ export function createMemoryStore(): Store {
 
     async countDisputesSince(iso) {
       return [...t.disputes.values()].filter((d) => d.created_at >= iso).length
+    },
+
+    async addBetaClaims(rows) {
+      const at = now()
+      for (const r of rows) t.claims.push({ ...r, created_at: at })
+    },
+
+    async hasBetaClaim(kind, keyHash, opts = {}) {
+      return t.claims.some(
+        (c) =>
+          c.kind === kind &&
+          c.key_hash === keyHash &&
+          (!opts.since || c.created_at >= opts.since) &&
+          (!opts.exceptCouple || c.couple_id !== opts.exceptCouple),
+      )
+    },
+
+    async coupleHasClaim(coupleId, kind) {
+      return t.claims.some((c) => c.kind === kind && c.couple_id === coupleId)
+    },
+
+    async countBetaClaims(kind, since) {
+      return t.claims.filter((c) => c.kind === kind && c.created_at >= since).length
+    },
+
+    async createAccessCode(input) {
+      const row: AccessCodeRow = {
+        id: crypto.randomUUID(),
+        ...input,
+        uses_left: input.uses_total,
+        couple_id: null,
+        redeemed_at: null,
+        created_at: now(),
+      }
+      t.codes.set(row.id, row)
+      return clone(row)
+    },
+
+    async listAccessCodes() {
+      return [...t.codes.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(clone)
+    },
+
+    async bindAccessCode(codeHash, coupleId) {
+      const row = [...t.codes.values()].find((c) => c.code_hash === codeHash)
+      if (!row || (row.couple_id && row.couple_id !== coupleId)) return null
+      if (!row.couple_id) {
+        row.couple_id = coupleId
+        row.redeemed_at = now()
+      }
+      return clone(row)
+    },
+
+    async codeUsesLeft(coupleId) {
+      return [...t.codes.values()].filter((c) => c.couple_id === coupleId).reduce((n, c) => n + c.uses_left, 0)
+    },
+
+    async consumeAccessCode(coupleId) {
+      const row = [...t.codes.values()]
+        .filter((c) => c.couple_id === coupleId && c.uses_left > 0)
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
+      if (!row) return null
+      row.uses_left--
+      return row.uses_left
+    },
+
+    async addToWaitlist(email) {
+      if (!t.waitlist.has(email)) t.waitlist.set(email, now())
+    },
+
+    async countWaitlist() {
+      const all = [...t.waitlist].map(([email, created_at]) => ({ email, created_at }))
+      all.sort((a, b) => b.created_at.localeCompare(a.created_at))
+      return { count: all.length, latest: all.slice(0, 100) }
     },
 
     async adminSnapshot() {
@@ -343,6 +424,7 @@ export function createMemoryStore(): Store {
       }
       for (const [k, r] of t.relationship) if (r.couple_id === coupleId) t.relationship.delete(k)
       t.deletions.delete(coupleId)
+      for (const code of t.codes.values()) if (code.couple_id === coupleId) code.couple_id = null
       for (const id of memberIds) t.members.delete(id)
       t.couples.delete(coupleId)
       // Üyelik satırı kalır, sahipsiz olur (on delete set null)

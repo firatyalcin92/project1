@@ -247,6 +247,15 @@ dans, tetikleyiciler, duygu haritası, bağlanma ihtiyaçları, Dört Atlı ayna
   soruya geçer; ilk anlatan da ardından son 4 soruyu yanıtlar. Kimse diğerinin cevaplarını görmez.
 - Rapordan sonra 3 soruluk anket (puan, tekrar kullanır mı, önerir mi). Sonuçlar `/yonetim` sayfasında
   (`MESELE_ADMIN_PASSWORD` ile); kişisel içerik gösterilmez.
+- **Hak kişiye bağlıdır:** ücretsiz meseleyi açan cihaz (rastgele cihaz kimliği, çıkışta silinmez) ve 24 saat boyunca
+  aynı IP adresi yeni bir çift kurup tekrar mesele açamaz. İkisi de yalnızca hash'iyle `beta_claims` tablosunda durur;
+  isteğe bağlı `MESELE_HASH_SALT` ile tuzlanır.
+- **Erişim kodları:** `/yonetim` → "Erişim kodu oluştur" ile N haklı kodlar (`MSL-XXXX-XXXX-XXXX`, 60 bit) üretilir.
+  Ham kod yalnızca bir kez gösterilir, veritabanında hash'i saklanır; kod ilk kullanan çifte bağlanır, deneme sayısı
+  sınırlıdır. Kodla açılan meseleler günlük kontenjana ve kişi sınırına takılmaz.
+- Karşılama ekranındaki "Ücretli sürüme üye olmak isterim" e-postaları `waitlist` tablosuna yazılır ve `/yonetim`'de görünür.
+- **Mevcut Supabase için:** `supabase/guncelleme-test-surumu.sql` dosyasını SQL Editor'de bir kez çalıştırın
+  (tekrar çalıştırmak zararsızdır). Çalıştırılana kadar kişi sınırı uygulanmaz, kodlar ve bekleme listesi çalışmaz.
 
 ## Hesaplar: Apple / Google / e-posta kodu
 

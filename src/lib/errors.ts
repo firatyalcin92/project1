@@ -16,6 +16,8 @@ export type ErrorCode =
   | 'ACCOUNT_REQUIRED'
   /** Test sürümünde günlük kontenjan doldu */
   | 'QUOTA_FULL'
+  /** Bu cihazdan / bağlantıdan ücretsiz test hakkı kullanıldı */
+  | 'BETA_USED'
   /** Ücretsiz mesele kullanıldı; devam etmek için üyelik gerekir */
   | 'PAYMENT_REQUIRED'
 

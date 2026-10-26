@@ -75,7 +75,7 @@ function SettingsBody({ data, onDeleted }: { data: PanelView; onDeleted: (v: { m
         ) : (
           <Card className="space-y-4">
             <p className="text-sm leading-relaxed text-ink-soft">
-              Kayıtlarınız şu an yalnızca bu cihazda. Hesabınızı kaydedin; telefon değişse de kaybolmasın.
+              Kayıtlarınız şu an yalnızca bu tarayıcıda. Hesabınızı kaydedin; başka bir cihazdan da ulaşabilin.
             </p>
             <SignInOptions />
           </Card>

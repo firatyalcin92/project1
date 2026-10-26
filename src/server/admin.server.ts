@@ -1,6 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { createHash, timingSafeEqual } from 'node:crypto'
-import { betaStatus, istanbulDayStart } from './beta.server'
+import { accessCodeHash, betaStatus, generateAccessCode, istanbulDayStart } from './beta.server'
 import { fail } from './errors.server'
 import { getStore } from './store.server'
 
@@ -51,8 +51,19 @@ export async function adminStats(password: string) {
     })
   }
 
+  const [codes, waitlist] = await Promise.all([store.listAccessCodes(), store.countWaitlist()])
+
   return {
     beta: await betaStatus(),
+    codes: codes.map((c) => ({
+      id: c.id,
+      label: c.label,
+      usesTotal: c.uses_total,
+      usesLeft: c.uses_left,
+      redeemed: Boolean(c.redeemed_at),
+      createdAt: c.created_at,
+    })),
+    waitlist,
     disputes: {
       total: snap.disputes.length,
       today: snap.disputes.filter((d) => d.created_at >= today).length,
@@ -76,4 +87,35 @@ export async function adminStats(password: string) {
     },
     days,
   }
+}
+
+/**
+ * Erişim kodu üretir. Ham kod yalnızca bu yanıtta bir kez görünür; veritabanında hash'i durur.
+ * Kodlar yalnızca yönetici şifresiyle üretilebilir.
+ */
+export async function createAccessCodes(input: { password: string; label: string; uses: number; count: number }) {
+  checkPassword(input.password)
+  const uses = Math.floor(input.uses)
+  const count = Math.floor(input.count)
+  if (!(uses >= 1 && uses <= 100)) fail('VALIDATION', 'Hak sayısı 1 ile 100 arasında olmalı.')
+  if (!(count >= 1 && count <= 20)) fail('VALIDATION', 'Tek seferde 1-20 kod üretilebilir.')
+  const store = await getStore()
+  const label = input.label.trim().slice(0, 80)
+  const codes: string[] = []
+  for (let i = 0; i < count; i++) {
+    const code = generateAccessCode()
+    await store.createAccessCode({ code_hash: accessCodeHash(code), label, uses_total: uses })
+    codes.push(code)
+  }
+  return { codes, uses, label }
+}
+
+const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/
+
+/** Ücretli sürüm bekleme listesi */
+export async function joinWaitlist(email: string) {
+  const e = email.trim().toLowerCase()
+  if (e.length > 320 || !EMAIL.test(e)) fail('VALIDATION', 'Geçerli bir e-posta adresi yazar mısınız?')
+  await (await getStore()).addToWaitlist(e)
+  return { ok: true as const }
 }

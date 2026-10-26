@@ -266,6 +266,8 @@ export function CycleCircle({
   name: string
 }) {
   const n = steps.length
+  // Kapsamlı döngüler (5+ adım) dikey bir akış olarak çizilir; çember yalnızca eski kısa raporlar için.
+  if (n >= 5) return <CycleFlow steps={steps} names={names} name={name} />
   const R = 36
   const angles = steps.map((_, i) => -90 + (i * 360) / n)
   // Düğümlerin kapladığı yerde ok çizilmez.
@@ -381,6 +383,69 @@ export function CycleCircle({
         <IconLoop size={18} /> {steps.length}. adımdan sonra döngü 1. adıma döner
       </p>
     </div>
+  )
+}
+
+/** Döngü akışı: adımlar yukarıdan aşağı; A solda, B sağda; sondan başa dönen ok. */
+function CycleFlow({
+  steps,
+  names,
+  name,
+}: {
+  steps: SharedReport['cycle']['steps']
+  names: Record<Role, string>
+  name: string
+}) {
+  const label = (s: SharedReport['cycle']['steps'][number]) => s.short || s.reaction
+  return (
+    <figure className="space-y-0" aria-label={`Döngü: ${steps.map((s) => label(s)).join(' → ')} → yeniden başa`}>
+      <ol className="relative">
+        {steps.map((s, i) => {
+          const a = s.partner === 'A'
+          return (
+            <li key={i} className={cx('flex flex-col', a ? 'items-start' : 'items-end')}>
+              <details
+                className={cx(
+                  'group w-[86%] rounded-2xl border px-3.5 py-2.5 shadow-soft sm:w-[72%]',
+                  a ? 'border-partner-a/30 bg-partner-a-soft' : 'border-partner-b/30 bg-partner-b-soft',
+                )}
+              >
+                <summary className="cursor-pointer list-none">
+                  <p className="flex items-center gap-1.5 text-[12px] font-semibold text-ink-soft">
+                    <span
+                      className="inline-flex size-5 items-center justify-center rounded-full text-[11px] text-white"
+                      style={{ background: partnerColor(s.partner) }}
+                      aria-hidden
+                    >
+                      {i + 1}
+                    </span>
+                    {names[s.partner]}
+                    <span className="ml-auto text-[11px] font-medium text-ink-faint group-open:hidden">ayrıntı</span>
+                  </p>
+                  <p className="mt-1 text-[15.5px] leading-snug font-medium text-ink">{label(s)}</p>
+                </summary>
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-line/70 pt-2 text-[13.5px] leading-snug">
+                  <dt className="text-ink-faint">Tetikleyen</dt>
+                  <dd className="text-ink">{s.trigger}</dd>
+                  <dt className="text-ink-faint">İçeride</dt>
+                  <dd className="font-medium text-ink">{s.feeling}</dd>
+                  <dt className="text-ink-faint">Dışarıda</dt>
+                  <dd className="text-ink">{s.reaction}</dd>
+                </dl>
+              </details>
+              {i < steps.length - 1 ? (
+                <span aria-hidden className="flex w-full justify-center py-1 text-clay">
+                  <IconArrowRight size={18} className="rotate-90" />
+                </span>
+              ) : null}
+            </li>
+          )
+        })}
+      </ol>
+      <figcaption className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-clay/40 px-3 py-2.5 text-center text-[13.5px] font-medium text-clay-strong">
+        <IconLoop size={18} className="shrink-0" /> Ve döngü yeniden 1. adıma döner: “{name}”
+      </figcaption>
+    </figure>
   )
 }
 

@@ -66,7 +66,7 @@ describe('şema ve RLS', () => {
          join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r'`,
     )
-    expect(tables.rows.length).toBe(10)
+    expect(tables.rows.length).toBe(13)
     for (const t of tables.rows) expect(t.relrowsecurity, t.relname).toBe(true)
     const policies = await db.query(`select * from pg_policies where schemaname = 'public'`)
     expect(policies.rows).toEqual([])

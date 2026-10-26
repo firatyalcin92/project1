@@ -6,7 +6,7 @@ it('kurulum.sql tek seferde çalışır', async () => {
   await db.exec('create role anon; create role authenticated; create role service_role;')
   await db.exec(readFileSync(new URL('../supabase/kurulum.sql', import.meta.url), 'utf8'))
   const r = await db.query("select count(*)::int as n from pg_tables where schemaname='public'")
-  expect((r.rows[0] as { n: number }).n).toBe(10)
+  expect((r.rows[0] as { n: number }).n).toBe(13)
 })
 
 it('guncelleme-hesap.sql eski kuruluma (üyelik tabloları olsa da olmasa da) iki kez uygulanabilir', async () => {
@@ -58,4 +58,30 @@ it('çift silinince üyelik satırı kalır ve sahipsiz olur', async () => {
   expect(s.rows).toEqual([{ couple_id: null, member_id: null }])
   const d = await db.query('select count(*)::int as n from deletion_requests')
   expect((d.rows[0] as { n: number }).n).toBe(0)
+})
+
+it('guncelleme-test-surumu.sql iki kez uygulanabilir ve kod hakkı eksiye düşmez', async () => {
+  const db = new PGlite()
+  await db.exec('create role anon; create role authenticated; create role service_role;')
+  await db.exec(readFileSync(new URL('../supabase/kurulum.sql', import.meta.url), 'utf8'))
+  const update = readFileSync(new URL('../supabase/guncelleme-test-surumu.sql', import.meta.url), 'utf8')
+  await db.exec(update)
+  await db.exec(update)
+  const couple = (
+    await db.query<{ id: string }>(`insert into couples (code, name) values ('ABCDEF', 'Biz') returning id`)
+  ).rows[0]!
+  await db.query(`insert into access_codes (code_hash, uses_total, uses_left, couple_id) values ($1, 2, 2, $2)`, [
+    'b'.repeat(64),
+    couple.id,
+  ])
+  const use = async () =>
+    (await db.query<{ n: number | null }>('select public.mesele_consume_code($1) as n', [couple.id])).rows[0]!.n
+  expect(await use()).toBe(1)
+  expect(await use()).toBe(0)
+  expect(await use()).toBeNull()
+  const grants = await db.query(
+    `select count(*)::int as n from information_schema.role_table_grants
+     where table_name in ('beta_claims','access_codes','waitlist') and grantee in ('anon','authenticated')`,
+  )
+  expect((grants.rows[0] as { n: number }).n).toBe(0)
 })

@@ -81,6 +81,18 @@ const q = (id: string) => QUESTIONS.find((x) => x.id === id)!
 
 const words = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0)
 
+/** "Bilmiyorum" ve benzeri kaçamak cevaplar */
+const DUNNO = /^(bilmiyorum|bilmiyom|bilmem|bilemiyorum|bilmiyorum ki|emin değilim|fikrim yok|hiçbir fikrim yok|hiç bilmiyorum|bir şey demedi|hiçbir şey|hiç|yok|boş|aklıma gelmiyor|hatırlamıyorum)$/
+export function isDunno(t: string) {
+  const v = t
+    .toLocaleLowerCase('tr')
+    .replace(/[.,!?…;:'"“”’-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return v.length > 0 && DUNNO.test(v)
+}
+export const DUNNO_REPLY = '“Bilmiyorum”u kabul edemem. Acele etmeyin; biraz daha düşünün ve bana bir cevap verin.'
+
 /** 2. bölümde sorular arasında kısa, sıcak geçişler */
 const ACKS = ['Anlıyorum.', 'Teşekkür ederim.', 'Bu çok değerli.', 'Peki.']
 
@@ -148,6 +160,7 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
   const [feedback, setFeedback] = useState(view.mine.feedback)
   const [nudge, setNudge] = useState<null | 'short' | 'medium'>(null)
   const [nudgeUsed, setNudgeUsed] = useState(false)
+  const [dunno, setDunno] = useState<{ step: Step; text: string; n: number } | null>(null)
   const [text, setText] = useState('')
   const [offerOpen, setOfferOpen] = useState(false)
   const chain = useRef<Promise<unknown>>(Promise.resolve())
@@ -174,14 +187,17 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
   })
   const reflectEvent = useMutation({
     mutationFn: (whatHappened: string) => reflectEventFn({ data: { disputeId: view.id, whatHappened } }),
-    onSuccess: (r) => setEventReflection(r.reflection),
+    onSuccess: (r) => {
+      setEventReflection(r.reflection)
+      setSuggestions((s) => ({ ...s, reactions: r.reactions }))
+    },
   })
   const reflect = useMutation({
     mutationFn: (d: Draft) =>
       reflectAnswersFn({ data: { disputeId: view.id, whatHappened: d.whatHappened, thought: d.answers.dusunce.text } }),
     onSuccess: (r) => {
       setReflection(r.reflection)
-      setSuggestions(r.suggestions)
+      setSuggestions((s) => ({ ...s, ...r.suggestions }))
     },
     onError: (e) => {
       if (parseError(e).code === 'PAYMENT_REQUIRED') setOfferOpen(true)
@@ -214,6 +230,7 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
     setDraft((d) => ({ ...d, answers: { ...d.answers, [id]: { ...d.answers[id], ...patch } } }))
 
   const advance = (d: Draft, to?: Step) => {
+    setDunno(null)
     setCursor((c) => (to ? Math.max(c, STEPS.indexOf(to)) : c + 1))
     setText('')
     save.mutate({ d, submit: false })
@@ -222,6 +239,11 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
   /** Kullanıcı bir cevabı gönderdi. */
   const send = (value?: string) => {
     const v = (value ?? text).trim()
+    if (value === undefined && isDunno(v)) {
+      setDunno((x) => ({ step, text: v, n: (x?.n ?? 0) + 1 }))
+      setText('')
+      return
+    }
     if (step === 'olay') {
       if (nudge) {
         // Ek ayrıntı (ya da "bu kadar"): olay metnine eklenir, sonra yansıtma.
@@ -395,6 +417,10 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
         : `Teşekkür ederim, hepsi bu kadar. ${genitive(P)} cevaplarıyla birlikte değerlendirip size son kez dönüş sağlayacağım.`,
     )
   }
+  if (dunno && dunno.step === step) {
+    mine(`dk${dunno.n}`, dunno.text)
+    bot(`dr${dunno.n}`, DUNNO_REPLY)
+  }
 
   const shown = useStaggered(msgs)
   const allShown = shown >= msgs.length
@@ -456,7 +482,7 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
           nudge ? (
             <button
               type="button"
-              className="text-sm font-medium text-ink-soft underline-offset-4 hover:underline"
+              className="text-[13px] font-semibold whitespace-nowrap text-ink-soft underline-offset-4 hover:underline"
               onClick={() => send('')}
             >
               Bu kadar, devam edelim
@@ -468,7 +494,11 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
   } else if (step === 'davranis') {
     composer = (
       <ChipPanel
-        chips={REACTION_CHIPS}
+        chips={[
+          ...REACTION_CHIPS.filter((c) => suggestions.reactions.includes(c.id)),
+          ...REACTION_CHIPS.filter((c) => !suggestions.reactions.includes(c.id)),
+        ]}
+        suggestedCount={REACTION_CHIPS.filter((c) => suggestions.reactions.includes(c.id)).length}
         selected={a.dusunce.tags}
         onChange={(tags) => setAnswer('dusunce', { tags })}
         onSend={() => send()}
@@ -521,7 +551,7 @@ export function ChatWizard({ view, onView }: { view: DisputeView; onView: (v: Di
           )}
         {!allShown || busy ? <BotBubble key="typing" typing text="" /> : null}
         {cursor === 0 && !nudge && allShown ? (
-          <p className="pl-12 text-[12px] text-ink-faint">{privacyNotice(P, solo, order)}</p>
+          <p className="pl-[66px] text-[12px] sm:pl-[82px] text-ink-faint">{privacyNotice(P, solo, order)}</p>
         ) : null}
         {part1Ready && order === 'first' && !view.progress.partnerPart1 && allShown ? (
           <ShareCard view={view} code={code} name={P} />
@@ -575,8 +605,8 @@ function useStaggered(msgs: Msg[]) {
 function BotBubble({ text, typing }: { text: ReactNode; typing?: boolean }) {
   return (
     <div data-bot className="flex scroll-mt-20 animate-rise items-end gap-2.5">
-      <TherapistAvatar size={38} className="shrink-0" />
-      <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-surface px-4 py-3 text-[16px] leading-relaxed whitespace-pre-line text-ink shadow-soft">
+      <TherapistAvatar size={56} className="shrink-0 sm:size-[72px]" />
+      <div className="max-w-[calc(100%-4rem)] rounded-[28px] rounded-bl-md bg-surface px-5 py-4 text-[17px] leading-relaxed whitespace-pre-line text-ink shadow-soft sm:max-w-[85%] sm:px-6 sm:py-5 sm:text-[19px]">
         {typing ? (
           <span className="inline-flex gap-1 py-1" aria-label="Terapist yazıyor">
             {[0, 1, 2].map((i) => (
@@ -598,7 +628,7 @@ function BotBubble({ text, typing }: { text: ReactNode; typing?: boolean }) {
 function MyBubble({ text }: { text: ReactNode }) {
   return (
     <div className="flex animate-rise justify-end">
-      <div className="max-w-[85%] rounded-3xl rounded-br-md bg-clay px-4 py-3 text-[15px] leading-relaxed whitespace-pre-line text-on-clay shadow-soft">
+      <div className="max-w-[85%] rounded-[28px] rounded-br-md bg-clay px-5 py-3.5 text-[16px] leading-relaxed sm:text-[17px] whitespace-pre-line text-on-clay shadow-soft">
         {text}
       </div>
     </div>
@@ -661,11 +691,45 @@ function TextComposer({
           <IconArrowRight size={20} className="-rotate-90" />
         </button>
       </div>
-      <div className="flex items-center justify-between gap-3 px-2 text-[12px] text-ink-faint">
-        <span>
-          {value.trim() && !canSend ? 'Biraz daha açar mısınız?' : '🎙 Klavyedeki mikrofonla sesli de yazabilirsiniz.'}
+      <CharCounter
+        count={value.trim().length}
+        hint={value.trim() && !canSend ? 'Biraz daha açar mısınız?' : '🎙 Mikrofonla sesli de yazabilirsiniz.'}
+        extra={extra}
+      />
+    </div>
+  )
+}
+
+const COUNTER_GOAL = 150
+
+/** Yazarken harf sayacı: 100'de cesaret, 150'de övgü; üst sınır yok. */
+function CharCounter({ count, hint, extra }: { count: number; hint: string; extra?: ReactNode }) {
+  const pct = Math.min(count / COUNTER_GOAL, 1) * 100
+  const msg =
+    count >= COUNTER_GOAL
+      ? 'Detaylı anlatım, bravo! Daha da yazabilirsiniz, sınır yok.'
+      : count >= 100
+        ? 'İyi gidiyorsunuz.'
+        : null
+  return (
+    <div className="space-y-1.5 px-2">
+      <div className="h-1 overflow-hidden rounded-full bg-sunken">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${count >= COUNTER_GOAL ? 'bg-sage' : 'bg-clay/70'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-3 text-[12px]">
+        <span aria-live="polite" className={msg ? 'font-medium text-sage' : 'text-ink-faint'}>
+          {msg ?? hint}
         </span>
-        {extra}
+        <span className="flex shrink-0 items-center gap-3">
+          {extra}
+          <span className="text-ink-faint tabular-nums">
+            {count}
+            {count < COUNTER_GOAL ? ` / ${COUNTER_GOAL}` : ''}
+          </span>
+        </span>
       </div>
     </div>
   )
@@ -865,7 +929,7 @@ function ShareCard({ view, code, name }: { view: DisputeView; code: string; name
   const [note, setNote] = useState<string | null>(null)
   const joined = Boolean(view.partner)
   return (
-    <div className="ml-12 animate-rise space-y-3 rounded-3xl border border-clay/30 bg-clay-soft/40 p-4">
+    <div className="ml-[66px] animate-rise sm:ml-[82px] space-y-3 rounded-3xl border border-clay/30 bg-clay-soft/40 p-4">
       <Button
         full
         size="lg"

@@ -3,10 +3,10 @@ import { z } from 'zod'
 import { LIMITS } from '~/lib/questions'
 import { buildPanel, createCouple, invitePreview, joinCouple } from '~/server/couples.server'
 import { readTicket } from '~/server/identity.server'
-import { adminStats } from '~/server/admin.server'
-import { betaStatus } from '~/server/beta.server'
+import { adminStats, createAccessCodes, joinWaitlist } from '~/server/admin.server'
+import { betaStatus, redeemAccessCode } from '~/server/beta.server'
 import { rateLimit } from '~/server/rate-limit.server'
-import { memberAuth } from './middleware'
+import { deviceHeader, memberAuth } from './middleware'
 
 const TEN_MINUTES = 10 * 60 * 1000
 
@@ -14,6 +14,7 @@ const TEN_MINUTES = 10 * 60 * 1000
 const ticket = z.string().max(1000).optional()
 
 export const createCoupleFn = createServerFn({ method: 'POST' })
+  .middleware([deviceHeader])
   .validator(
     z.object({
       mode: z.enum(['couple', 'solo']).default('couple'),
@@ -31,6 +32,7 @@ export const createCoupleFn = createServerFn({ method: 'POST' })
   })
 
 export const joinCoupleFn = createServerFn({ method: 'POST' })
+  .middleware([deviceHeader])
   .validator(
     z.object({
       code: z.string().max(16),
@@ -64,3 +66,31 @@ export const adminStatsFn = createServerFn({ method: 'POST' })
 export const getPanelFn = createServerFn({ method: 'POST' })
   .middleware([memberAuth])
   .handler(async ({ context }) => buildPanel(context.member))
+
+export const createAccessCodesFn = createServerFn({ method: 'POST' })
+  .validator(
+    z.object({
+      password: z.string().max(200),
+      label: z.string().max(160).default(''),
+      uses: z.number().int().min(1).max(100),
+      count: z.number().int().min(1).max(20).default(1),
+    }),
+  )
+  .handler(async ({ data }) => {
+    rateLimit('admin', 20, TEN_MINUTES)
+    return createAccessCodes(data)
+  })
+
+/** Erişim kodunu bu çifte bağlar */
+export const redeemAccessCodeFn = createServerFn({ method: 'POST' })
+  .middleware([memberAuth])
+  .validator(z.object({ code: z.string().max(40) }))
+  .handler(async ({ data, context }) => redeemAccessCode(context.member.coupleId, data.code))
+
+/** Ücretli sürüm bekleme listesi */
+export const joinWaitlistFn = createServerFn({ method: 'POST' })
+  .validator(z.object({ email: z.string().max(400) }))
+  .handler(async ({ data }) => {
+    rateLimit('waitlist', 5, TEN_MINUTES)
+    return joinWaitlist(data.email)
+  })

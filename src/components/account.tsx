@@ -37,7 +37,7 @@ export function DeletionDone({ membershipKept }: { membershipKept: boolean }) {
       </div>
       {membershipKept ? (
         <Notice tone="success" title="Üyeliğiniz hesabınızda duruyor">
-          Aynı hesapla (Apple, Google ya da e-posta) yeniden başladığınızda kalan süre kendiliğinden devam eder.
+          Aynı hesapla (Google ya da e-posta) yeniden başladığınızda kalan süre kendiliğinden devam eder.
         </Notice>
       ) : null}
       <div className="grid gap-2">

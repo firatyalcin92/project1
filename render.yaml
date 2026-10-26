@@ -32,6 +32,9 @@ services:
         value: "1"
       - key: MESELE_DAILY_LIMIT
         value: "3"
+      # Cihaz kimliği / IP hash'leri için isteğe bağlı tuz (rastgele uzun bir metin)
+      - key: MESELE_HASH_SALT
+        sync: false
       # /yonetim sayfasının şifresi (test sonuçları)
       - key: MESELE_ADMIN_PASSWORD
         sync: false

@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState, type ReactNode } from 'react'
 import { AppShell, PageTitle } from '~/components/layout'
 import { Button, Card, Notice, TextField } from '~/components/ui'
-import { adminStatsFn } from '~/functions/couple'
+import { adminStatsFn, createAccessCodesFn } from '~/functions/couple'
 import { parseError } from '~/lib/errors'
 import { formatDateTime } from '~/lib/turkish'
 
@@ -18,12 +18,19 @@ type Stats = Awaited<ReturnType<typeof adminStatsFn>>
 /** Test sürümünün sayaçları. Kişisel içerik (cevaplar, raporlar) gösterilmez. */
 function Admin() {
   const [password, setPassword] = useState('')
-  const stats = useMutation({ mutationFn: () => adminStatsFn({ data: { password } }) })
+  // Yenilerken son sonuç ekranda kalsın (üretilen kodlar kaybolmasın).
+  const [data, setData] = useState<Stats | null>(null)
+  const stats = useMutation({ mutationFn: () => adminStatsFn({ data: { password } }), onSuccess: setData })
 
   return (
     <AppShell back="/" title="Yönetim">
-      {stats.data ? (
-        <StatsView s={stats.data} onRefresh={() => stats.mutate()} refreshing={stats.isPending} />
+      {data ? (
+        <StatsView
+          s={data}
+          password={password}
+          onRefresh={() => stats.mutate()}
+          refreshing={stats.isPending}
+        />
       ) : (
         <form
           className="space-y-4"
@@ -56,7 +63,17 @@ function Tile({ label, value, note }: { label: string; value: ReactNode; note?: 
 
 const pct = (n: number, of: number) => (of ? `%${Math.round((n / of) * 100)}` : '—')
 
-function StatsView({ s, onRefresh, refreshing }: { s: Stats; onRefresh: () => void; refreshing: boolean }) {
+function StatsView({
+  s,
+  password,
+  onRefresh,
+  refreshing,
+}: {
+  s: Stats
+  password: string
+  onRefresh: () => void
+  refreshing: boolean
+}) {
   const d = s.disputes
   const max = Math.max(1, ...s.days.map((x) => x.count))
   return (
@@ -111,6 +128,40 @@ function StatsView({ s, onRefresh, refreshing }: { s: Stats; onRefresh: () => vo
         ) : null}
       </section>
 
+      <CodeMaker password={password} onMade={onRefresh} />
+
+      {s.codes.length ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Erişim kodları</h2>
+          <ul className="divide-y divide-line rounded-2xl border border-line">
+            {s.codes.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                <span className="min-w-0 truncate font-medium">{c.label || 'Etiketsiz'}</span>
+                <span className="shrink-0 text-ink-soft tabular-nums">
+                  {c.usesLeft}/{c.usesTotal} hak · {c.redeemed ? 'kullanıldı' : 'bekliyor'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Ücretli sürüm bekleme listesi ({s.waitlist.count})</h2>
+        {s.waitlist.latest.length ? (
+          <ul className="divide-y divide-line rounded-2xl border border-line">
+            {s.waitlist.latest.map((w) => (
+              <li key={w.email} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                <span className="min-w-0 truncate">{w.email}</span>
+                <span className="shrink-0 text-[12px] text-ink-faint">{formatDateTime(w.created_at)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-ink-soft">Henüz kimse yazılmadı.</p>
+        )}
+      </section>
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Son 14 gün</h2>
         <div className="flex h-32 items-end gap-1" role="img" aria-label="Günlük açılan mesele sayısı">
@@ -126,5 +177,58 @@ function StatsView({ s, onRefresh, refreshing }: { s: Stats; onRefresh: () => vo
         </p>
       </section>
     </div>
+  )
+}
+
+/** Erişim kodu üretimi: ham kod yalnızca burada, bir kez görünür. */
+function CodeMaker({ password, onMade }: { password: string; onMade: () => void }) {
+  const [label, setLabel] = useState('')
+  const [uses, setUses] = useState('10')
+  const [count, setCount] = useState('1')
+  const [copied, setCopied] = useState(false)
+  const make = useMutation({
+    mutationFn: () =>
+      createAccessCodesFn({ data: { password, label, uses: Number(uses), count: Number(count) } }),
+    onSuccess: () => {
+      setCopied(false)
+      onMade()
+    },
+  })
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Erişim kodu oluştur</h2>
+      <Card className="space-y-3 p-4">
+        <TextField label="Kimin için? (yalnızca sizin göreceğiniz not)" value={label} onChange={setLabel} maxLength={80} />
+        <div className="grid grid-cols-2 gap-3">
+          <TextField label="Mesele hakkı" value={uses} onChange={(v) => setUses(v.replace(/\D/g, ''))} inputMode="numeric" />
+          <TextField label="Kaç kod?" value={count} onChange={(v) => setCount(v.replace(/\D/g, ''))} inputMode="numeric" />
+        </div>
+        {make.isError ? <Notice tone="error">{parseError(make.error).message}</Notice> : null}
+        <Button full loading={make.isPending} disabled={!Number(uses) || !Number(count)} onClick={() => make.mutate()}>
+          Kod oluştur
+        </Button>
+        {make.data ? (
+          <div className="space-y-2 rounded-2xl bg-sage-soft p-3">
+            <p className="text-[13px] text-ink-soft">
+              Her kod {make.data.uses} mesele açtırır ve ilk kullanan çifte bağlanır. Kodları şimdi kopyalayın;
+              güvenlik için bir daha gösterilmez.
+            </p>
+            <pre className="font-mono text-[15px] leading-relaxed whitespace-pre-wrap text-ink select-all">
+              {make.data.codes.join('\n')}
+            </pre>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                await navigator.clipboard?.writeText(make.data!.codes.join('\n')).catch(() => {})
+                setCopied(true)
+              }}
+            >
+              {copied ? 'Kopyalandı' : 'Kopyala'}
+            </Button>
+          </div>
+        ) : null}
+      </Card>
+    </section>
   )
 }

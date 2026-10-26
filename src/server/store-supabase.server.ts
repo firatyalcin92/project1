@@ -3,6 +3,7 @@ import { createClient, type PostgrestError } from '@supabase/supabase-js'
 import type { DisputeStatus } from '~/lib/status'
 import { MeseleError } from './errors.server'
 import type {
+  AccessCodeRow,
   AdminSnapshot,
   AnswerRow,
   CoupleRow,
@@ -118,6 +119,116 @@ export function createSupabaseStore(url: string, serviceKey: string): Store {
         .gte('created_at', iso)
       check(error, 'countDisputesSince')
       return count ?? 0
+    },
+
+    // Test sürümü tabloları (guncelleme-test-surumu.sql) yoksa okuma tarafı uygulamayı kilitlemez.
+    async addBetaClaims(rows) {
+      if (!rows.length) return
+      const { error } = await db.from('beta_claims').insert(rows)
+      if (tableMissing(error)) return
+      check(error, 'addBetaClaims')
+    },
+
+    async hasBetaClaim(kind, keyHash, opts = {}) {
+      let q = db.from('beta_claims').select('id', { count: 'exact', head: true }).eq('kind', kind).eq('key_hash', keyHash)
+      if (opts.since) q = q.gte('created_at', opts.since)
+      // couple_id NULL olan (silinmiş çift) kayıtlar da sayılır.
+      if (opts.exceptCouple) q = q.or(`couple_id.is.null,couple_id.neq.${opts.exceptCouple}`)
+      const { count, error } = await q
+      if (tableMissing(error)) return false
+      check(error, 'hasBetaClaim')
+      return (count ?? 0) > 0
+    },
+
+    async coupleHasClaim(coupleId, kind) {
+      const { count, error } = await db
+        .from('beta_claims')
+        .select('id', { count: 'exact', head: true })
+        .eq('kind', kind)
+        .eq('couple_id', coupleId)
+      if (tableMissing(error)) return false
+      check(error, 'coupleHasClaim')
+      return (count ?? 0) > 0
+    },
+
+    async countBetaClaims(kind, since) {
+      const { count, error } = await db
+        .from('beta_claims')
+        .select('id', { count: 'exact', head: true })
+        .eq('kind', kind)
+        .gte('created_at', since)
+      if (tableMissing(error)) return 0
+      check(error, 'countBetaClaims')
+      return count ?? 0
+    },
+
+    async createAccessCode(input) {
+      const { data, error } = await db
+        .from('access_codes')
+        .insert({ ...input, uses_left: input.uses_total })
+        .select()
+        .single()
+      check(error, 'createAccessCode')
+      return data as AccessCodeRow
+    },
+
+    async listAccessCodes() {
+      const { data, error } = await db
+        .from('access_codes')
+        .select()
+        .order('created_at', { ascending: false })
+        .limit(500)
+      if (tableMissing(error)) return []
+      check(error, 'listAccessCodes')
+      return (data ?? []) as AccessCodeRow[]
+    },
+
+    async bindAccessCode(codeHash, coupleId) {
+      const { data: found, error } = await db.from('access_codes').select().eq('code_hash', codeHash).maybeSingle()
+      if (tableMissing(error)) return null
+      check(error, 'bindAccessCode')
+      const row = found as AccessCodeRow | null
+      if (!row || (row.couple_id && row.couple_id !== coupleId)) return null
+      if (row.couple_id === coupleId) return row
+      // Yalnızca hâlâ boştaysa bağlanır (eşzamanlı iki çift aynı kodu alamaz).
+      const { data, error: e2 } = await db
+        .from('access_codes')
+        .update({ couple_id: coupleId, redeemed_at: new Date().toISOString() })
+        .eq('id', row.id)
+        .is('couple_id', null)
+        .select()
+        .maybeSingle()
+      check(e2, 'bindAccessCode')
+      return (data as AccessCodeRow | null) ?? null
+    },
+
+    async codeUsesLeft(coupleId) {
+      const { data, error } = await db.from('access_codes').select('uses_left').eq('couple_id', coupleId)
+      if (tableMissing(error)) return 0
+      check(error, 'codeUsesLeft')
+      return ((data ?? []) as { uses_left: number }[]).reduce((n, r) => n + r.uses_left, 0)
+    },
+
+    async consumeAccessCode(coupleId) {
+      const { data, error } = await db.rpc('mesele_consume_code', { p_couple_id: coupleId })
+      check(error, 'consumeAccessCode')
+      return typeof data === 'number' ? data : null
+    },
+
+    async addToWaitlist(email) {
+      const { error } = await db.from('waitlist').upsert({ email }, { onConflict: 'email', ignoreDuplicates: true })
+      check(error, 'addToWaitlist')
+    },
+
+    async countWaitlist() {
+      const { data, count, error } = await db
+        .from('waitlist')
+        .select('email, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (tableMissing(error)) return { count: 0, latest: [] }
+      check(error, 'countWaitlist')
+      return { count: count ?? 0, latest: (data ?? []) as { email: string; created_at: string }[] }
     },
 
     async adminSnapshot() {

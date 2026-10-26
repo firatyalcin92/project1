@@ -6,7 +6,14 @@ import type { AuthedMember } from './auth.server'
 import { generateCoupleCode, generateMemberToken, hashMemberToken } from './crypto.server'
 import { fail } from './errors.server'
 import { deletionFor, membershipFor } from './account.server'
-import { ONE_PER_COUPLE_MESSAGE, QUOTA_MESSAGE, betaStatus } from './beta.server'
+import {
+  ALREADY_USED_MESSAGE,
+  ONE_PER_COUPLE_MESSAGE,
+  QUOTA_MESSAGE,
+  betaStatus,
+  claimJoinDevice,
+  usedElsewhere,
+} from './beta.server'
 import type { Identity } from './identity.server'
 import { activeSummary, summarize } from './disputes.server'
 import { overviewStatus } from './overview.server'
@@ -129,6 +136,7 @@ export async function joinCouple(input: {
       'Bu davet az önce kullanıldı. Daha önce katıldıysanız “Giriş yap” ile hesabınıza dönebilirsiniz.',
     )
   }
+  await claimJoinDevice(couple.id)
   return session(token, result, couple)
 }
 
@@ -179,11 +187,14 @@ export async function signIn(
   return { status: 'no_account', ticket: ticketFor(identity), email: identity.email }
 }
 
-async function panelBeta(disputeCount: number): Promise<PanelView['beta']> {
+async function panelBeta(coupleId: string, disputeCount: number): Promise<PanelView['beta']> {
   const s = await betaStatus()
-  if (!s.beta) return { on: false, canCreate: true, reason: null }
-  if (disputeCount >= 1) return { on: true, canCreate: false, reason: ONE_PER_COUPLE_MESSAGE }
-  return { on: true, canCreate: s.open, reason: s.open ? null : QUOTA_MESSAGE }
+  if (!s.beta) return { on: false, canCreate: true, reason: null, codeUses: 0 }
+  const codeUses = await (await getStore()).codeUsesLeft(coupleId)
+  if (codeUses > 0) return { on: true, canCreate: true, reason: null, codeUses }
+  if (disputeCount >= 1) return { on: true, canCreate: false, reason: ONE_PER_COUPLE_MESSAGE, codeUses }
+  if (await usedElsewhere(coupleId)) return { on: true, canCreate: false, reason: ALREADY_USED_MESSAGE, codeUses }
+  return { on: true, canCreate: s.open, reason: s.open ? null : QUOTA_MESSAGE, codeUses }
 }
 
 export async function buildPanel(member: AuthedMember): Promise<PanelView> {
@@ -215,6 +226,6 @@ export async function buildPanel(member: AuthedMember): Promise<PanelView> {
     membership: await membershipFor(member.coupleId, member.id),
     deletion: await deletionFor(member.coupleId, member.id),
     account: { saved: Boolean(me.auth_user_id), email: me.email },
-    beta: await panelBeta(disputes.length),
+    beta: await panelBeta(member.coupleId, disputes.length),
   }
 }

@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { IconArrowRight } from '~/components/icons'
 import { AppShell, BottomBar, PageTitle } from '~/components/layout'
 import { Button, Notice, TextField } from '~/components/ui'
-import { betaStatusFn, createCoupleFn } from '~/functions/couple'
+import { betaStatusFn, createCoupleFn, redeemAccessCodeFn } from '~/functions/couple'
 import { createDisputeFn } from '~/functions/dispute'
 import { persistSession, readTicket } from '~/lib/auth-client'
+import { readMember } from '~/lib/member-token'
 import { parseError } from '~/lib/errors'
 import { useMember } from '~/lib/hooks'
 import { LIMITS } from '~/lib/questions'
@@ -30,6 +31,8 @@ function CreateCouple() {
   const solo = search.mod === 'bireysel'
   const [displayName, setDisplayName] = useState('')
   const [partnerName, setPartnerName] = useState('')
+  const [code, setCode] = useState('')
+  const [codeOpen, setCodeOpen] = useState(false)
   const beta = useQuery({ queryKey: ['beta'], queryFn: () => betaStatusFn() }).data
   const full = Boolean(beta?.beta && !beta.open)
 
@@ -39,12 +42,14 @@ function CreateCouple() {
         data: { mode: solo ? 'solo' : 'couple', displayName, partnerName, ticket: readTicket() },
       })
       persistSession(res)
+      if (code.trim()) await redeemAccessCodeFn({ data: { code } })
       return createDisputeFn({ data: {} })
     },
     onSuccess: ({ id }) => navigate({ to: '/mesele/$id', params: { id }, replace: true }),
-    // Çift oluştu ama kontenjan az önce doldu: panel durumu açıklar.
-    onError: (e) => {
-      if (parseError(e).code === 'QUOTA_FULL') void navigate({ to: '/panel', replace: true })
+    // Çift oluştu ama mesele açılamadı (kontenjan, kullanılmış hak, geçersiz kod): panel durumu açıklar
+    // ve orada kod yeniden girilebilir.
+    onError: () => {
+      if (readMember()) void navigate({ to: '/panel', replace: true })
     },
   })
 
@@ -108,9 +113,29 @@ function CreateCouple() {
           placeholder="Partnerinizin adı"
           autoCapitalize="words"
         />
+        {beta?.beta ? (
+          codeOpen ? (
+            <TextField
+              label="Erişim kodu (isteğe bağlı)"
+              value={code}
+              onChange={setCode}
+              maxLength={40}
+              placeholder="MSL-XXXX-XXXX-XXXX"
+              autoCapitalize="characters"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCodeOpen(true)}
+              className="text-sm font-semibold text-clay underline-offset-4 hover:underline"
+            >
+              Erişim kodum var
+            </button>
+          )
+        ) : null}
         {mutation.isError ? <Notice tone="error">{parseError(mutation.error).message}</Notice> : null}
         <BottomBar>
-          <Button type="submit" size="lg" full disabled={!ready || full} loading={mutation.isPending}>
+          <Button type="submit" size="lg" full disabled={!ready || (full && !code.trim())} loading={mutation.isPending}>
             Başlayalım <IconArrowRight size={18} />
           </Button>
           <p className="mt-2 text-center text-[12px] text-ink-faint">

@@ -80,7 +80,8 @@ export type PanelView = {
   /** Hesap kaydedildi mi (Apple / Google / e-posta)? Kaydedilmediyse kayıtlar yalnızca bu cihazda. */
   account: { saved: boolean; email: string | null }
   /** Ücretsiz test sürümü: her çift bir mesele, günlük toplam kontenjan */
-  beta: { on: boolean; canCreate: boolean; reason: string | null }
+  /** codeUses: çiftin erişim kodunda kalan mesele hakkı */
+  beta: { on: boolean; canCreate: boolean; reason: string | null; codeUses: number }
 }
 
 export type AnswerDraft = { text: string; tags: string[] }
@@ -95,7 +96,7 @@ export type MyAnswersView = {
   /** İlk 3 sorudan sonraki ayrıntılı geri bildirim */
   feedback: string
   /** Anlatılana göre yapay zekânın önerdiği hisler ve ihtiyaçlar (kişi kendisi seçer) */
-  suggestions: { feelings: string[]; needs: string[] }
+  suggestions: { feelings: string[]; needs: string[]; reactions: string[] }
   submittedAt: string | null
 }
 

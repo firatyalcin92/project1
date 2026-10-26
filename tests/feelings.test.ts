@@ -12,9 +12,9 @@ import {
 import { describeFeelings } from '~/server/prompts.server'
 
 describe('his listesi', () => {
-  it('yalnızca duygular: 6 grup, 21 duygu ve benzersiz kimlikler', () => {
-    expect(FEELING_GROUPS).toHaveLength(6)
-    expect(FEELING_CHIPS).toHaveLength(21)
+  it('yalnızca duygular: 7 grup, 37 duygu ve benzersiz kimlikler', () => {
+    expect(FEELING_GROUPS).toHaveLength(7)
+    expect(FEELING_CHIPS).toHaveLength(37)
     // Düşünce ve davranış olanlar duygu listesinde yok
     for (const id of ['haksizlik', 'anlasilmadim', 'ice_kapandim', 'savunma_zorunlu'])
       expect(FEELING_CHIPS.map((c) => c.id)).not.toContain(id)

@@ -39,9 +39,13 @@ function Privacy() {
             da adres istemiyoruz.
           </p>
           <p>
-            Hesabınızı kaydetmek isterseniz Apple, Google ya da e-postanızla giriş yaparsınız. Bu yalnızca
-            kayıtlarınızın telefon değişse de kaybolmaması içindir. Apple ile girişte “e-postamı gizle” seçeneğini
-            kullanabilirsiniz.
+            Hesabınızı kaydetmek isterseniz Google ya da e-postanızla giriş yaparsınız. Bu yalnızca
+            kayıtlarınıza başka bir cihazdan da ulaşabilmeniz içindir.
+          </p>
+          <p>
+            Ücretsiz test sürümünde herkesin eşit hakkı olsun diye, mesele açılan tarayıcıya rastgele bir cihaz
+            kimliği verilir ve bağlantının IP adresi 24 saat boyunca dikkate alınır. İkisi de yalnızca geri
+            çevrilemeyen bir özet (hash) olarak saklanır; sizi tanımlamak için kullanılmaz.
           </p>
         </Item>
 

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { FEELING_CHIPS, NEED_CHIPS } from './questions'
+import { FEELING_CHIPS, NEED_CHIPS, REACTION_CHIPS } from './questions'
 
 /**
  * AI çıktı şemaları. Sunucu, modelden gelen JSON'u bu şemalarla doğrular;
@@ -57,6 +57,10 @@ export const EventReflectionSchema = z.object({
     .string()
     .min(1)
     .describe('Anlatılan olayın 1-2 cümlelik, "siz" hitaplı içerik yansıtması. Soru sorma, yorum ya da tavsiye verme.'),
+  suggestedReactions: z
+    .array(z.enum(REACTION_CHIPS.map((c) => c.id) as [string, ...string[]]))
+    .max(4)
+    .describe('Anlatıma göre kişinin o an muhtemelen yaptığı 1-4 davranış (listeden kimlik). Anlatım desteklemiyorsa boş.'),
 })
 
 /** İlk 3 sorudan sonraki ayrıntılı terapötik geri bildirim */
@@ -135,16 +139,18 @@ export const SharedReportSchema = z.object({
             .string()
             .min(1)
             .describe(
-              'Döngü çemberinde kişinin adının altında gösterilecek 2-5 kelimelik özet, ad OLMADAN. Örn: "odadan çıkıyor"',
+              'Döngü akışında kişinin adının altında gösterilecek 2-7 kelimelik özet, ad OLMADAN. Davranış ya da duygu olabilir. Örn: "eve gelip yemek olmadığını görüyor", "hayal kırıklığı ve saygısızlık hissediyor", "kapıyı çarpıp çıkıyor"',
             ),
           trigger: z.string().min(1).describe('Bu adımı tetikleyen şey (olay ya da partnerin bir önceki tepkisi)'),
           feeling: z.string().min(1).describe('İçeride hissedilen birincil duygu'),
           reaction: z.string().min(1).describe('Dışarıya yansıyan otomatik tepki'),
         }),
       )
-      .min(2)
-      .max(4)
-      .describe('Döngünün adımları; A ve B sırayla. Son adım ilk adımı yeniden tetikler.'),
+      .min(5)
+      .max(8)
+      .describe(
+        'Döngünün 5-8 adımı, olayın gerçek akışıyla. Aynı kişinin bir duygusu ve ardından gelen davranışı art arda iki adım olabilir; A ve B sırası katı değildir. Son adım ilk adımı yeniden tetikler.',
+      ),
     enemy: z
       .string()
       .min(1)

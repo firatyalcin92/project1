@@ -133,6 +133,19 @@ export type AdminSnapshot = {
   surveys: Pick<AnswerRow, 'selected_tags' | 'updated_at'>[]
 }
 
+export type BetaClaimKind = 'free' | 'code' | 'device' | 'ip'
+
+export type AccessCodeRow = {
+  id: string
+  code_hash: string
+  label: string
+  uses_total: number
+  uses_left: number
+  couple_id: string | null
+  redeemed_at: string | null
+  created_at: string
+}
+
 export type DeletionRequestRow = {
   id: string
   couple_id: string
@@ -166,6 +179,23 @@ export interface Store {
   countDisputesSince(iso: string): Promise<number>
   /** Yönetim sayacı için özet veri */
   adminSnapshot(): Promise<AdminSnapshot>
+
+  // Test sürümü: kullanım kayıtları (çiftten bağımsız), erişim kodları, bekleme listesi
+  addBetaClaims(rows: { kind: BetaClaimKind; key_hash: string | null; couple_id: string | null }[]): Promise<void>
+  /** since: yalnızca o andan sonraki kayıtlar; exceptCouple: o çiftin kendi kayıtları sayılmaz. */
+  hasBetaClaim(kind: BetaClaimKind, keyHash: string, opts?: { since?: string; exceptCouple?: string }): Promise<boolean>
+  countBetaClaims(kind: BetaClaimKind, since: string): Promise<number>
+  coupleHasClaim(coupleId: string, kind: BetaClaimKind): Promise<boolean>
+  createAccessCode(input: { code_hash: string; label: string; uses_total: number }): Promise<AccessCodeRow>
+  listAccessCodes(): Promise<AccessCodeRow[]>
+  /** Kodu çifte bağlar (kod boştaysa ya da zaten bu çiftinse). Bağlanamazsa null. */
+  bindAccessCode(codeHash: string, coupleId: string): Promise<AccessCodeRow | null>
+  /** Çiftin kodlarında kalan toplam hak */
+  codeUsesLeft(coupleId: string): Promise<number>
+  /** Bir hak düşer; kalan hak sayısı ya da hak yoksa null */
+  consumeAccessCode(coupleId: string): Promise<number | null>
+  addToWaitlist(email: string): Promise<void>
+  countWaitlist(): Promise<{ count: number; latest: { email: string; created_at: string }[] }>
   getDispute(id: string): Promise<DisputeRow | null>
   createDispute(input: { couple_id: string; created_by: string; title: string }): Promise<DisputeRow>
   deleteDispute(id: string): Promise<void>

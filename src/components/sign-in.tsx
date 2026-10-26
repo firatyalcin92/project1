@@ -5,7 +5,7 @@ import { emailCodeSendFn, emailCodeVerifyFn, oauthStartFn } from '~/functions/au
 import { createPkce, persistSession, saveOAuthState, saveTicket } from '~/lib/auth-client'
 import { parseError } from '~/lib/errors'
 import type { SessionResult } from '~/lib/views'
-import { IconApple, IconGoogle, IconMail } from './icons'
+import { IconGoogle, IconMail } from './icons'
 import { Button, Notice, TextField, cx } from './ui'
 
 export type SignInResult =
@@ -37,7 +37,7 @@ const providerButton =
   'flex h-12 w-full items-center justify-center gap-2.5 rounded-full text-[15px] font-semibold transition active:translate-y-px disabled:opacity-50'
 
 /**
- * Apple, Google ya da e-postaya gelen kodla giriş. Bu cihazda hesapsız kayıtlar varsa
+ * Google ya da e-postaya gelen kodla giriş (Apple ile giriş şimdilik kapalı). Bu cihazda hesapsız kayıtlar varsa
  * hesaba bağlanır; yoksa hesaba bağlı kayıtlara giriş yapılır.
  */
 export function SignInOptions({ onLinked }: { onLinked?: () => void }) {
@@ -70,14 +70,6 @@ export function SignInOptions({ onLinked }: { onLinked?: () => void }) {
   if (step === 'buttons') {
     return (
       <div className="space-y-3">
-        <button
-          type="button"
-          className={cx(providerButton, 'bg-black text-white dark:bg-white dark:text-black')}
-          disabled={oauth.isPending}
-          onClick={() => oauth.mutate('apple')}
-        >
-          <IconApple size={20} /> Apple ile devam et
-        </button>
         <button
           type="button"
           className={cx(providerButton, 'border border-line-strong bg-surface text-ink')}
