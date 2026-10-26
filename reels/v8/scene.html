@@ -37,6 +37,42 @@ const TOP_CLIPS = [
 ];
 const CHUNKS = [];
 
+// Alt bölüm akışı: 'A' = konuşmacı; diğerleri stok video kesiti [başlangıç, bitiş, stoktaki başlangıç, dikey odak]
+// Stok sahneleri: 0–7 gülen kız, 7–18 düşünceli kız, 18–26 baloncuklu bebek, 26–35 gülen çocuk,
+// 35–46 ağlayan kız, 46–58 yakın yüz, 58–69 robot kuran çocuk
+const BOTTOM_PLAN = [
+  ['A', 0, 8.6],
+  ['S', 8.6, 12.0, 0.5, 0.25],      // doğal parçaları → gülen kız
+  ['A', 12.0, 19.2],
+  ['S', 19.2, 26.2, 36.0, 0.2],     // duygularını gösterebilmesi → ağlayan kız
+  ['S', 26.2, 30.6, 8.0, 0.6],      // öfkelenir, üzülür → düşünceli kız
+  ['A', 30.6, 35.0],
+  ['S', 35.0, 41.2, 26.5, 0.15],    // sakinleşmeyi, destek almayı → gülen çocuk
+  ['A', 41.2, 46.0],
+  ['S', 46.0, 49.0, 43.0, 0.2],     // duygusunu kabul, sınır → ağlayan kız
+  ['S', 49.0, 56.5, 18.4, 0.3],     // merak, oyun → baloncuklu bebek
+  ['S', 56.5, 62.5, 58.6, 0.2],     // öğrenme, problem çözme → robot kuran çocuk
+  ['A', 62.5, 67.0],
+  ['S', 67.0, 72.5, 63.8, 0.2],     // bir daha deneyelim mi → robot kuran çocuk
+  ['A', 72.5, 76.8],
+  ['S', 76.8, 81.0, 29.8, 0.15],    // sevincini paylaşması → gülen çocuk
+  ['S', 81.0, 85.4, 21.5, 0.35],    // yakınlık, yardım → el çırpan bebek
+  ['A', 85.4, 89.6],
+  ['S', 89.6, 93.6, 2.4, 0.25],     // keşfetmeye cesaret → gülen kız
+  ['A', 93.6, 97.6],
+  ['S', 97.6, 103.4, 47.0, 0.3],    // her çocukta farklı, mizaç → yakın yüz
+  ['A', 103.4, 107.4],
+  ['S', 107.4, 111.7, 19.0, 0.3],   // oyunu o seçsin, eşlik edin → baloncuklu bebek
+  ['A', 111.7, DURATION],
+];
+// Stoktan stoğa düz kesme, konuşmacıya geçişlerde yumuşak geçiş
+const BOTTOM_CLIPS = BOTTOM_PLAN.map((p, i) => {
+  if (p[0] === 'A') return null;
+  const prev = BOTTOM_PLAN[i - 1], next = BOTTOM_PLAN[i + 1];
+  return { src: 'clips/stok.mp4', start: p[1], end: p[2], from: p[3], focusY: p[4],
+    fadeIn: prev[0] === 'A', fadeOut: next[0] === 'A' };
+}).filter(Boolean);
+
 window.preload = () => preloadFollow('../');
 
 // ---------- sahneler (üst panel) ----------
