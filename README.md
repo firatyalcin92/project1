@@ -274,8 +274,8 @@ eski oturum kapanır. Cihaz anahtarı yedeği, partnerle kurtarma kodu ve üyeli
 
 **Supabase panelinde bir kez yapılacaklar:**
 
-1. **Authentication → URL Configuration:** *Site URL* = uygulama adresi (ör. `https://mesele-0zvp.onrender.com`);
-   *Redirect URLs*'e `https://mesele-0zvp.onrender.com/giris` ekleyin.
+1. **Authentication → URL Configuration:** *Site URL* = uygulama adresi (`https://mesele.firatyalcin.blog`);
+   *Redirect URLs*'e `https://mesele.firatyalcin.blog/giris` ve `https://mesele-0zvp.onrender.com/giris` ekleyin.
 2. **Authentication → Emails → Magic Link** şablonunda bağlantı yerine kodu gösterin: gövdeye `{{ .Token }}`
    yazın (ör. "MESELE giriş kodunuz: {{ .Token }}"). Supabase'in hazır e-posta gönderimi saatte birkaç e-postayla
    sınırlıdır; gerçek kullanım için **Authentication → Emails → SMTP Settings**'ten bir e-posta servisi (ör. Resend)
@@ -417,3 +417,18 @@ Spesifikasyondaki tüm tablo ve sütunlar aynen korunmuştur. Akışın çalış
 | `dispute_entries`      | `perspective`, `submitted_at`, zaman damgaları              | "[Ad]'ın Gözünden" metni ve "anlatımı gönderdi" bilgisi   |
 | `reconsiderations`     | `updated_at`                                                | Taslak kaydı                                              |
 | `relationship_reports` | `dispute_count`, `status`, `status_locked_at`, `created_at` | Kaç meseleye dayandığı ve eşzamanlı üretim kilidi         |
+
+## Alan adı: mesele.firatyalcin.blog
+
+Kodda sabit bir adres yoktur (davet linkleri ve giriş dönüşleri açık olan adresten üretilir), bu yüzden yalnızca
+ayar gerekir:
+
+1. **Render** → servis → *Settings* → *Custom Domains* → `mesele.firatyalcin.blog` ekleyin.
+2. **Alan adının DNS'i** (firatyalcin.blog'un yönetildiği yer): `CNAME` kaydı — ad/host `mesele`, değer
+   `mesele-0zvp.onrender.com`. Varsa `mesele` için başka bir A/AAAA/CNAME kaydını silin.
+3. Render'da *Verify*'a basın; doğrulanınca HTTPS sertifikası kendiliğinden gelir (birkaç dakika – birkaç saat).
+4. **Supabase** → *Authentication* → *URL Configuration*: yukarıdaki gibi Site URL ve Redirect URL'i güncelleyin.
+5. `https://mesele.firatyalcin.blog/durum` ile kontrol edin.
+
+Not: Kayıtlar tarayıcıda adrese göre tutulur; eski `onrender.com` adresinde başlayan biri yeni adreste kayıtlarını
+görmez (hesabını kaydettiyse giriş yaparak ulaşır). Eski adres çalışmaya devam eder.
