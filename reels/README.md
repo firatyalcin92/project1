@@ -18,7 +18,9 @@
 | `v6/scene.html`, `v6/clips/`, `v6/final_reels.mp4` | Video 6 — Yemek yemeyen çocuk, 3 öneri (148 sn), altyazısız; konuşmacı başta ~14 sn, sonra ≤4,5 sn'lik kısa görünümler, aradaki süre klip akışı (`BOTTOM_PLAN`) |
 | `v7/scene.html`, `v7/final_reels.mp4` | Video 7 — Çocuğunuz yerinde durmuyor (85 sn), altyazısız, bölünmüş ekran yok: tamamı `FULL(t)` ile çizilir; arka plansız HeyGen konuşmacısı (`avatar_src.webm`, alfa kanallı VP9) sahnede dekupe olarak girip çıkar, görünmediğinde köşede küçük konuşma balonu |
 | `v8/scene.html`, `v8/final_reels.mp4` | Video 8 — Sağlıklı gelişimin 3 işareti (125 sn), altyazısız; ilk 6,4 sn ve son 5 sn konuşmacı tam ekran, aradaki bölünmüş ekrana animasyonlu geçiş (`FULL_RANGES`) |
-| `cover_render.cjs`, `v6/cover`, `v7/cover`, `v8/cover` | Reels kapakları (HTML → `kapak.png`) |
+| `v9/scene.html`, `v9/final_reels.mp4` | Video 9 — Ekran kapanınca kriz, 3 öneri (201 sn); v8 düzeni + altta stok görüntü akışı, açılışta veli mesajı (DM balonu) |
+| `splitfull.js` | Bölünmüş ekran ↔ tam ekran konuşmacı geçişleri (v8, v9) |
+| `cover_render.cjs`, `v6/cover` … `v9/cover` | Reels kapakları (HTML → `kapak.png`) |
 
 ```bash
 # Video 1
@@ -37,6 +39,8 @@ REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v
 REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v7/scene.html v7/avatar_src.webm v7/final_reels.mp4
 # Video 8 (avatar_src.mp4 HeyGen linkinden indirilir, repoda yok)
 REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v8/scene.html v8/avatar_src.mp4 v8/final_reels.mp4
+# Video 9
+REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v9/scene.html v9/avatar_src.mp4 v9/final_reels.mp4
 # Kapak
 NODE_PATH=$(npm root -g) node cover_render.cjs v8/cover/cover.html v8/cover/kapak.png
 # hızlı kontrol: seçili anları preview/ altına PNG olarak kaydeder (o_*.png = alt bindirme katmanı)

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels v9 — Ekran kapanınca kriz</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+  #f { position: absolute; left: 0; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<canvas id="f" width="1080" height="1920"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script src="../splitfull.js"></script>
+<script>
+// Video 9: Ekran kapanınca kriz — 3 öneri. Altyazı yok.
+// Açılış 9,6 sn tam ekran konuşmacı (velinin mesajı DM balonunda) → bölünmüş ekran;
+// altta stok görüntüler ağırlıkta; son 5 sn tam ekran + yorum kartı.
+const DURATION = 201.04;
+const SRC = { w: 1358, h: 2036 };
+const BAND = { x: 129, y: 330, w: 1100, h: 978 };
+const FULLV = { x: 160, y: 0, w: 1035, h: 1840 };   // sağ alttaki filigran (y > 1860) dışarıda
+const AVATAR = { chain: `crop=${BAND.w}:${BAND.h}:${BAND.x}:${BAND.y},scale=1620:1440:flags=lanczos`, focusY: 0.4 };
+const ZOOM_BUMPS = [[95.4, 97.4], [131.3, 133.3]];
+const INTRO = { hold: 9.6, len: 1.4 };
+const OUTRO = { at: 194.8, len: 1.4 };
+const FULL_RANGES = [[0, INTRO.hold + INTRO.len], [OUTRO.at, DURATION]];
+const TOP_CLIPS = [
+  { name: 'avIn', src: 'avatar_src.mp4', from: 0, start: 0, end: INTRO.hold + INTRO.len + 0.2 },
+  { name: 'avOut', src: 'avatar_src.mp4', from: OUTRO.at - 0.1, start: OUTRO.at - 0.1, end: DURATION },
+];
+const MID_FOLLOW = 169.4;
+const OVERLAYS = [[MID_FOLLOW, MID_FOLLOW + 4.7]];
+const CHUNKS = [];
+
+// Alt bölüm: 'A' = konuşmacı; diğerleri stok kesiti [başlangıç, bitiş, stoktaki başlangıç, dikey odak].
+// Stok sahneleri: 0–14 telefon tutan eller, 14–26 cihaza bakan iki çocuk, 26–31 bakan kız, 31–49 karanlıkta tabletli kız,
+// 49–66 bebek yüzü, 66–75 ekran ışığındaki kız, 75–83 ağlayan bebek, 83–97 ağlayan çocuk (dışarıda),
+// 99–110 öfkeli kız, 110–128 yerde ağlayan çocuk. Her kesit stokta farklı bir aralıktan alınır.
+const BOTTOM_PLAN = [
+  ['A', 0, 15.0],
+  ['S', 15.0, 19.8, 75.5, 0.3],     // bağırmaya başlıyor, kızıyorsunuz
+  ['S', 19.8, 23.8, 31.5, 0.3],     // ekranı tekrar açıyorsunuz
+  ['A', 23.8, 30.4],
+  ['S', 30.4, 35.0, 1.0, 0.45],     // ekrandan sonraki ilk dakika
+  ['A', 35.0, 39.6],
+  ['S', 39.6, 47.4, 66.5, 0.25],    // sevdiği etkinliğin bitmesi
+  ['A', 47.4, 51.0],
+  ['S', 51.0, 55.6, 14.5, 0.35],    // meyve tabağı mı, hareket mi
+  ['A', 55.6, 60.9],
+  ['S', 60.9, 64.2, 27.7, 0.25],    // bunu hemen deneyin
+  ['A', 64.2, 69.8],
+  ['S', 69.8, 76.3, 6.0, 0.45],     // cihazı elinden çekip almak yerine
+  ['S', 76.3, 82.0, 36.5, 0.3],     // park yeri
+  ['A', 82.0, 87.0],
+  ['S', 87.0, 91.5, 20.0, 0.35],    // güç mücadelesi
+  ['S', 91.5, 95.4, 49.2, 0.3],     // öngörülebilir rutin
+  ['A', 95.4, 100.5],
+  ['S', 100.5, 106.1, 111.0, 0.35], // çocuğunuz ağlarken
+  ['A', 106.1, 113.0],
+  ['S', 113.0, 117.5, 88.0, 0.2],   // bitmesine üzüldün, kızdın
+  ['A', 117.5, 124.6],
+  ['S', 124.6, 128.0, 99.0, 0.25],  // kriz uzadı diye ekranı açmak
+  ['S', 128.0, 130.5, 80.4, 0.3],   // ağlamanın ekranı geri getirdiği döngü
+  ['A', 130.5, 136.8],
+  ['S', 136.8, 140.6, 53.2, 0.3],   // amacımız hiç öfkelenmemesi değil
+  ['S', 140.6, 146.3, 122.3, 0.15], // hayal kırıklığıyla baş etmek
+  ['A', 146.3, 153.5],
+  ['S', 153.5, 157.7, 106.0, 0.25], // en büyük hata: sınır koymamak
+  ['S', 157.7, 163.1, 43.3, 0.3],   // sınırı esnetmek
+  ['A', 163.1, DURATION],
+];
+const BOTTOM_CLIPS = BOTTOM_PLAN.map((p, i) => {
+  if (p[0] === 'A') return null;
+  const prev = BOTTOM_PLAN[i - 1], next = BOTTOM_PLAN[i + 1];
+  return { src: 'clips/stok.mp4', start: p[1], end: p[2], from: p[3], focusY: p[4],
+    fadeIn: prev[0] === 'A', fadeOut: next[0] === 'A' };
+}).filter(Boolean);
+
+window.preload = () => preloadFollow('../');
+
+function chip(label, em, x, y, t, t0, bg, fg, size = 40, rot = 0) {
+  withT(x, y, popS(t, t0, 0.5), rot, popA(t, t0), () => pill(label, em, size, bg, fg));
+}
+function noRow(label, em, y, t, t0, tS, size = 42) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0) * (1 - 0.45 * prog(t, tS + 0.1, 0.4)), () => pill(label, em, size, 'rgba(255,255,255,0.9)', C.ink));
+  if (t >= tS) { font(size, 800); const w = ctx.measureText(label).width + size * 1.25 + 70; strike(540 - w / 2 - 20, 540 + w / 2 + 20, y, t, tS); }
+}
+function card(x, y, w, h, bg, t, t0, body, rot = 0) {
+  withT(x, y, popS(t, t0, 0.55), rot, popA(t, t0), () => {
+    shadow(true, 36, 14); rrect(-w / 2, -h / 2, w, h, 50, bg); shadow(false);
+    body();
+  });
+}
+
+// ---------- sahneler (üst panel) ----------
+const SCENES = [
+  { s: -0.4, e: 12.0, acc: C.mint, acc2: C.sky, draw: sSolve },
+  { s: 12.0, e: 23.8, acc: C.coral, acc2: C.lilac, draw: sCycle },
+  { s: 23.8, e: 30.4, acc: C.yellow, acc2: C.coral, draw: sThree },
+  { s: 30.4, e: 39.6, acc: C.sky, acc2: C.mint, draw: sTip1 },
+  { s: 39.6, e: 47.4, acc: C.lilac, acc2: C.sky, draw: sHard },
+  { s: 47.4, e: 55.6, acc: C.mint, acc2: C.yellow, draw: sChoice },
+  { s: 55.6, e: 65.6, acc: C.yellow, acc2: C.mint, draw: sNoDebate },
+  { s: 65.6, e: 76.2, acc: C.sky, acc2: C.coral, draw: sTip2 },
+  { s: 76.2, e: 86.9, acc: C.mint, acc2: C.sky, draw: sPark },
+  { s: 86.9, e: 95.4, acc: C.lilac, acc2: C.mint, draw: sRoutine },
+  { s: 95.4, e: 106.1, acc: C.coral, acc2: C.yellow, draw: sTip3 },
+  { s: 106.1, e: 119.5, acc: C.mint, acc2: C.lilac, draw: sSentence },
+  { s: 119.5, e: 133.4, acc: C.coral, acc2: C.yellow, draw: sLimit },
+  { s: 133.4, e: 136.8, acc: C.yellow, acc2: C.coral, draw: sOops },
+  { s: 136.8, e: 153.5, acc: C.mint, acc2: C.sky, draw: sGoal },
+  { s: 153.5, e: 167.2, acc: C.coral, acc2: C.lilac, draw: sMistake },
+  { s: 167.2, e: 182.2, acc: C.yellow, acc2: C.coral, draw: sFollow },
+  { s: 182.2, e: 190.9, acc: C.sky, acc2: C.lilac, draw: sScreenTime },
+  { s: 190.9, e: 999, acc: C.coral, acc2: C.yellow, draw: sAsk },
+];
+
+function sSolve(t) {
+  withT(540, 400, popS(t, 9.8, 0.55), 0, popA(t, 9.8), () => { shadow(true, 40, 14); emoji('📱', 0, 0, 150); shadow(false); });
+  withT(540, 400, 1, 0, 1, () => crossOut(0, 0, 80, prog(t, 10.4, 0.4)));
+  para('İzlemeye devam edin, bu sorunu *çözüyoruz ✅', 540, 650, 900, t, 10.07, { size: 54, weight: 900, accent: C.mint, per: 0.12 });
+}
+
+function sCycle(t) {
+  words('Tanıdık döngü 🔁', 540, 215, t, 12.2, { size: 50, weight: 900 });
+  const nodes = [['📴', 'Tablet kapanır', 13.78], ['😫', 'Bağırır', 15.59], ['🗣️', 'Anlatırsınız', 17.58], ['😠', 'Kızarsınız', 18.88], ['📱', 'Tekrar açarsınız', 21.97]];
+  const cx = 540, cy = 590, R = 225;
+  nodes.forEach(([em, l, t0], i) => {
+    const a = -Math.PI / 2 + (i / nodes.length) * Math.PI * 2;
+    const x = cx + Math.cos(a) * R * 1.5, y = cy + Math.sin(a) * R;
+    if (i > 0) {
+      const pa = -Math.PI / 2 + ((i - 1) / nodes.length) * Math.PI * 2;
+      const p = eOut(prog(t, t0 - 0.3, 0.35));
+      if (p > 0) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 6; ctx.setLineDash([14, 12]);
+        const x0 = cx + Math.cos(pa) * R * 1.5, y0 = cy + Math.sin(pa) * R;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + (x - x0) * p, y0 + (y - y0) * p); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+    withT(x, y, popS(t, t0, 0.45), 0, popA(t, t0), () => {
+      font(28, 900);
+      const w = ctx.measureText(l).width + 110;
+      shadow(true, 20, 8); rrect(-w / 2, -50, w, 100, 32, i === 4 ? C.coral : C.white); shadow(false);
+      emoji(em, -w / 2 + 40, 0, 52); text(l, -w / 2 + 76, 2, 28, i === 4 ? C.white : C.ink, 900, 'left');
+    });
+  });
+  withT(cx, cy, popS(t, 23.4, 0.5), 0, popA(t, 23.4), () => {
+    text('Kriz biter...', 0, -20, 40, C.mint, 900); text('ama döngü sürer', 0, 30, 32, C.muted, 800);
+  });
+}
+
+function sThree(t) {
+  words('Peki ya bir sonraki sefer?', 540, 260, t, 23.84, { size: 52, weight: 900 });
+  withT(540, 470, popS(t, 26.4, 0.55), 0, popA(t, 26.4), () => { shadow(true, 40, 14); emoji('🔗', 0, 0, 150); shadow(false); });
+  withT(540, 470, 1, 0, 1, () => crossOut(0, 0, 85, prog(t, 27.3, 0.4)));
+  withT(540, 700, popS(t, 28.1, 0.55), 0, popA(t, 28.1), () => pill('Döngüyü kırmak için 3 öneri', '💡', 46, C.yellow, C.ink));
+}
+
+function sTip1(t) {
+  stepTitle(1, 'İlk dakikayı planlayın', t, 30.55, C.sky, 50);
+  withT(540, 400, popS(t, 31.6, 0.5), 0, popA(t, 31.6), () => text('Ekrandan sonraki ilk dakika ⏱️', 0, 0, 44, C.muted, 800));
+  noRow('Sadece “Ekran bitiyor” demek', '📴', 560, t, 34.4, 36.0);
+  withT(540, 740, popS(t, 36.7, 0.55), 0, popA(t, 36.7), () => { shadow(true, 30, 10); text('Peki sonra ne olacak? 🤔', 0, 0, 60, C.yellow, 900); shadow(false); });
+}
+
+function sHard(t) {
+  words('Asıl zorlayıcı olan...', 540, 270, t, 40.2, { size: 54, weight: 900 });
+  card(540, 450, 840, 150, 'rgba(255,255,255,0.1)', t, 42.8, () => { emoji('🎬', -330, 0, 80); text('Sevdiği şeyin bitmesi', 40, 2, 46, C.white, 900); });
+  withT(540, 570, popS(t, 44.4, 0.4), 0, popA(t, 44.4), () => text('kadar', 0, 0, 36, C.muted, 800));
+  card(540, 700, 840, 150, C.yellow, t, 45.0, () => { emoji('❓', -330, 0, 80); text('Sonrasını bilememek', 40, 2, 46, C.ink, 900); });
+}
+
+function sChoice(t) {
+  words('Ekranı açmadan *önce konuşun', 540, 260, t, 47.62, { size: 52, weight: 900, accent: C.mint });
+  withT(540, 430, popS(t, 49.9, 0.55), -0.015, popA(t, 49.9), () => speech('“Video bitince ne yapalım?”', 46, C.white, C.ink, -1));
+  card(290, 680, 430, 220, C.coral, t, 51.4, () => { emoji('🍓', 0, -40, 90); text('Meyve tabağı', 0, 60, 38, C.white, 900); }, -0.03);
+  withT(540, 680, popS(t, 52.9, 0.4), 0, popA(t, 52.9), () => { circle(0, 0, 40, C.white); text('mı?', 0, 2, 30, C.ink, 900); });
+  card(790, 680, 430, 220, C.mint, t, 53.4, () => { emoji('🤸', 0, -40, 90); text('Balkonda hareket', 0, 60, 36, C.ink, 900); }, 0.03);
+}
+
+function sNoDebate(t) {
+  noRow('Bitip bitmeyeceğini tartışmak', '⚖️', 330, t, 55.7, 58.0, 40);
+  card(540, 540, 880, 170, C.mint, t, 59.1, () => { emoji('✅', -370, 0, 64); text('Sonrasına seçim hakkı vermek', 30, 2, 44, C.ink, 900); });
+  withT(540, 760, popS(t, 62.1, 0.55), -0.03, popA(t, 62.1), () => {
+    rrect(-330, -60, 660, 120, 30, C.yellow); text('Bugün deneyin ⭐', 0, 3, 56, C.ink, 900);
+  });
+  if (t > 64.1) for (let i = 0; i < 4; i++) {
+    const tw = 0.6 + 0.4 * Math.sin(t * 6 + i * 1.7);
+    star([150, 930, 190, 900][i], [700, 700, 830, 830][i], 22 * tw * popS(t, 64.1 + i * 0.1, 0.4), C.yellow, t);
+  }
+}
+
+function sTip2(t) {
+  stepTitle(2, 'Kapatma görevini ona verin', t, 65.75, C.sky, 48);
+  withT(540, 470, popS(t, 67.3, 0.55), 0, popA(t, 67.3), () => {
+    const glow = 0.5 + 0.5 * Math.sin(t * 4);
+    shadow(true, 40, 0, `rgba(79,179,255,${0.4 + 0.4 * glow})`);
+    circle(0, 0, 100, '#1E293B'); shadow(false);
+    ctx.strokeStyle = C.sky; ctx.lineWidth = 16; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(0, 8, 52, -Math.PI / 2 + 0.6, -Math.PI / 2 - 0.6 + Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -60); ctx.lineTo(0, 0); ctx.stroke();
+  });
+  noRow('Elinden çekip almak', '✋', 670, t, 71.7, 72.5, 40);
+  withT(540, 800, popS(t, 74.0, 0.5), 0, popA(t, 74.0), () => pill('Kapatma görevini ona bırakın', '👆', 40, C.mint, C.ink));
+}
+
+function sPark(t) {
+  words('Cihaz için bir *park *yeri 🅿️', 540, 260, t, 76.43, { size: 52, weight: 900, accent: C.sky });
+  // TV ünitesi çekmecesi
+  withT(540, 500, popS(t, 79.6, 0.55), 0, popA(t, 79.6), () => {
+    shadow(true, 30, 12); rrect(-300, -110, 600, 220, 24, '#B07A4E'); shadow(false);
+    const open = eInOut(prog(t, 84.6, 0.6)) * (1 - eInOut(prog(t, 86.0, 0.5)));
+    rrect(-250, -60 + 40 * open, 500, 120, 16, '#8A5C38');
+    rrect(-40, -8 + 40 * open, 80, 16, 8, '#E9D3B5');
+    const slide = eInOut(prog(t, 84.9, 0.9));
+    if (t > 82.3) withT(0, -120 + 120 * slide, 1, 0, 1 - prog(t, 85.9, 0.3), () => emoji('📱', 0, 0, 80));
+    text('TV ünitesi çekmecesi', 0, 145, 32, C.muted, 800);
+  });
+  chip('1 · Ekranı kendisi kapatsın', '👆', 540, 720, t, 82.3, C.white, C.ink, 36);
+  chip('2 · Park yerine kendisi bıraksın', '🅿️', 540, 840, t, 85.1, C.sky, C.ink, 36);
+}
+
+function sRoutine(t) {
+  card(300, 450, 440, 300, 'rgba(255,94,108,0.18)', t, 89.4, () => { emoji('⚔️', 0, -50, 100); text('Güç mücadelesi', 0, 80, 36, C.coral, 900); });
+  withT(300, 430, 1, 0, 1, () => crossOut(0, 0, 90, prog(t, 91.6, 0.4)));
+  const ap = eOut(prog(t, 92.0, 0.4));
+  if (ap > 0) { ctx.globalAlpha = ap; ctx.fillStyle = C.white; ctx.beginPath(); ctx.moveTo(515, 425); ctx.lineTo(565, 450); ctx.lineTo(515, 475); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }
+  card(790, 450, 440, 300, 'rgba(52,211,153,0.18)', t, 92.6, () => { emoji('🔁', 0, -50, 100); text('Öngörülebilir rutin', 0, 80, 36, C.mint, 900); });
+  words('Ekranın bitişi *rutine dönüşür', 540, 760, t, 93.5, { size: 48, weight: 900, accent: C.mint });
+}
+
+function sTip3(t) {
+  stepTitle(3, 'Kriz sırasında ikna etmeyin', t, 95.6, C.coral, 48);
+  noRow('Uzun uzun nasihat', '📜', 430, t, 101.5, 102.9, 42);
+  chip('Göz hizasına inin', '👀', 540, 600, t, 103.5, C.white, C.ink, 44);
+  chip('Kısa bir cümle kurun', '💬', 540, 740, t, 105.1, C.mint, C.ink, 44);
+}
+
+function sSentence(t) {
+  card(540, 520, 940, 600, C.white, t, 106.2, () => {
+    text('“', -420, -250, 110, C.mint, 900);
+    [['Biraz daha izlemek istiyorsun, biliyorum.', 106.2], ['Çok keyifliydi ama her şeyin', 109.2], ['bir bitişi de var.', 111.0], ['Bitmesine üzüldün, hatta kızdın.', 114.0], ['Anlıyorum, ben senin yanındayım. 💛', 115.5]].forEach(([l, t0], i) => {
+      const a = popA(t, t0, 0.35);
+      if (a <= 0) return;
+      ctx.save(); ctx.globalAlpha *= a;
+      text(l, 0, -185 + i * 95 + (1 - eOut(prog(t, t0, 0.4))) * 20, 42, i === 4 ? '#0E9F6E' : C.ink, 900);
+      ctx.restore();
+    });
+  });
+}
+
+function sLimit(t) {
+  const aA = phase(t, 119.5, 124.5);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    card(540, 380, 840, 160, C.mint, t, 119.6, () => { emoji('💛', -330, 0, 70); text('Duygusunu kabul edin', 30, 2, 46, C.ink, 900); });
+    card(540, 600, 840, 160, C.coral, t, 121.6, () => { emoji('🧱', -330, 0, 70); text('Sınırı değiştirmeyin', 30, 2, 46, C.white, 900); });
+    ctx.restore();
+  }
+  if (t < 124.5) return;
+  words('Kriz uzadı diye ekranı açarsanız...', 540, 260, t, 124.67, { size: 46, weight: 900, per: 0.1 });
+  const items = [['😭', 'Ağlama', 126.0], ['📱', 'Ekran geri gelir', 127.6], ['😭', 'Daha çok ağlama', 129.3]];
+  items.forEach(([em, l, t0], i) => {
+    const x = 200 + i * 340;
+    card(x, 500, 290, 230, 'rgba(255,255,255,0.1)', t, t0, () => { emoji(em, 0, -30, 90); text(l, 0, 70, 30, C.white, 900); });
+    if (i < 2) { const a = popA(t, items[i + 1][2] - 0.2, 0.25); if (a > 0) { ctx.save(); ctx.globalAlpha *= a; text('→', x + 170, 500, 56, C.yellow, 900); ctx.restore(); } }
+  });
+  withT(540, 760, popS(t, 131.3, 0.5), 0, popA(t, 131.3), () => { shadow(true); text('Genelde hata burada! ⚠️', 0, 0, 54, C.coral, 900); shadow(false); });
+}
+
+function sOops(t) {
+  withT(540, 430, popS(t, 133.5, 0.55), Math.sin(t * 3) * 0.05, popA(t, 133.5), () => { shadow(true, 40, 14); emoji('🙈', 0, 0, 170); shadow(false); });
+  para('Sınırı bir kez esnettiniz mi... *geçmiş *olsun 😅', 540, 700, 900, t, 133.6, { size: 52, weight: 900, accent: C.yellow, per: 0.12 });
+}
+
+function sGoal(t) {
+  withT(540, 270, popS(t, 136.9, 0.5), 0, popA(t, 136.9), () => pill('Unutmayın', '💡', 46, C.yellow, C.ink));
+  noRow('Hiç öfkelenmemesi', '😤', 430, t, 139.3, 141.1, 44);
+  card(540, 620, 900, 190, C.mint, t, 141.5, () => {
+    para('Hayal kırıklığıyla *baş *etmeyi öğrenmesi', 0, 2, 820, t, 141.6, { size: 46, weight: 900, color: C.ink, accent: C.white, per: 0.12 });
+  });
+  withT(540, 820, popS(t, 147.0, 0.5), 0, popA(t, 147.0), () => text('Mücadeleyi böyle böyle öğrenir 💪', 0, 0, 44, C.white, 900));
+}
+
+function sMistake(t) {
+  words('En büyük hata:', 540, 270, t, 153.7, { size: 56, weight: 900, accent: C.coral });
+  chip('Etkili sınır koymamak', '🧱', 540, 410, t, 156.1, C.coral, C.white, 42);
+  chip('Sınırı esnetmek', '🎈', 540, 540, t, 158.9, C.white, C.ink, 42);
+  chip('Anne-baba arasında farklı sınırlar', '👫', 540, 670, t, 160.3, C.yellow, C.ink, 38);
+  withT(540, 820, popS(t, 164.4, 0.5), 0, popA(t, 164.4), () => text('...başka bir videonun konusu 🎬', 0, 0, 40, C.muted, 800));
+}
+
+function sFollow(t) {
+  withT(540, 330, popS(t, 167.4, 0.6), 0, popA(t, 167.4), () => profilePic(0, 0, 90, t));
+  withT(540, 480, popS(t, 167.6, 0.5), 0, popA(t, 167.6), () => { shadow(true); text(USERNAME, 0, 0, 48, C.white, 900); shadow(false); });
+  chip('Takip edin', '➕', 330, 600, t, 171.1, IG_BLUE, C.white, 40, -0.02);
+  chip('Hikayede paylaşın', '📤', 760, 600, t, 172.3, C.white, C.ink, 40, 0.02);
+  withT(540, 780, popS(t, 179.0, 0.55), 0, popA(t, 179.0), () => {
+    shadow(true, 30, 10); text('Bilinçli büyütmek bir sanattır 🎨', 0, 0, 52, C.yellow, 900); shadow(false);
+  });
+}
+
+function sScreenTime(t) {
+  words('Ekran süresi arttıkça', 540, 280, t, 186.05, { size: 54, weight: 900 });
+  [['📱', 'Ekran süresi', 186.8, C.sky], ['🌀', 'Dikkat dağınıklığı', 187.8, C.coral], ['🎯', 'Odaklanma sorunu', 189.3, C.yellow]].forEach(([em, l, t0, col], i) => {
+    const x = 200 + i * 340;
+    card(x, 560, 300, 300, 'rgba(255,255,255,0.1)', t, t0, () => {
+      emoji(em, 0, -60, 90); text(l, 0, 50, 30, col, 900);
+      text('↑', 0, 110, 60, col, 900);
+    });
+  });
+}
+
+function sAsk(t) {
+  para('Sizin evde ekran kapanınca en çok ne oluyor?', 540, 400, 880, t, 191.0, { size: 56, weight: 900, per: 0.12 });
+  withT(540, 640, popS(t, 194.0, 0.5), 0, popA(t, 194.0), () => text('👇', 0, 0, 90, C.white, 900));
+}
+
+function commentCard(t) {
+  const t0 = 196.1;
+  const a = eOut(prog(t, t0, 0.5));
+  if (a <= 0) return;
+  withT(540, 1430 + 60 * (1 - a), 1, 0, a, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.35)'); rrect(-480, -170, 960, 340, 44, 'rgba(255,255,255,0.96)'); shadow(false);
+    text('Ekran kapanınca en çok', 0, -110, 42, C.ink, 900);
+    text('ne oluyor?', 0, -60, 42, C.ink, 900);
+    [['😭', 'Ağlama', -310, C.sky, 196.3], ['😠', 'Öfke', 0, C.coral, 197.2], ['🤝', 'Pazarlık', 310, C.yellow, 198.8]].forEach(([em, l, x, col, tt]) => {
+      withT(x, 40, popS(t, tt, 0.45), 0, popA(t, tt), () => {
+        rrect(-145, -50, 290, 100, 50, col);
+        emoji(em, -95, 0, 48); text(l, -55, 2, 32, C.ink, 900, 'left');
+      });
+    });
+    withT(0, 125, popS(t, 199.9, 0.45), 0, popA(t, 199.9), () => text('Yorumlara yazın 💬👇', 0, 0, 40, '#2F8FE0', 900));
+  });
+}
+
+// Açılış: velinin mesajı (DM balonu) + isim levhası
+function introOverlay(t) {
+  nameTagFull(t);
+  const a = eOut(prog(t, 0.3, 0.5)) * (1 - eInOut(prog(t, 9.0, 0.5)));
+  if (a <= 0) return;
+  withT(540, 300 - 40 * (1 - eOut(prog(t, 0.3, 0.5))), 1, 0, a, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.35)'); rrect(-470, -150, 940, 300, 40, 'rgba(255,255,255,0.96)'); shadow(false);
+    circle(-410, -100, 26, '#E5E7EB'); emoji('👩', -410, -100, 34);
+    text('Bir anne soruyor', -370, -100, 26, '#6B7280', 800, 'left');
+    ctx.save(); ctx.translate(0, 20);
+    para('“Necla hocam, bizim kız telefonu elinden alınca *kriz geçiriyor... *çaresiziz, ne yapacağız?”', 0, 0, 860, t, 0.45, { size: 36, weight: 900, color: C.ink, accent: C.coral, per: 0.3 });
+    ctx.restore();
+  });
+}
+
+window.FULL = t => splitFull(t, introOverlay, commentCard);
+window.OVERLAY = t => followCardOverlay(t, MID_FOLLOW, 700, 0.3);
+</script>
+</body>
+</html>
