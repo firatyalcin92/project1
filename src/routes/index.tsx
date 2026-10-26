@@ -42,9 +42,7 @@ function Landing() {
 
         <section className="animate-rise pt-8 pb-10 md:pt-14">
           {beta?.beta ? <BetaBadge remaining={beta.remaining} open={beta.open} /> : null}
-          <h1 className="mt-5 text-[40px] leading-[1.05] font-semibold text-ink md:text-[60px]">
-            Aranızdaki meseleye <span className="text-clay italic">birlikte</span> bakalım.
-          </h1>
+          <TypedHeadline />
           <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-ink-soft md:text-[19px]">
             Yapay zekâ çift terapistiniz ikinizi ayrı ayrı dinler, aranızdaki döngüyü gösterir ve birbirinize
             dönmenin yolunu açar.
@@ -96,6 +94,71 @@ function Landing() {
         </footer>
       </div>
     </div>
+  )
+}
+
+/** Başlıktaki dönen cümleler: [öncesi, vurgulanan, sonrası] */
+const HEADLINES: readonly (readonly [string, string, string])[] = [
+  ['Aranızdaki meseleye ', 'birlikte', ' bakalım.'],
+  ['Kim haklı değil; ', 'ne olduğuna', ' bakalım.'],
+  ['Aranızdaki döngüyü ', 'birlikte', ' görelim.'],
+  ['Önce sizi, sonra ', 'eşinizi', ' dinleyelim.'],
+  ['Birbirinize dönmenin ', 'yolunu', ' açalım.'],
+]
+const TYPE_MS = 55
+const DELETE_MS = 28
+const HOLD_MS = 2600
+
+/** Klavyede yazılıyormuş gibi beliren, silinip yenisi gelen başlık. */
+function TypedHeadline() {
+  const [index, setIndex] = useState(0)
+  // İlk cümle sunucuda tam görünür; yazma döngüsü sayfa açıldıktan sonra başlar.
+  const [shown, setShown] = useState(() => HEADLINES[0]!.join('').length)
+  const [phase, setPhase] = useState<'hold' | 'delete' | 'type'>('hold')
+  const full = HEADLINES[index]!.join('').length
+
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let t: number
+    if (phase === 'hold') t = window.setTimeout(() => setPhase('delete'), HOLD_MS)
+    else if (phase === 'delete') {
+      if (shown === 0) {
+        setIndex((i) => (i + 1) % HEADLINES.length)
+        setPhase('type')
+        return
+      }
+      t = window.setTimeout(() => setShown((n) => n - 1), DELETE_MS)
+    } else {
+      if (shown >= full) {
+        setPhase('hold')
+        return
+      }
+      t = window.setTimeout(() => setShown((n) => n + 1), TYPE_MS)
+    }
+    return () => clearTimeout(t)
+  }, [phase, shown, full])
+
+  const [before, mark, after] = HEADLINES[index]!
+  const cut = (s: string, start: number) => s.slice(0, Math.max(0, shown - start))
+  return (
+    <h1 className="mt-5 grid text-[40px] leading-[1.05] font-semibold text-ink md:text-[60px]">
+      <span className="sr-only">Aranızdaki meseleye birlikte bakalım.</span>
+      {/* Bütün cümleler görünmez olarak üst üste yer tutar; yazarken sayfa zıplamaz. */}
+      {HEADLINES.map((h) => (
+        <span key={h.join('')} aria-hidden className="invisible col-start-1 row-start-1">
+          {h[0]}
+          <em>{h[1]}</em>
+          {h[2]}
+          <span className="ml-1 inline-block w-[3px]" />
+        </span>
+      ))}
+      <span aria-hidden className="col-start-1 row-start-1">
+        {cut(before, 0)}
+        <span className="text-clay italic">{cut(mark, before.length)}</span>
+        {cut(after, before.length + mark.length)}
+        <span className="ml-1 inline-block h-[0.9em] w-[3px] translate-y-[0.1em] animate-caret bg-clay align-baseline" />
+      </span>
+    </h1>
   )
 }
 
