@@ -1,0 +1,378 @@
+  0.39 Çocuklarda
+  1.19 Kaygıyı
+  1.79 Artıran
+  2.40 12
+  2.60 Şey.
+  3.89 Sevgili
+  4.38 ebeveynler,
+  5.54 geleceğin
+  6.12 kaygısız
+  6.56 yetişkinini
+  7.30 çocukken
+  7.74 yetiştirebileceğiniz
+  9.06 gibi
+  9.75 geleceğin
+ 10.35 kaygı
+ 10.65 bozukluğu
+ 11.25 yaşayan
+ 11.70 yetişkinini
+ 12.45 de
+ 12.60 yetiştirmek
+ 13.35 veya
+ 13.68 daha
+ 14.01 doğrusu
+ 14.50 önlemek
+ 14.99 sizin
+ 15.32 elinizde.
+ 16.89 Çocukların
+ 17.54 kaygısını
+ 18.20 her
+ 18.36 zaman
+ 18.69 büyük
+ 19.02 olaylar
+ 19.51 artırmaz;
+ 20.36 bazen
+ 20.66 günlük
+ 20.97 hayatta
+ 21.43 tekrar
+ 21.73 tekrar
+ 22.04 duydukları
+ 22.65 cümleler
+ 23.11 de
+ 23.27 bunda
+ 23.57 etkili
+ 24.03 olabilir.
+ 25.48 Amacımız
+ 26.11 çocuklarımızı
+ 27.05 hiçbir
+ 27.37 zaman
+ 27.69 üzmemek
+ 28.16 veya
+ 28.47 zorlanmalarını
+ 29.42 engellemek
+ 30.05 değil,
+ 30.75 zorlandıklarında
+ 31.45 duygularıyla
+ 32.04 baş
+ 32.16 edebileceklerini
+ 33.23 ve
+ 33.36 bizim
+ 33.75 yanımızda
+ 34.44 güvende
+ 34.95 olduklarını
+ 35.81 hissettirmek.
+ 37.30 Çünkü
+ 37.65 kaygıyı
+ 38.19 azaltan
+ 38.72 şey,
+ 39.22 çocuğun
+ 39.68 hayatında
+ 40.28 hiç
+ 40.43 sorun
+ 40.73 yaşamaması
+ 41.49 değil,
+ 42.18 sorunlarla
+ 42.75 baş
+ 42.90 edebileceğine
+ 43.90 dair
+ 44.18 güven
+ 44.47 geliştirmesidir.
+ 46.28 Evet
+ 46.86 şimdi
+ 47.21 bakalım
+ 47.73 neymiş
+ 48.08 kaygıyı
+ 48.60 artıran
+ 49.12 bu
+ 49.30 12
+ 49.47 şey:
+ 50.57 Birinci,
+ 51.48 sürekli
+ 52.02 “Çabuk
+ 52.39 ol!”
+ 52.57 demek.
+ 53.84 Çocuğa
+ 54.24 sürekli
+ 54.64 acele
+ 55.04 etmesi
+ 55.44 gerektiğini
+ 56.11 söylemek,
+ 56.67 zamanla
+ 57.10 hata
+ 57.39 yapma
+ 57.81 ve
+ 57.96 yetişememe
+ 58.71 kaygısını
+ 59.30 artırabilir.
+ 60.82 Bunun
+ 61.13 yerine,
+ 62.13 “Hazırlanmak
+ 62.84 için
+ 63.20 10
+ 63.38 dakikan
+ 63.91 var,
+ 64.32 istersen
+ 64.82 birlikte
+ 65.31 planlayalım.”
+ 66.34 diyerek
+ 66.76 ona
+ 67.05 zaman
+ 67.33 yönetimi
+ 67.90 konusunda
+ 68.47 destek
+ 68.75 olabilirsiniz.
+ 70.30 Her
+ 70.47 şeyi
+ 70.80 hızlandırmak
+ 71.46 yerine,
+ 72.29 yaşına
+ 72.70 uygun
+ 72.97 bir
+ 73.11 tempoda
+ 73.51 ilerlemesine
+ 74.32 izin
+ 74.59 verin.
+ 75.74 İki.
+ 76.83 Çocuğu
+ 77.27 başkalarıyla
+ 77.99 kıyaslamak.
+ 79.31 “Bak,
+ 79.65 arkadaşın
+ 80.26 ne
+ 80.41 güzel
+ 80.71 yapıyor,
+ 81.17 sen
+ 81.32 neden
+ 81.62 yapamıyorsun?”
+ 82.55 gibi
+ 82.87 cümleler
+ 83.61 çocuğun
+ 84.01 kendisini
+ 84.54 yetersiz
+ 84.94 hissetmesine
+ 85.60 neden
+ 85.87 olabilir.
+ 87.15 Bunun
+ 87.42 yerine,
+ 88.31 “Geçen
+ 88.59 sefer
+ 88.87 bunu
+ 89.15 yapmakta
+ 89.56 zorlanmıştın,
+ 90.12 şimdi
+ 90.68 neleri
+ 91.07 daha
+ 91.33 iyi
+ 91.59 yapabildiğine
+ 92.37 bakalım.”
+ 93.10 diyerek
+ 93.89 kendi
+ 94.13 gelişimine
+ 94.74 odaklanın.
+ 95.99 Çocuğunuzun
+ 96.66 başkalarından
+ 97.33 daha
+ 97.60 iyi
+ 97.87 olmasını
+ 98.41 değil,
+ 99.04 kendi
+ 99.36 potansiyelini
+100.33 geliştirmesini
+102.29 önemseyin.
+103.35 Üç.
+103.51 “Bir
+103.67 şey
+103.84 olmaz.”
+104.35 diyerek
+104.81 geçiştirmek.
+106.22 Çocuk
+106.59 korktuğunda
+107.26 veya
+107.59 endişelendiğinde
+108.76 “Bir
+109.37 şey
+109.52 olmaz.”
+109.84 demek,
+110.36 onun
+111.10 duygusunun
+111.68 anlaşılmadığını
+112.71 hissetmesine
+113.44 neden
+113.74 olabilir.
+115.09 Bunun
+115.33 yerine,
+116.34 “Bunun
+116.61 seni
+116.87 korkuttuğunu
+117.53 görüyorum,
+118.52 seni
+118.85 en
+119.02 çok
+119.19 endişelendiren
+120.20 şey
+120.37 ne?”
+120.78 diye
+121.06 sorun.
+122.19 Önce
+122.46 duygusunu
+123.01 anlamaya
+123.55 çalışın,
+124.44 ardından
+124.99 durumla
+125.53 baş
+125.72 edebilmesi
+126.62 için
+126.99 ona
+128.44 destek
+128.74 olun.
+129.04 Yıldız
+129.34 Yıldız
+129.64 Dört.
+130.56 Duygusunu
+131.16 küçümsemek.
+132.57 “Bunda
+132.93 korkacak
+133.48 ne
+133.66 var?”,
+134.29 “Abartıyorsun.”
+135.40 gibi
+135.67 ifadeler,
+136.59 çocuğun
+137.00 duygularını
+137.69 bastırmasına
+138.59 ve
+138.72 zamanla
+139.14 kendisini
+139.69 ifade
+140.10 etmekten
+140.51 kaçınmasına
+141.20 yol
+141.33 açabilir.
+142.67 Bunun
+142.91 yerine,
+143.89 “Sana
+144.16 küçük
+144.42 bir
+144.56 şey
+144.69 gibi
+144.96 görünmeyebilir,
+146.26 bu
+146.40 durum
+146.69 seni
+146.98 gerçekten
+147.42 endişelendirmiş.”
+148.58 diyebilirsiniz.
+150.31 Duyguyu
+150.61 kabul
+150.81 etmek,
+151.01 çocuğun
+151.31 her
+151.73 korkusunun
+152.37 gerçekçi
+152.85 olduğu
+153.33 anlamına
+153.97 gelmez;
+154.29 yalnızca
+155.19 o
+155.37 duyguyu
+155.90 yaşadığını
+156.79 kabul
+157.15 etmektir.
+158.77 Yıldız
+159.25 Yıldız
+159.72 Beş.
+160.61 Sürekli
+161.08 eleştirmek.
+162.58 Çocuğun
+163.04 davranışlarını
+163.96 sürekli
+164.42 eleştirmek,
+165.29 zamanla
+165.76 hata
+166.07 yapmaktan
+166.54 ve
+166.70 eleştirilmekten
+167.64 korkmasına
+168.27 neden
+168.58 olabilir.
+169.85 Bunun
+170.11 yerine,
+170.76 kişiliğini
+171.38 hedef
+171.62 almak
+171.87 yerine
+172.51 değiştirilmesini
+173.48 istediğiniz
+174.17 davranışı
+174.72 açıkça
+175.13 ifade
+176.32 edin.
+176.65 “Sen
+176.81 zaten
+177.13 dikkatsizsin.”
+177.92 demek
+178.19 yerine,
+179.06 “Bu
+179.21 sefer
+179.51 defterini
+180.11 kontrol
+180.41 etmeden
+180.86 çantana
+181.32 koymuşsun,
+182.24 bir
+182.37 dahaki
+182.77 sefere
+183.17 birlikte
+183.57 kontrol
+183.83 listesi
+184.23 hazırlayabiliriz.”
+185.32 deyin.
+186.46 Yıldız
+187.63 Altı.
+187.93 Her
+188.72 hareketini
+189.37 düzeltmek.
+189.77 Çocuk
+190.71 resim
+191.05 yaparken,
+191.56 oyun
+192.11 oynarken
+192.61 veya
+193.10 bir
+193.27 işi
+193.59 tamamlarken
+194.24 sürekli
+194.73 müdahale
+195.38 edilmesi,
+196.47 kendi
+196.72 kararlarına
+197.35 güvenmesini
+197.98 zorlaştırabilir.
+199.47 Bunun
+199.71 yerine,
+200.31 gerçekten
+200.69 müdahale
+201.20 gerektiren
+201.71 bir
+201.83 durum
+202.09 yoksa
+202.34 kendi
+202.87 yöntemini
+203.44 denemesine
+204.15 fırsat
+204.43 verin.
+205.38 Sonuç
+205.69 mükemmel
+206.14 olmasa
+206.59 bile
+207.13 çabasını
+207.64 ve
+207.76 deneme
+208.14 isteğini
+208.64 destekleyin.
+209.84 Devamı
+210.42 part2
+210.67 de
+211.32 ve
+211.54 part2
+211.77 profilde.

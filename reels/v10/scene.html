@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels v10 — Kaygıyı artıran 12 şey (Part 1)</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+  #f { position: absolute; left: 0; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<canvas id="f" width="1080" height="1920"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script src="../splitfull.js"></script>
+<script>
+// Video 10: Çocuklarda kaygıyı artıran 12 şey — Part 1 (1–6). Altyazı yok.
+// Açılış 16,5 sn tam ekran konuşmacı → bölünmüş ekran; altta stok görüntü ağırlıklı,
+// konuşmacı yalnızca madde girişlerinde kısa görünür; son ~10 sn konuşmacı yok.
+const DURATION = 212.76;
+const SRC = { w: 1908, h: 2862 };
+const BAND = { x: 204, y: 300, w: 1500, h: 1333 };
+const FULLV = { x: 223, y: 0, w: 1462, h: 2600 };   // sağ alttaki filigran (x > 1700, y > 2700) dışarıda
+const AVATAR = { chain: `crop=${BAND.w}:${BAND.h}:${BAND.x}:${BAND.y},scale=1620:1440:flags=lanczos`, focusY: 0.35 };
+const INTRO = { hold: 16.5, len: 1.4 };
+const OUTRO = { at: 1e9, len: 1 };                    // kapanışta tam ekran yok
+const FULL_RANGES = [[0, INTRO.hold + INTRO.len]];
+const TOP_CLIPS = [{ name: 'avIn', src: 'avatar_src.mp4', from: 0, start: 0, end: INTRO.hold + INTRO.len + 0.2 }];
+const CHUNKS = [];
+
+// Alt bölüm: 'A' = konuşmacı; diğerleri [kaynak, başlangıç, bitiş, kaynaktaki başlangıç, dikey odak]
+// Yeni stok (clips/stok.mp4): 0–10 kenetlenen eller, 10–17 yüzünü kapatan çocuk, 17–28 dizlerini kucaklayan çocuk,
+// 28–38 soyut dalgalar, 38–50 endişeli kız, 50–68 dizlerini kucaklayan genç kız, 68–77 yatakta üzgün kız,
+// 77–87 sarılan anne, 87–96 yapraklarda zıplayan çocuk, 96–105 çocuğunu havaya kaldıran anne,
+// 105–118 parkta koşan çocuklar, 118–132 aile yürüyüşü, 132–141 gülen kızlar
+const ST = 'clips/stok.mp4';
+const BOTTOM_PLAN = [
+  ['A', 0, 17.9],
+  [ST, 17.9, 24.0, 0.5, 0.45],                     // tekrar tekrar duyulan cümleler
+  [ST, 24.0, 29.5, 38.5, 0.3],                     // amacımız üzmemek değil
+  [ST, 29.5, 36.6, 77.5, 0.35],                    // yanımızda güvende
+  [ST, 36.6, 41.6, 88.0, 0.35],                    // baş edebileceğine güven
+  ['../v4/clips/bloklar.mp4', 41.6, 46.2, 2.0, 0.08],
+  ['A', 46.2, 53.8],                               // 12 şey + 1. madde
+  [ST, 53.8, 57.5, 28.5, 0.4],                     // acele → kaygı
+  [ST, 57.5, 60.8, 10.5, 0.35],                    // yetişememe kaygısı
+  ['../v4/clips/kure.mp4', 60.8, 65.6, 2.0, 0.3],  // birlikte planlayalım
+  ['../v5/clips/okuma.mp4', 65.6, 70.2, 1.0, 0.25],// zaman yönetimine destek
+  [ST, 70.2, 75.5, 105.5, 0.4],                    // yaşına uygun tempo
+  ['A', 75.5, 79.2],                               // 2. madde
+  [ST, 79.2, 87.0, 50.5, 0.25],                    // yetersiz hissetmek
+  ['../v4/clips/bloklar.mp4', 87.0, 93.5, 8.0, 0.08], // kendi gelişimi
+  [ST, 93.5, 101.5, 132.5, 0.45],                  // kendi potansiyeli
+  ['A', 101.5, 106.2],                             // 3. madde
+  [ST, 106.2, 109.2, 13.9, 0.35],                  // korktuğunda
+  [ST, 109.2, 115.0, 17.5, 0.45],                  // duygusu anlaşılmadı
+  ['../v4/clips/uzgun.mp4', 115.0, 122.0, 0.5, 0.6], // seni korkutan ne?
+  [ST, 122.0, 129.0, 96.5, 0.3],                   // destek olun
+  ['A', 129.0, 132.5],                             // 4. madde
+  [ST, 132.5, 140.5, 68.5, 0.3],                   // duygularını bastırır
+  [ST, 140.5, 142.6, 44.5, 0.3],
+  ['../v8/clips/stok.mp4', 142.6, 150.3, 9.0, 0.6],// seni gerçekten endişelendirmiş
+  [ST, 150.3, 158.7, 58.5, 0.25],                  // duyguyu kabul etmek
+  ['A', 158.7, 162.5],                             // 5. madde
+  [ST, 162.5, 168.0, 32.3, 0.4],                   // eleştirilmekten korkmak
+  ['../v5/clips/dalgin.mp4', 168.0, 176.5, 3.0, 0.3], // davranışı hedef alın
+  ['../v5/clips/dalgin.mp4', 176.5, 182.5, 14.0, 0.3],// dikkatsizsin yerine
+  ['../v4/clips/kure.mp4', 182.5, 186.4, 12.0, 0.3],  // kontrol listesi
+  ['A', 186.4, 189.8],                             // 6. madde
+  ['../v5/clips/okuma.mp4', 189.8, 195.2, 5.6, 0.25], // sürekli müdahale
+  ['../v8/clips/stok.mp4', 195.2, 199.4, 59.0, 0.2],  // kendi kararları
+  ['../v8/clips/stok.mp4', 199.4, 204.7, 64.0, 0.2],  // kendi yöntemini denesin
+  [ST, 204.7, 208.6, 111.0, 0.4],                  // çabasını destekleyin
+  [ST, 208.6, DURATION, 119.0, 0.4],               // devamı Part 2'de
+];
+const BOTTOM_CLIPS = BOTTOM_PLAN.map((p, i) => {
+  if (p[0] === 'A') return null;
+  const prev = BOTTOM_PLAN[i - 1], next = BOTTOM_PLAN[i + 1];
+  return { src: p[0], start: p[1], end: p[2], from: p[3], focusY: p[4],
+    fadeIn: prev[0] === 'A', fadeOut: !!next && next[0] === 'A' };
+}).filter(Boolean);
+
+window.preload = () => preloadFollow('../');
+
+function noRow(label, em, y, t, t0, tS, size = 42) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0) * (1 - 0.45 * prog(t, tS + 0.1, 0.4)), () => pill(label, em, size, 'rgba(255,255,255,0.9)', C.ink));
+  if (t >= tS) { font(size, 800); const w = ctx.measureText(label).width + size * 1.25 + 70; strike(540 - w / 2 - 20, 540 + w / 2 + 20, y, t, tS); }
+}
+function card(x, y, w, h, bg, t, t0, body, rot = 0) {
+  withT(x, y, popS(t, t0, 0.55), rot, popA(t, t0), () => { shadow(true, 36, 14); rrect(-w / 2, -h / 2, w, h, 44, bg); shadow(false); body(); });
+}
+
+// Madde sahnesi: numara + başlık, ardından satırlar (bad: kaygı artıran söz, eff: etkisi, good: bunun yerine, tip: öneri).
+// Ekranda en fazla 3 satır kalır; yenisi gelince eskisi yukarı kayarak çıkar.
+const ROW = { bad: { h: 150, bg: C.coral, fg: C.white, em: '❌' }, good: { h: 160, bg: C.mint, fg: C.ink, em: '✅' },
+  eff: { h: 104, bg: 'rgba(255,255,255,0.12)', fg: C.white, em: '⚠️' }, tip: { h: 104, bg: C.yellow, fg: C.ink, em: '💡' } };
+function item(t, d) {
+  withT(540, 236, popS(t, d.t0, 0.5), 0, popA(t, d.t0), () => {
+    rrect(-80, -30, 160, 60, 30, C.coral); text(`${d.n} / 12`, 0, 2, 32, C.white, 900);
+  });
+  para(d.title, 540, 322, 960, t, d.t0 + 0.1, { size: 52, weight: 900, per: 0.1 });
+  const shown = d.rows.filter(r => t >= r.t0);
+  const win = shown.slice(-3);
+  let y = 430;
+  d.rows.forEach(r => {
+    const idx = win.indexOf(r);
+    const gone = t >= r.t0 && idx < 0;
+    if (t < r.t0 || gone && prog(t, d.rows[d.rows.indexOf(r) + 3].t0, 0.4) >= 1) return;
+    const st = ROW[r.k];
+    let a = popA(t, r.t0, 0.25), yy;
+    if (gone) {
+      const p = eInOut(prog(t, d.rows[d.rows.indexOf(r) + 3].t0, 0.4));
+      a *= 1 - p; yy = 430 + st.h / 2 - 80 * p;
+    } else {
+      // pencere içindeki yerine yumuşakça kay
+      let base = 430; for (let k = 0; k < idx; k++) base += ROW[win[k].k].h + 22;
+      const lastT = win[win.length - 1].t0;
+      const shift = d.rows.indexOf(win[0]) > 0 ? (1 - eInOut(prog(t, lastT, 0.4))) * (ROW[d.rows[d.rows.indexOf(win[0]) - 1].k].h + 22) : 0;
+      yy = base + shift + st.h / 2;
+    }
+    withT(540, yy, 0.9 + 0.1 * eBack(prog(t, r.t0, 0.4)), 0, a, () => {
+      shadow(true, 26, 10); rrect(-470, -st.h / 2, 940, st.h, 34, st.bg); shadow(false);
+      emoji(st.em, -415, 0, r.k === 'bad' || r.k === 'good' ? 54 : 44);
+      para(r.text, 40, 2, 800, t, r.t0, { size: r.k === 'bad' || r.k === 'good' ? 36 : 34, weight: 900, color: st.fg, accent: r.k === 'good' ? C.white : C.yellow, per: 0.05, lineH: 44 });
+    });
+  });
+}
+
+const ITEMS = [
+  { n: 1, title: 'Sürekli *“Çabuk *ol!” demek', t0: 50.5, rows: [
+    { k: 'bad', text: '“Çabuk ol! Hadi, geç kalıyoruz!”', t0: 52.0 },
+    { k: 'eff', text: 'Hata yapma ve yetişememe kaygısı', t0: 56.6 },
+    { k: 'good', text: '“Hazırlanmak için 10 dakikan var, istersen birlikte planlayalım.”', t0: 62.0 },
+    { k: 'tip', text: 'Yaşına uygun bir tempo 🐢', t0: 70.3 } ] },
+  { n: 2, title: 'Başkalarıyla *kıyaslamak', t0: 75.7, rows: [
+    { k: 'bad', text: '“Bak arkadaşın ne güzel yapıyor, sen neden yapamıyorsun?”', t0: 79.3 },
+    { k: 'eff', text: 'Kendini yetersiz hisseder', t0: 84.5 },
+    { k: 'good', text: '“Geçen sefer zorlanmıştın, şimdi neleri daha iyi yapabildiğine bakalım.”', t0: 88.3 },
+    { k: 'tip', text: 'Kendi gelişimine odaklanın 🌱', t0: 96.0 } ] },
+  { n: 3, title: '*“Bir *şey *olmaz” diyerek geçiştirmek', t0: 103.3, rows: [
+    { k: 'eff', text: 'Duygusunun anlaşılmadığını hisseder', t0: 110.3 },
+    { k: 'good', text: '“Bunun seni korkuttuğunu görüyorum, seni en çok ne endişelendiriyor?”', t0: 116.3 },
+    { k: 'tip', text: 'Önce duyguyu anlayın, sonra destek olun 🤝', t0: 122.2 } ] },
+  { n: 4, title: 'Duygusunu *küçümsemek', t0: 129.6, rows: [
+    { k: 'bad', text: '“Bunda korkacak ne var?” “Abartıyorsun.”', t0: 132.5 },
+    { k: 'eff', text: 'Duygularını bastırır, kendini ifade etmekten kaçınır', t0: 137.0 },
+    { k: 'good', text: '“Sana küçük gelmeyebilir, bu durum seni gerçekten endişelendirmiş.”', t0: 143.8 },
+    { k: 'tip', text: 'Duyguyu kabul etmek ≠ her korkuyu onaylamak', t0: 150.3 } ] },
+  { n: 5, title: 'Sürekli *eleştirmek', t0: 159.7, rows: [
+    { k: 'eff', text: 'Hata yapmaktan ve eleştirilmekten korkar', t0: 165.2 },
+    { k: 'tip', text: 'Kişiliği değil, davranışı ifade edin 🎯', t0: 170.7 },
+    { k: 'bad', text: '“Sen zaten dikkatsizsin.”', t0: 176.6 },
+    { k: 'good', text: '“Defterini kontrol etmeden koymuşsun, birlikte kontrol listesi hazırlayalım.”', t0: 179.0 } ] },
+  { n: 6, title: 'Her hareketini *düzeltmek', t0: 187.6, rows: [
+    { k: 'bad', text: 'Resimde, oyunda, ödevde sürekli müdahale', t0: 190.7 },
+    { k: 'eff', text: 'Kendi kararlarına güvenmesi zorlaşır', t0: 196.4 },
+    { k: 'good', text: 'Müdahale gerekmiyorsa kendi yöntemini denesin 🎨', t0: 202.3 },
+    { k: 'tip', text: 'Sonuç değil, çabası önemli 💪', t0: 205.3 } ] },
+];
+
+// ---------- sahneler (üst panel) ----------
+const SCENES = [
+  { s: -0.4, e: 24.0, acc: C.lilac, acc2: C.sky, draw: sDaily },
+  { s: 24.0, e: 36.6, acc: C.mint, acc2: C.sky, draw: sGoal },
+  { s: 36.6, e: 46.2, acc: C.yellow, acc2: C.mint, draw: sTrust },
+  { s: 46.2, e: 50.4, acc: C.coral, acc2: C.yellow, draw: sTwelve },
+  ...ITEMS.map((d, i) => ({ s: d.t0 - 0.1, e: i < ITEMS.length - 1 ? ITEMS[i + 1].t0 - 0.1 : 209.7,
+    acc: [C.coral, C.yellow, C.sky, C.lilac, C.coral, C.mint][i], acc2: [C.lilac, C.coral, C.mint, C.sky, C.yellow, C.sky][i], draw: t => item(t, d) })),
+  { s: 209.7, e: 999, acc: C.yellow, acc2: C.coral, draw: sPart2 },
+];
+
+function sDaily(t) {
+  words('Kaygıyı her zaman', 540, 260, t, 17.0, { size: 52, weight: 900 });
+  noRow('Büyük olaylar artırmaz', '💥', 420, t, 18.6, 19.5, 44);
+  card(540, 640, 900, 200, C.white, t, 20.4, () => {
+    emoji('💬', -370, 0, 80);
+    text('Tekrar tekrar duyulan', 40, -30, 44, C.ink, 900);
+    text('günlük cümleler', 40, 30, 44, C.coral, 900);
+  });
+  withT(540, 830, popS(t, 23.0, 0.5), 0, popA(t, 23.0), () => text('de etkili olabilir', 0, 0, 42, C.muted, 800));
+}
+
+function sGoal(t) {
+  withT(540, 260, popS(t, 25.5, 0.5), 0, popA(t, 25.5), () => pill('Amacımız', '🎯', 46, C.yellow, C.ink));
+  noRow('Onu hiç üzmemek, hiç zorlamamak', '🚫', 420, t, 27.0, 30.0, 40);
+  card(540, 620, 920, 170, C.mint, t, 30.7, () => { emoji('🤗', -380, 0, 70); text('Zorlanınca baş edebileceğini', 40, -24, 40, C.ink, 900); text('hissettirmek', 40, 26, 40, C.ink, 900); });
+  withT(540, 820, popS(t, 34.3, 0.5), 0, popA(t, 34.3), () => pill('Yanımızda güvende 🛡️', '💛', 40, C.white, C.ink));
+}
+
+function sTrust(t) {
+  words('Kaygıyı azaltan şey:', 540, 260, t, 37.3, { size: 54, weight: 900 });
+  noRow('Hiç sorun yaşamamak', '🌈', 430, t, 40.0, 41.5, 44);
+  card(540, 650, 900, 200, C.yellow, t, 42.1, () => { emoji('💪', -360, 0, 90); text('Sorunlarla baş', 50, -30, 52, C.ink, 900); text('edebileceğine güven', 50, 32, 52, C.ink, 900); });
+}
+
+function sTwelve(t) {
+  words('Kaygıyı artıran', 540, 250, t, 46.3, { size: 52, weight: 900 });
+  withT(540, 410, popS(t, 49.2, 0.55), 0, popA(t, 49.2), () => { shadow(true, 40, 0, 'rgba(255,94,108,0.6)'); text('12 ŞEY', 0, 0, 150, C.coral, 900); shadow(false); });
+  for (let i = 0; i < 12; i++) {
+    const x = 540 + (i - 5.5) * 78, on = i < 6;
+    withT(x, 640, popS(t, 47.5 + i * 0.12, 0.4), 0, popA(t, 47.5 + i * 0.12), () => {
+      circle(0, 0, 30, on ? C.yellow : 'rgba(255,255,255,0.15)'); text(String(i + 1), 0, 2, 28, on ? C.ink : C.muted, 900);
+    });
+  }
+  withT(540, 780, popS(t, 48.8, 0.5), 0, popA(t, 48.8), () => pill('Part 1: 1–6', '📌', 40, C.white, C.ink));
+}
+
+function sPart2(t) {
+  words('Devamı...', 540, 270, t, 209.8, { size: 56, weight: 900 });
+  withT(540, 450, popS(t, 210.3, 0.6), -0.03, popA(t, 210.3), () => {
+    shadow(true, 40, 16); rrect(-300, -95, 600, 190, 50, C.yellow); shadow(false);
+    text('PART 2 👉', 0, 4, 96, C.ink, 900);
+  });
+  withT(540, 660, popS(t, 211.3, 0.5), 0, popA(t, 211.3), () => {
+    profilePic(-250, 0, 60, t);
+    text('Profilde!', 60, 2, 64, C.white, 900);
+  });
+  for (let i = 0; i < 7; i++) {
+    const x = 540 + (i - 3) * 70;
+    withT(x, 820, popS(t, 210.0 + i * 0.1, 0.4), 0, popA(t, 210.0 + i * 0.1), () => {
+      circle(0, 0, 26, i < 6 ? 'rgba(255,255,255,0.15)' : C.yellow); text(String(i + 7 > 12 ? '' : i + 7), 0, 2, 24, i < 6 ? C.muted : C.ink, 900);
+    });
+  }
+}
+
+// ---------- açılış: tam ekran konuşmacı + başlık + isim levhası ----------
+function introOverlay(t) {
+  const a = eOut(prog(t, 0.2, 0.6)) * (1 - eInOut(prog(t, 15.8, 0.6)));
+  if (a > 0) {
+    withT(540, 330 - 40 * (1 - eOut(prog(t, 0.2, 0.6))), 1, 0, a, () => {
+      shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-490, -190, 980, 380, 50, 'rgba(12,16,40,0.86)'); shadow(false);
+      withT(380, -175, popS(t, 0.8, 0.5), 0.12, 1, () => { rrect(-90, -34, 180, 68, 34, C.yellow); text('PART 1', 0, 3, 34, C.ink, 900); });
+      text('ÇOCUKLARDA KAYGIYI', 0, -80, 70, C.white, 900);
+      text('ARTIRAN', 0, 5, 70, C.white, 900);
+      text('12 ŞEY', 0, 110, 120, C.coral, 900);
+    });
+  }
+  // isim levhası (başlıkla çakışmasın diye 4. sn'den sonra)
+  const u = t - 4.0;
+  if (u >= 0 && u <= 6) {
+    const b = eOut(prog(u, 0, 0.5)) * (1 - eInOut(prog(u, 5.5, 0.5)));
+    withT(60 - 80 * (1 - eOut(prog(u, 0, 0.6))), 1560, 1, 0, b, () => {
+      font(28, 800);
+      const w = Math.max(ctx.measureText('Çocuk Psikolojisi & Dikkat Üzerine').width, 420) + 80;
+      shadow(true, 30, 10, 'rgba(0,0,0,0.35)'); rrect(0, -70, w, 140, 24, 'rgba(12,16,40,0.86)'); shadow(false);
+      rrect(0, -70, 12, 140, 6, C.yellow);
+      text('Pedagog', 38, -24, 30, C.yellow, 800, 'left');
+      text('Necla SAYGIN', 178, -24, 46, C.white, 900, 'left');
+      text('Çocuk Psikolojisi & Dikkat Üzerine', 38, 32, 28, 'rgba(255,255,255,0.8)', 800, 'left');
+    });
+  }
+}
+
+window.FULL = t => splitFull(t, introOverlay, () => {});
+</script>
+</body>
+</html>
