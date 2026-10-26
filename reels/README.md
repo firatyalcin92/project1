@@ -16,6 +16,7 @@
 | `v4/scene.html`, `v4/clips/`, `v4/final_reels.mp4` | Video 4 — Mükemmeliyetçi çocuklar (162 sn), altyazısız; hazır çocuk klipleri üstte kart içinde (`TOP_CLIPS`) ve altta avatarın yerinde (`BOTTOM_CLIPS`) |
 | `v5/scene.html`, `v5/clips/`, `v5/final_reels.mp4` | Video 5 — Dikkat mi, odaklanma mı? + MOXO (100 sn), altyazısız; açılışta uzman isim levhası, son 15 sn'de üst panel küçülüp konuşmacı tam ekrana geçer (`FULLSCREEN_FROM`, `FULL(t)`) |
 | `v6/scene.html`, `v6/clips/`, `v6/final_reels.mp4` | Video 6 — Yemek yemeyen çocuk, 3 öneri (148 sn), altyazısız; konuşmacı başta ~14 sn, sonra ≤4,5 sn'lik kısa görünümler, aradaki süre klip akışı (`BOTTOM_PLAN`) |
+| `v7/scene.html`, `v7/final_reels.mp4` | Video 7 — Çocuğunuz yerinde durmuyor (85 sn), altyazısız, bölünmüş ekran yok: tamamı `FULL(t)` ile çizilir; arka plansız HeyGen konuşmacısı (`avatar_src.webm`, alfa kanallı VP9) sahnede dekupe olarak girip çıkar, görünmediğinde köşede küçük konuşma balonu |
 
 ```bash
 # Video 1
@@ -30,6 +31,8 @@ REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v
 REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v5/scene.html v5/avatar.mp4 v5/final_reels.mp4
 # Video 6
 REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v6/scene.html v6/avatar.mp4 v6/final_reels.mp4
+# Video 7 (avatar_src.webm HeyGen linkinden indirilir, repoda yok)
+REELS_CRF=19 REELS_MAXRATE=4M NODE_PATH=$(npm root -g) node render.cjs --scene v7/scene.html v7/avatar_src.webm v7/final_reels.mp4
 # hızlı kontrol: seçili anları preview/ altına PNG olarak kaydeder (o_*.png = alt bindirme katmanı)
 NODE_PATH=$(npm root -g) node render.cjs --scene v2/scene.html --preview 1,54.5,98
 ```

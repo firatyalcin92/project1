@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels v7 — Yerinde durmayan çocuk</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+  #f { position: absolute; left: 0; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<canvas id="f" width="1080" height="1920"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script>
+// Video 7: "Çocuğunuz yerinde durmuyor". Altyazı yok, bölünmüş ekran yok:
+// tüm kare FULL(t) ile çizilir; konuşmacı (HeyGen, arka plansız) sahnede dekupe olarak girip çıkar.
+const DURATION = 84.89;
+const FULLSCREEN_FROM = 0;
+const CHUNKS = [];
+window.STAGE = true; // sahneler saydam katman (#c), FULL içinde konumlanır
+
+// Konuşmacı kareleri: filigran (sağ alt) dışarıda kalsın diye bel hizasından kırpılır
+const TOP_CLIPS = [
+  { name: 'necla', src: 'avatar_src.webm', from: 0, start: 0, end: DURATION, alpha: true, vf: 'crop=1280:1720:0:0,scale=900:1209' },
+];
+const NECLA_FACE = { x: 464, y: 420, r: 165 }; // 900x1209 karede yüz bölgesi (balon için)
+
+// Konuşmacının göründüğü aralıklar: big = açılış/kapanış, small = kısa kesitler
+const NECLA = [
+  [0, 6.3, 'big'],
+  [24.15, 27.4, 'small'],
+  [33.95, 36.8, 'small'],
+  [51.8, 55.3, 'small'],
+  [64.9, 68.5, 'small'],
+  [72.05, 75.0, 'small'],
+  [79.4, 99, 'big'],
+];
+const FADE = 0.45;
+
+const NOISE = [];
+window.preload = () => {
+  for (let k = 0; k < 4; k++) {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d'), d = g.createImageData(256, 256);
+    for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+    g.putImageData(d, 0, 0); NOISE.push(c);
+  }
+  return preloadFollow('../');
+};
+
+// ---------- sahneler (1080x960 saydam katman) ----------
+const SCENES = [
+  { s: -0.4, e: 6.3, acc: C.coral, acc2: C.lilac, draw: sTitle },
+  { s: 6.3, e: 11.8, acc: C.sky, acc2: C.mint, draw: sNotMeaning },
+  { s: 11.8, e: 16.1, acc: C.lilac, acc2: C.sky, draw: sNoDiagnosis },
+  { s: 16.1, e: 24.1, acc: C.yellow, acc2: C.coral, draw: sIfAffects },
+  { s: 24.1, e: 33.95, acc: C.mint, acc2: C.sky, draw: sTeacher },
+  { s: 33.95, e: 40.1, acc: C.coral, acc2: C.mint, draw: sAsk },
+  { s: 40.1, e: 51.8, acc: C.lilac, acc2: C.yellow, draw: sEvaluate },
+  { s: 51.8, e: 55.3, acc: C.yellow, acc2: C.coral, draw: sEverywhere },
+  { s: 55.3, e: 64.9, acc: C.mint, acc2: C.yellow, draw: sSmallSteps },
+  { s: 64.9, e: 72.05, acc: C.sky, acc2: C.mint, draw: sCounselor },
+  { s: 72.05, e: 79.4, acc: C.coral, acc2: C.lilac, draw: sPsychiatrist },
+  { s: 79.4, e: 999, acc: C.yellow, acc2: C.mint, draw: sGoal },
+];
+
+function noRow(label, em, y, t, t0, tS, size = 44) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0) * (1 - 0.45 * prog(t, tS + 0.1, 0.4)), () => pill(label, em, size, 'rgba(255,255,255,0.9)', C.ink));
+  if (t >= tS) { font(size, 800); const w = ctx.measureText(label).width + size * 1.25 + 70; strike(540 - w / 2 - 20, 540 + w / 2 + 20, y, t, tS); }
+}
+
+function sTitle(t) {
+  withT(540, 260, popS(t, 0.4, 0.5), Math.sin(t * 22) * 0.06 * (1 - prog(t, 2.0, 0.5)), popA(t, 0.4), () => pill('Okuldan aranıyor musunuz?', '📞', 44, C.white, C.ink));
+  words('“Çocuğunuz', 540, 470, t, 2.1, { size: 104, weight: 900 });
+  words('*yerinde *durmuyor”', 540, 600, t, 2.75, { size: 104, weight: 900, accent: C.yellow, per: 0.25 });
+  for (let i = 0; i < 6; i++) {
+    const a = t * 3 + i;
+    withT(540 + Math.cos(i * 1.05) * 470, 540 + Math.sin(i * 1.7) * 200, popS(t, 3.3 + i * 0.1, 0.4), Math.sin(a) * 0.4, popA(t, 3.3 + i * 0.1) * 0.9, () => emoji(['⚡', '🌀', '💨', '⚡', '🌀', '💨'][i], 0, 0, 56));
+  }
+}
+
+function sNotMeaning(t) {
+  words('Bu şu anlama *gelmez:', 540, 300, t, 6.43, { size: 58, weight: 900, accent: C.coral });
+  noRow('Çocuğunuz yaramaz', '😈', 470, t, 7.4, 8.0);
+  noRow('Siz yetersiz bir ebeveynsiniz', '😔', 620, t, 8.4, 10.4, 40);
+  withT(540, 790, popS(t, 10.6, 0.5), 0, popA(t, 10.6), () => { shadow(true); text('Hiçbiri değil 💛', 0, 0, 54, C.mint, 900); shadow(false); });
+}
+
+function sNoDiagnosis(t) {
+  words('Tek başına', 540, 300, t, 11.88, { size: 56, weight: 900 });
+  withT(540, 520, popS(t, 12.4, 0.55), 0, popA(t, 12.4), () => {
+    shadow(true, 36, 14); rrect(-400, -140, 800, 280, 44, C.white); shadow(false);
+    emoji('🩺', -290, 0, 110);
+    text('DEHB', 50, -40, 92, C.ink, 900);
+    text('tanısı koydurmaz', 50, 55, 42, '#6B7280', 900);
+  });
+  withT(540, 780, popS(t, 14.6, 0.5), 0, popA(t, 14.6), () => text('Dikkat Eksikliği Hiperaktivite Bozukluğu', 0, 0, 34, C.muted, 800));
+}
+
+function sIfAffects(t) {
+  words('Ama hareketlilik şunları *etkiliyorsa:', 540, 280, t, 16.2, { size: 48, weight: 900, accent: C.yellow, per: 0.12 });
+  [['Öğrenmesini', '📚', 17.3, 420, C.sky], ['Arkadaşlıklarını', '🤝', 18.45, 540, C.mint], ['Sınıf içi uyumunu', '🏫', 20.2, 660, C.lilac]].forEach(([l, em, t0, y, col], i) => {
+    withT(540 + (i - 1) * 40, y, popS(t, t0, 0.5), (i - 1) * 0.02, popA(t, t0), () => pill(l, em, 44, col, C.ink));
+  });
+  withT(540, 820, popS(t, 22.3, 0.55), 0, popA(t, 22.3), () => { shadow(true, 30, 10); text('Görmezden gelmeyin! 👀', 0, 0, 62, C.coral, 900); shadow(false); });
+}
+
+function sTeacher(t) {
+  stepTitle(1, 'Öğretmenden somut örnekler', t, 24.3, C.mint, 48);
+  [['En çok hangi derslerde?', '📚', 27.4, 430], ['Ne zaman daha iyi odaklanıyor?', '🎯', 29.4, 560], ['Evde de benzer durumlar var mı?', '🏠', 31.4, 690]].forEach(([q, em, t0, y]) => {
+    withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0), () => speech(`${em} ${q}`, 40, C.white, C.ink, -1));
+  });
+}
+
+function sAsk(t) {
+  words('Eve geldiğinde...', 540, 280, t, 34.1, { size: 56, weight: 900 });
+  noRow('Hemen azarlamak', '😠', 430, t, 35.0, 35.9);
+  withT(540, 640, popS(t, 36.8, 0.55), 0, popA(t, 36.8), () => {
+    shadow(true, 36, 14); rrect(-450, -110, 900, 220, 56, C.mint); shadow(false);
+    para('“Bugün sınıfta seni en çok ne *zorladı?”', 0, 2, 820, t, 36.85, { size: 50, weight: 900, color: C.ink, accent: C.white, per: 0.14 });
+  });
+  withT(540, 820, popS(t, 38.6, 0.5), 0, popA(t, 38.6), () => text('diye sorun 💬', 0, 0, 46, C.muted, 800));
+}
+
+function sEvaluate(t) {
+  const aA = phase(t, 40.1, 46.0);
+  if (aA > 0) {
+    ctx.save(); ctx.globalAlpha *= aA;
+    words('DEHB değerlendirmesinde', 540, 280, t, 40.2, { size: 54, weight: 900 });
+    withT(540, 470, popS(t, 43.6, 0.5), 0, popA(t, 43.6), () => pill('Davranış farklı ortamlarda görülmeli', '🔍', 40, C.white, C.ink));
+    [['🏫', 'Okul', 44.3, 250], ['🏠', 'Ev', 44.6, 540], ['🛝', 'Sosyal', 44.9, 830]].forEach(([em, l, t0, x]) => {
+      withT(x, 680, popS(t, t0, 0.5), 0, popA(t, t0), () => { emoji(em, 0, -20, 110); text(l, 0, 80, 38, C.white, 900); });
+    });
+    ctx.restore();
+  }
+  if (t < 46.0) return;
+  words('Başka olasılıklar da ele alınmalı', 540, 280, t, 46.1, { size: 48, weight: 900, per: 0.1 });
+  [['😴', 'Uyku sorunları', 46.3, C.sky], ['😟', 'Kaygı', 47.35, C.lilac], ['📖', 'Öğrenme güçlüğü', 47.95, C.yellow]].forEach(([em, l, t0, col], i) => {
+    const y = 430 + i * 140;
+    withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0), () => {
+      shadow(true, 24, 8); rrect(-360, -55, 720, 110, 36, 'rgba(255,255,255,0.08)'); shadow(false);
+      rrect(-360, -55, 720, 110, 36, null, col, 4);
+      emoji(em, -280, 0, 70); text(l, -210, 2, 46, col, 900, 'left');
+    });
+  });
+}
+
+function sEverywhere(t) {
+  words('Hiperaktif çocuk', 540, 300, t, 51.9, { size: 64, weight: 900 });
+  withT(540, 440, popS(t, 53.2, 0.55), -0.03, popA(t, 53.2), () => {
+    rrect(-300, -70, 600, 140, 30, C.yellow); text('HER YERDE', 0, 4, 84, C.ink, 900);
+  });
+  words('hiperaktiftir ⚡', 540, 580, t, 53.7, { size: 60, weight: 900 });
+  [['🏫', 250], ['🏠', 540], ['🛝', 830]].forEach(([em, x], i) => {
+    withT(x, 760, popS(t, 53.9 + i * 0.15, 0.45), Math.sin(t * 20 + i) * 0.08, popA(t, 53.9 + i * 0.15), () => emoji(em, 0, 0, 100));
+  });
+}
+
+function sSmallSteps(t) {
+  stepTitle(2, 'Öğretmenle küçük adımlar', t, 55.4, C.mint, 48);
+  [['Kısa ve net yönergeler', '📝', 57.9, 430, C.white, C.ink], ['Planlı hareket molaları', '🤸', 59.6, 570, C.mint, C.ink], ['Olumlu davranışı hemen takdir', '👏', 61.5, 710, C.yellow, C.ink]].forEach(([l, em, t0, y, bg, fg], i) => {
+    withT(540, y, popS(t, t0, 0.5), (i - 1) * 0.015, popA(t, t0), () => pill(l, em, 44, bg, fg));
+  });
+}
+
+function sCounselor(t) {
+  stepTitle(3, 'Okul psikolojik danışmanı', t, 65.07, C.sky, 48);
+  withT(540, 500, popS(t, 66.0, 0.55), 0, popA(t, 66.0), () => { shadow(true, 40, 14); emoji('🧑‍🏫', 0, 0, 170); shadow(false); });
+  withT(540, 680, popS(t, 66.6, 0.5), 0, popA(t, 66.6), () => pill('Mutlaka destek alın', '🤝', 46, C.sky, C.ink));
+  withT(540, 820, popS(t, 69.2, 0.5), 0, popA(t, 69.2), () => { shadow(true); text('...ve dikkatle uygulayın 🎯', 0, 0, 50, C.yellow, 900); shadow(false); });
+}
+
+function sPsychiatrist(t) {
+  withT(540, 280, popS(t, 72.2, 0.5), 0, popA(t, 72.2), () => pill('Sorun devam ediyorsa', '⚠️', 46, C.yellow, C.ink));
+  withT(540, 430, popS(t, 73.4, 0.5), 0, popA(t, 73.4), () => text('ve okul yaşamını etkiliyorsa', 0, 0, 44, C.muted, 800));
+  withT(540, 640, popS(t, 75.9, 0.6), 0, popA(t, 75.9), () => {
+    shadow(true, 36, 14); rrect(-440, -140, 880, 280, 50, C.white); shadow(false);
+    emoji('🩺', -330, 0, 110);
+    text('Çocuk ve ergen', 60, -50, 48, C.ink, 900);
+    text('psikiyatristinden', 60, 8, 48, C.ink, 900);
+    text('değerlendirme alın', 60, 68, 38, '#2F8FE0', 900);
+  });
+}
+
+function sGoal(t) {
+  withT(540, 300, popS(t, 79.6, 0.5), 0, popA(t, 79.6), () => pill('Amaç', '💡', 48, C.yellow, C.ink));
+  noRow('Çocuğu susturmak', '🤫', 470, t, 80.0, 81.05);
+  withT(540, 680, popS(t, 81.7, 0.6), 0, popA(t, 81.7), () => {
+    shadow(true, 36, 14); rrect(-460, -120, 920, 240, 56, C.mint); shadow(false);
+    para('Neye ihtiyaç duyduğunu *anlayıp *desteklemek 💛', 0, 2, 840, t, 81.75, { size: 50, weight: 900, color: C.ink, accent: C.white, per: 0.14 });
+  });
+}
+
+// ---------- tam ekran kompozisyon ----------
+function neclaVis(t) {
+  let v = 0, mode = 'small';
+  for (const [s, e, m] of NECLA) {
+    const a = Math.min(eInOut(prog(t, s, FADE)), 1 - eInOut(prog(t, e - FADE, FADE)));
+    const vv = s <= 0 ? Math.min(1, 1 - eInOut(prog(t, e - FADE, FADE))) : a;
+    if (vv > v) { v = vv; mode = m; }
+  }
+  return { v, mode };
+}
+
+function bgFull(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, 1920);
+  g.addColorStop(0, '#0A0F27'); g.addColorStop(0.55, '#16163F'); g.addColorStop(1, '#231A4E');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1080, 1920);
+  const i = sceneAt(t);
+  const k = eInOut(prog(t, SCENES[i].s, 0.6));
+  const prev = SCENES[Math.max(0, i - 1)];
+  const a1 = mix(hexRgb(prev.acc), hexRgb(SCENES[i].acc), k), a2 = mix(hexRgb(prev.acc2), hexRgb(SCENES[i].acc2), k);
+  const blob = (x, y, r, c, al) => {
+    const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, `rgba(${c.map(Math.round).join(',')},${al})`); rg.addColorStop(1, `rgba(${c.map(Math.round).join(',')},0)`);
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, 1080, 1920);
+  };
+  blob(200 + 90 * Math.sin(t * 0.4), 420 + 120 * Math.cos(t * 0.33), 620, a1, 0.30);
+  blob(900 + 80 * Math.cos(t * 0.37), 1250 + 140 * Math.sin(t * 0.5), 680, a2, 0.24);
+  blob(540, 1700, 700, [255, 201, 60], 0.08);
+  for (let n = 0; n < 60; n++) {
+    const x = ((hash(n) * 1080 + Math.sin(t * 0.7 + n) * 20) % 1080 + 1080) % 1080;
+    const y = (((hash(n + 1) * 1920 - t * (12 + 26 * hash(n + 2))) % 1920) + 1920) % 1920;
+    ctx.beginPath(); ctx.arc(x, y, 1.5 + 2.5 * hash(n + 5), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${0.10 + 0.16 * hash(n + 7)})`; ctx.fill();
+  }
+}
+
+// Konuşmacı: alttan hizalı dekupe, arkasında sıcak ışık halkası; hafif yumuşatma + renk düzeltme
+function drawNecla(t, v, mode) {
+  const im = clipFrame('necla');
+  if (!im || v <= 0.001) return;
+  const H = mode === 'big' ? 1280 : 900;
+  const w = H * (900 / 1209);
+  const x = 540 - w / 2, y = 1920 - H + 220 * (1 - v);
+  ctx.save();
+  ctx.globalAlpha = v;
+  const halo = ctx.createRadialGradient(540, y + H * 0.33, 40, 540, y + H * 0.33, H * 0.55);
+  halo.addColorStop(0, 'rgba(255,214,150,0.38)'); halo.addColorStop(1, 'rgba(255,214,150,0)');
+  ctx.fillStyle = halo; ctx.fillRect(0, y - 200, 1080, H + 400);
+  ctx.filter = 'blur(0.6px) saturate(0.94) contrast(1.04) brightness(1.02)';
+  ctx.shadowColor = 'rgba(255,220,170,0.55)'; ctx.shadowBlur = 40;
+  ctx.drawImage(im, x, y, w, H);
+  ctx.restore();
+}
+
+// Konuşmacı görünmezken: köşede küçük yuvarlak "konuşuyor" balonu + ses çubukları
+function drawBubble(t, a) {
+  const im = clipFrame('necla');
+  if (!im || a <= 0.01) return;
+  const cx = 140, cy = 1690, r = 88;
+  ctx.save(); ctx.globalAlpha = a;
+  const g = ctx.createConicGradient(t * 1.2, cx, cy);
+  ['#FEDA75', '#FA7E1E', '#D62976', '#962FBF', '#FEDA75'].forEach((c, i, arr) => g.addColorStop(i / (arr.length - 1), c));
+  circle(cx, cy, r + 9, g); circle(cx, cy, r + 3, '#1B1748');
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = '#E9E2D6'; ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+  const f = NECLA_FACE;
+  ctx.drawImage(im, f.x - f.r, f.y - f.r * 0.9, f.r * 2, f.r * 2, cx - r, cy - r, 2 * r, 2 * r);
+  ctx.restore();
+  for (let i = 0; i < 5; i++) {
+    const h = 14 + 34 * Math.abs(Math.sin(t * (7 + i * 1.7) + i));
+    rrect(cx + r + 26 + i * 18, cy - h / 2, 10, h, 5, 'rgba(255,255,255,0.85)');
+  }
+  text('Necla SAYGIN', cx + r + 130, cy + 2, 30, C.white, 800, 'left');
+  ctx.restore();
+}
+
+function nameTagFull(t) {
+  const u = t - 0.6;
+  if (u < 0 || u > 5.2) return;
+  const a = eOut(prog(u, 0, 0.5)) * (1 - eInOut(prog(u, 4.6, 0.5)));
+  const dx = -80 * (1 - eOut(prog(u, 0, 0.6)));
+  withT(60 + dx, 1700, 1, 0, a, () => {
+    font(28, 800);
+    const w = Math.max(ctx.measureText('Çocuk Psikolojisi & Dikkat Üzerine').width, 420) + 80;
+    shadow(true, 30, 10, 'rgba(0,0,0,0.35)'); rrect(0, -70, w, 140, 24, 'rgba(12,16,40,0.86)'); shadow(false);
+    rrect(0, -70, 12, 140, 6, C.yellow);
+    text('Pedagog', 38, -24, 30, C.yellow, 800, 'left');
+    text('Necla SAYGIN', 178, -24, 46, C.white, 900, 'left');
+    text('Çocuk Psikolojisi & Dikkat Üzerine', 38, 32, 28, 'rgba(255,255,255,0.8)', 800, 'left');
+  });
+}
+
+function grain(t) {
+  const n = NOISE[Math.floor(t * 25) % NOISE.length];
+  ctx.save();
+  ctx.globalAlpha = 0.07; ctx.globalCompositeOperation = 'overlay';
+  ctx.fillStyle = ctx.createPattern(n, 'repeat'); ctx.fillRect(0, 0, 1080, 1920);
+  ctx.restore();
+}
+
+window.FULL = function (t) {
+  bgFull(t);
+  const { v, mode } = neclaVis(t);
+  // sahne katmanı: konuşmacı yokken ortada, varken yukarıda
+  const big = mode === 'big' ? v : 0, small = mode === 'small' ? v : 0;
+  const ss = 1.1 * (1 - v) + (mode === 'big' ? 0.86 : 0.95) * v;
+  const sy = (960 - 480 * 1.1) * (1 - v) + (mode === 'big' ? 40 : 170) * v;
+  ctx.drawImage(topCanvas, (1080 - 1080 * ss) / 2, sy, 1080 * ss, 960 * ss);
+  drawNecla(t, v, mode);
+  drawBubble(t, 1 - v);
+  nameTagFull(t);
+  // üst etiket + ilerleme çubuğu
+  withT(540, 110, 1, 0, 1, () => {
+    font(28, 800);
+    const label = 'EBEVEYN İPUCU', w = ctx.measureText(label).width + 110;
+    rrect(-w / 2, -30, w, 60, 30, 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.18)', 2);
+    emoji('💡', -w / 2 + 38, 0, 30); text(label, -w / 2 + 66, 1, 28, C.white, 800, 'left');
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(0, 1912, 1080, 8);
+  const pg = ctx.createLinearGradient(0, 0, 1080, 0); pg.addColorStop(0, C.yellow); pg.addColorStop(1, C.coral);
+  ctx.fillStyle = pg; ctx.fillRect(0, 1912, 1080 * clamp(t / DURATION), 8);
+  grain(t);
+};
+</script>
+</body>
+</html>

@@ -233,10 +233,12 @@ window.renderFrame = function (t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
   shadow(false);
-  background(t);
+  // STAGE = true: sahneler saydam katman olarak çizilir (arka plan ve çerçeve FULL(t) içinde)
+  if (window.STAGE) ctx.clearRect(0, 0, W, TOP);
+  else background(t);
   scenes(t);
   captions(t);
-  chrome(t);
+  if (!window.STAGE) chrome(t);
 };
 
 // Kare çizilmeden önce asenkron hazırlık (ör. üst bölümde oynayan klibin karesini yüklemek)
@@ -255,7 +257,7 @@ async function prepareClips(t) {
     const n = Math.max(1, Math.round((c.end - c.start) * 25));
     const i = clamp(Math.floor((t - c.start) * 25), 0, n - 1) + 1;
     if (clipFrames[c.name] && clipFrames[c.name].i === i) continue;
-    const im = await loadImage(`${window.CLIP_BASE}/${c.name}/${String(i).padStart(5, '0')}.jpg`);
+    const im = await loadImage(`${window.CLIP_BASE}/${c.name}/${String(i).padStart(5, '0')}.${c.alpha ? 'webp' : 'jpg'}`);
     clipFrames[c.name] = { i, im };
   }
 }

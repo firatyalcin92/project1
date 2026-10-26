@@ -11,7 +11,7 @@
 //   OVERLAYS = [[başlangıç, bitiş], ...]         alt bölüme bindirilen saydam katmanın (OVERLAY) aktif olduğu aralıklar
 //   BOTTOM_CLIPS = [{ src, start, end, from, focusY, fadeIn?, fadeOut? }, ...]
 //                                                alt bölümde avatarın yerine oynatılan klipler (src sahne klasörüne göre)
-//   TOP_CLIPS = [{ name, src, from, start, end }, ...]  kare kare tuvale çizilen klipler (clipFrame(name))
+//   TOP_CLIPS = [{ name, src, from, start, end, alpha?, vf? }, ...]  kare kare tuvale çizilen klipler (clipFrame(name))
 //   FULLSCREEN_FROM = saniye                     bu andan sonra kareler tamamen FULL(t) ile (1080x1920) çizilir
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
@@ -53,11 +53,16 @@ function extractTopClips(clips) {
   const base = path.join(require('os').tmpdir(), `reels-clips-${key}`);
   for (const c of clips) {
     const dir = path.join(base, c.name);
-    if (fs.existsSync(path.join(dir, '00001.jpg'))) continue;
+    const ext = c.alpha ? 'webp' : 'jpg';
+    if (fs.existsSync(path.join(dir, `00001.${ext}`))) continue;
     fs.mkdirSync(dir, { recursive: true });
+    // alpha: saydam VP9 (HeyGen arka plansız) → libvpx-vp9 ile çözülüp saydam WebP karelerine
     require('child_process').execFileSync('ffmpeg', [
-      '-v', 'error', '-y', '-ss', String(c.from), '-t', String(c.end - c.start + 0.2), '-i', path.join(sceneDir, c.src),
-      '-vf', `fps=${FPS}`, '-q:v', '3', path.join(dir, '%05d.jpg'),
+      '-v', 'error', '-y', ...(c.alpha ? ['-c:v', 'libvpx-vp9'] : []),
+      '-ss', String(c.from), '-t', String(c.end - c.start + 0.2), '-i', path.join(sceneDir, c.src),
+      '-vf', [c.vf, `fps=${FPS}`].filter(Boolean).join(','),
+      ...(c.alpha ? ['-c:v', 'libwebp', '-quality', '88', '-pix_fmt', 'yuva420p'] : ['-q:v', '3']),
+      path.join(dir, `%05d.${ext}`),
     ]);
   }
   return 'file://' + base;
