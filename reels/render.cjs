@@ -13,6 +13,7 @@
 //                                                alt bölümde avatarın yerine oynatılan klipler (src sahne klasörüne göre)
 //   TOP_CLIPS = [{ name, src, from, start, end, alpha?, vf? }, ...]  kare kare tuvale çizilen klipler (clipFrame(name))
 //   FULLSCREEN_FROM = saniye                     bu andan sonra kareler tamamen FULL(t) ile (1080x1920) çizilir
+//   FULL_RANGES = [[başlangıç, bitiş], ...]      FULL(t) ile çizilen aralıklar (FULLSCREEN_FROM'un genel hali)
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -40,7 +41,8 @@ async function launch() {
     overlays: typeof OVERLAYS !== 'undefined' ? OVERLAYS : [],
     bottomClips: typeof BOTTOM_CLIPS !== 'undefined' ? BOTTOM_CLIPS : [],
     topClips: typeof TOP_CLIPS !== 'undefined' ? TOP_CLIPS : [],
-    fullFrom: typeof FULLSCREEN_FROM !== 'undefined' ? FULLSCREEN_FROM : null,
+    fullRanges: typeof FULL_RANGES !== 'undefined' ? FULL_RANGES
+      : typeof FULLSCREEN_FROM !== 'undefined' ? [[FULLSCREEN_FROM, 1e9]] : [],
   }));
   if (config.topClips.length) await page.evaluate(base => { window.CLIP_BASE = base; }, extractTopClips(config.topClips));
   return { browser, page, config };
@@ -101,7 +103,7 @@ async function preview(times) {
   for (const t of times) {
     fs.writeFileSync(path.join(__dirname, 'preview', `t_${t.toFixed(2)}.png`), await frame(page, t));
     fs.writeFileSync(path.join(__dirname, 'preview', `o_${t.toFixed(2)}.png`), await overlayFrame(page, t));
-    if (config.fullFrom !== null && t >= config.fullFrom) {
+    if (config.fullRanges.some(([a, b]) => t >= a && t <= b)) {
       fs.writeFileSync(path.join(__dirname, 'preview', `f_${t.toFixed(2)}.jpg`), await fullFrame(page, t));
     }
   }
@@ -158,22 +160,28 @@ async function render(avatar, output) {
     avLabel = `av${k}`;
   }
 
-  // Son bölüm: tam ekran kareler (üst panelin küçülüp konuşmacının tam ekrana geçtiği kapanış)
+  // Tam ekran aralıkları: bu aralıklarda kareler FULL(t) ile 1080x1920 çizilip üste bindirilir
+  // (ör. açılışta/kapanışta konuşmacının tam ekran olduğu bölümler ve bölünmüş ekrana geçişler)
   let fullFilters = [], vLabel = 'v';
-  if (config.fullFrom !== null) {
-    const dir = path.join(ovDir, 'full');
-    fs.mkdirSync(dir);
-    const f0 = Math.floor(config.fullFrom * FPS);
-    for (let f = f0; f < frames; f++) {
-      fs.writeFileSync(path.join(dir, `${String(f - f0).padStart(5, '0')}.jpg`), await fullFrame(page, f / FPS));
-      if ((f - f0) % 100 === 0) process.stderr.write(`\ntam ekran kare ${f - f0}/${frames - f0}\n`);
-    }
-    ovInputs.push('-framerate', String(FPS), '-i', path.join(dir, '%05d.jpg'));
-    fullFilters = [
-      `[${nextInput++}:v]setpts=PTS+${(f0 / FPS).toFixed(3)}/TB,format=yuv420p,setsar=1[full]`,
-      `[vs][full]overlay=0:0:eof_action=pass:enable='gte(t,${(f0 / FPS).toFixed(3)})',format=yuv420p[v]`,
-    ];
+  if (config.fullRanges.length) {
     vLabel = 'vs';
+    let cur = 'vs';
+    for (const [k, [s, e]] of config.fullRanges.entries()) {
+      const dir = path.join(ovDir, `full${k}`);
+      fs.mkdirSync(dir);
+      const f0 = Math.floor(s * FPS), f1 = Math.min(frames - 1, Math.ceil(e * FPS));
+      for (let f = f0; f <= f1; f++) {
+        fs.writeFileSync(path.join(dir, `${String(f - f0).padStart(5, '0')}.jpg`), await fullFrame(page, f / FPS));
+        if ((f - f0) % 100 === 0) process.stderr.write(`\ntam ekran kare ${f - f0}/${f1 - f0 + 1}\n`);
+      }
+      ovInputs.push('-framerate', String(FPS), '-i', path.join(dir, '%05d.jpg'));
+      const out = k === config.fullRanges.length - 1 ? 'v' : `vf${k}`;
+      fullFilters.push(
+        `[${nextInput++}:v]setpts=PTS+${(f0 / FPS).toFixed(3)}/TB,format=yuv420p,setsar=1[full${k}]`,
+        `[${cur}][full${k}]overlay=0:0:eof_action=pass:enable='between(t,${(f0 / FPS).toFixed(3)},${(f1 / FPS).toFixed(3)})',format=yuv420p[${out}]`,
+      );
+      cur = out;
+    }
   }
 
   const filter = [
