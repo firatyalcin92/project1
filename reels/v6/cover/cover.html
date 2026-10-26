@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kapak — Yemek Yemeyen Çocuk</title>
+<style>
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 1080px; height: 1920px; overflow: hidden; font-family: RD, 'Noto Color Emoji', sans-serif; background: #0A0F27; }
+  .cover { position: relative; width: 1080px; height: 1920px; overflow: hidden;
+    background: radial-gradient(520px 420px at 15% 18%, rgba(255,94,108,0.35), transparent 70%),
+                radial-gradient(560px 460px at 90% 30%, rgba(255,201,60,0.28), transparent 70%),
+                linear-gradient(#0A0F27, #1B1748); }
+  .photo { position: absolute; left: 0; bottom: 0; width: 1080px; height: 1280px; object-fit: cover; }
+  .fade { position: absolute; left: 0; top: 640px; width: 1080px; height: 340px;
+    background: linear-gradient(#141434 0%, rgba(20,20,52,0.85) 30%, rgba(20,20,52,0) 100%); }
+  .tag { position: absolute; top: 150px; left: 50%; transform: translateX(-50%);
+    padding: 12px 30px; border-radius: 40px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.18);
+    color: #fff; font-weight: 800; font-size: 30px; letter-spacing: 2px; white-space: nowrap; }
+  .title { position: absolute; top: 255px; width: 100%; text-align: center; color: #fff; font-weight: 900;
+    text-shadow: 0 10px 30px rgba(0,0,0,0.45); }
+  .l1 { font-size: 124px; line-height: 1; letter-spacing: -2px; }
+  .l2 { font-size: 214px; line-height: 0.95; color: #FFC93C; letter-spacing: -4px; }
+  .sub { position: absolute; top: 640px; left: 50%; transform: translateX(-50%) rotate(-2deg);
+    background: #FF5E6C; color: #fff; font-weight: 900; font-size: 44px; padding: 18px 40px; border-radius: 60px;
+    white-space: nowrap; box-shadow: 0 14px 34px rgba(0,0,0,0.35); }
+  .sticker { position: absolute; top: 780px; right: 40px; width: 270px; height: 270px; border-radius: 50%;
+    overflow: hidden; border: 10px solid #fff; box-shadow: 0 18px 40px rgba(0,0,0,0.45); transform: rotate(6deg); }
+  .sticker img { width: 100%; height: 100%; object-fit: cover; }
+  .bubble { position: absolute; top: 1045px; right: 50px; background: #fff; color: #141A3A; font-weight: 900; font-size: 34px;
+    padding: 14px 26px; border-radius: 34px; box-shadow: 0 10px 26px rgba(0,0,0,0.35); transform: rotate(-3deg); white-space: nowrap; }
+  .bubble::before { content: ''; position: absolute; top: -18px; right: 90px; border: 12px solid transparent; border-bottom: 18px solid #fff; border-top: 0; }
+  .plate { position: absolute; top: 800px; left: 46px; font-size: 120px; transform: rotate(-12deg); filter: drop-shadow(0 12px 20px rgba(0,0,0,0.45)); }
+  .name { position: absolute; left: 60px; top: 1500px; background: rgba(12,16,40,0.88); border-radius: 26px; padding: 26px 40px 26px 46px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.4); }
+  .name::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 14px; border-radius: 26px 0 0 26px; background: #FFC93C; }
+  .name .n1 { color: #fff; font-weight: 900; font-size: 52px; white-space: nowrap; }
+  .name .n1 span { color: #FFC93C; font-weight: 800; font-size: 34px; margin-right: 12px; }
+  .name .n2 { color: rgba(255,255,255,0.85); font-weight: 800; font-size: 30px; margin-top: 6px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="cover">
+  <img class="photo" src="necla_crop.jpg" alt="">
+  <div class="fade"></div>
+  <div class="tag">💡 EBEVEYN İPUCU</div>
+  <div class="title">
+    <div class="l1">YEMEK YEMEYEN</div>
+    <div class="l2">ÇOCUK</div>
+  </div>
+  <div class="sub">Danışanlarımda işe yarayan 3 öneri</div>
+  <div class="plate">🍽️</div>
+  <div class="sticker"><img src="kiz_crop.jpg" alt=""></div>
+  <div class="bubble">“Bir kaşık daha!” 😩</div>
+  <div class="name">
+    <div class="n1"><span>Pedagog</span>Necla SAYGIN</div>
+    <div class="n2">Çocuk Psikolojisi &amp; Dikkat Üzerine</div>
+  </div>
+</div>
+</body>
+</html>
