@@ -23,8 +23,9 @@
 | `v11/scene.html`, `v11/final_reels.mp4` | Video 11 — Çocuklarda kaygıyı artıran 12 şey, Part 2: madde 7–12 (165 sn); açılış yazıları konuşmacının yüzünün altında; altta önceki videoların stok/klipleri karışık, son ~20 sn konuşmacı yok, kapanışta takip kartı |
 | `v12/scene.html`, `v12/clips/`, `v12/final_reels.mp4` | Video 12 — Her akşam ödev kavgası, 4 öneri + MOXO (155 sn); konuşmacı yalnızca açılışta ve 4 kısa anda; altta yeni ve önceki stoklar karışık |
 | `v13/scene.html`, `v13/final_reels.mp4` | Video 13 — Dikkat dağınıklığı DEHB belirtisi mi? (106 sn); ilk 15 sn ve son 10 sn konuşmacı tam ekran, arada bölünmüş ekran; HeyGen filigranı kadraj dışında |
-| `splitfull.js` | Bölünmüş ekran ↔ tam ekran konuşmacı geçişleri (v8–v13) |
-| `cover_render.cjs`, `v6/cover` … `v13/cover` | Reels kapakları (HTML → `kapak.png`) |
+| `v14/scene.html`, `v14/final_reels.mp4` | Video 14 — Çocuğunuz odasına girmiyor mu? Odanın 3 kuralı (100 sn); stok görüntü ağırlıklı, konuşmacı açılış dışında iki kısa anda |
+| `splitfull.js` | Bölünmüş ekran ↔ tam ekran konuşmacı geçişleri (v8–v14) |
+| `cover_render.cjs`, `v6/cover` … `v14/cover` | Reels kapakları (HTML → `kapak.png`) |
 
 ```bash
 # Video 1
@@ -53,6 +54,8 @@ REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v
 REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v12/scene.html v12/avatar_src.mp4 v12/final_reels.mp4
 # Video 13
 REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v13/scene.html v13/avatar_src.mp4 v13/final_reels.mp4
+# Video 14
+REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v14/scene.html v14/avatar_src.mp4 v14/final_reels.mp4
 # Kapak
 NODE_PATH=$(npm root -g) node cover_render.cjs v8/cover/cover.html v8/cover/kapak.png
 # hızlı kontrol: seçili anları preview/ altına PNG olarak kaydeder (o_*.png = alt bindirme katmanı)
