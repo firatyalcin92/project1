@@ -1,0 +1,282 @@
+  0.00 Çocuğunuza
+  0.76 bir
+  0.92 kural
+  1.22 koyuyorsunuz
+  2.22 ama
+  2.51 bir
+  2.66 bakıyorsunuz
+  3.63 ki
+  3.78 ortada
+  4.22 kural
+  4.51 falan
+  4.81 kalmamış.
+  5.68 Çoğu
+  5.99 zaman
+  6.30 farkında
+  6.76 bile
+  7.07 olmadan
+  7.70 sınır
+  8.02 koymak
+  8.33 yerine
+  8.97 etrafında
+  9.57 dönüp
+  9.87 duruyoruz.
+ 10.83 Belki
+ 11.19 de
+ 11.38 sandığınız
+ 12.11 o
+ 12.29 sınır
+ 12.82 aslında
+ 13.24 bir
+ 13.38 sınır
+ 13.66 değil,
+ 14.24 sadece
+ 14.70 o
+ 14.85 anki
+ 15.15 yorgunluğunuzun
+ 16.07 ya
+ 16.22 da
+ 16.38 çaresizliğinizin
+ 17.45 bir
+ 17.60 yansıması
+ 18.21 sadece.
+ 19.14 Sevgili
+ 19.56 ebeveynler,
+ 20.12 gelin
+ 20.75 şunu
+ 21.02 itiraf
+ 21.43 edelim.
+ 22.23 Sınır
+ 22.58 koymak
+ 22.92 deyince
+ 23.57 aklımıza
+ 24.51 hep
+ 24.67 hayır
+ 24.99 demek,
+ 25.46 cezalandırmak
+ 26.10 ya
+ 26.23 da
+ 26.51 otorite
+ 26.98 kurmak
+ 27.22 geliyor.
+ 27.70 Ama
+ 28.42 aslında
+ 28.86 sınır
+ 29.14 koymak
+ 29.43 çocuğun
+ 30.09 hayatını
+ 30.81 kısıtlamak
+ 31.54 değildir.
+ 32.46 Tam
+ 32.65 tersine
+ 33.50 ona
+ 34.07 “Ben
+ 34.20 buradayım,
+ 34.95 seni
+ 35.35 koruyorum.”
+ 36.32 demenin
+ 36.69 en
+ 36.82 net
+ 36.94 yoludur.
+ 37.69 Çünkü
+ 37.98 sınır
+ 38.27 konulan
+ 38.70 çocuk
+ 39.30 kendini
+ 39.76 güvende
+ 40.22 hisseder.
+ 41.06 Peki
+ 41.32 en
+ 41.71 sık
+ 41.87 yaptığımız
+ 42.52 hata
+ 42.84 ne
+ 43.00 biliyor
+ 43.49 musunuz?
+ 44.31 Sınırı
+ 44.85 cezayla
+ 45.39 karıştırmak.
+ 46.65 “Bir
+ 46.82 daha
+ 47.14 yaparsan
+ 47.62 tablet
+ 47.94 yok!”
+ 48.41 dediğimizde
+ 49.29 aslında
+ 49.75 sınır
+ 50.05 koymuyoruz,
+ 50.86 sadece
+ 51.35 tehdit
+ 51.67 ediyoruz.
+ 52.62 Ceza
+ 53.21 çocuğa
+ 53.89 “Ben
+ 54.06 kötüyüm.”
+ 54.83 dedirtir.
+ 55.68 Sınır
+ 55.97 ise
+ 56.27 “Bu
+ 56.72 davranış
+ 57.44 yanlış.”
+ 58.12 der.
+ 58.81 Aradaki
+ 59.39 bu
+ 59.53 küçücük
+ 59.96 fark
+ 60.45 çocuğun
+ 60.88 kendine
+ 61.31 olan
+ 61.60 saygısını,
+ 62.41 yani
+ 62.82 öz
+ 62.95 saygısını
+ 63.49 etkiliyor.
+ 64.46 Sınır
+ 64.80 koymada
+ 65.31 bir
+ 65.48 diğer
+ 65.82 tuzak
+ 66.16 da
+ 66.33 tutarsızlık.
+ 67.51 Bugün
+ 67.84 hayır
+ 68.17 dediğimize
+ 69.19 yarın
+ 69.63 tamam
+ 70.19 diyorsak,
+ 71.03 çocuk
+ 71.30 sadece
+ 71.72 sınırın
+ 72.14 nerede
+ 72.55 bittiğini
+ 73.11 değil,
+ 73.66 aynı
+ 73.96 zamanda
+ 74.59 bizi
+ 74.83 nasıl
+ 75.06 ikna
+ 75.30 edebileceğini
+ 76.13 de
+ 76.25 öğreniyor.
+ 77.11 Çocuklar
+ 77.54 anne
+ 77.83 babalarının
+ 78.54 yumuşak
+ 78.97 karınlarını
+ 79.69 çok
+ 79.83 iyi
+ 80.12 bilir
+ 80.55 ve
+ 80.70 kullanabilirler.
+ 81.83 İşte
+ 82.15 ona
+ 82.59 bu
+ 82.74 şansı
+ 83.04 vermiş
+ 83.34 oluyoruz.
+ 84.32 Oysa
+ 84.64 sınırın
+ 85.12 gücü
+ 85.57 sertlikten
+ 86.16 değil,
+ 86.78 tutarlılıktan
+ 87.62 gelir.
+ 88.30 Yumuşak
+ 89.07 ama
+ 89.34 kararlı
+ 89.73 olmak.
+ 90.41 İşte
+ 90.75 o
+ 90.91 zaman
+ 91.24 çocuk
+ 91.75 sınırın
+ 92.19 bir
+ 92.34 saldırı
+ 92.79 değil.
+ 93.34 Bir
+ 93.48 güvence
+ 93.91 olduğunu
+ 94.48 hisseder.
+ 95.15 Anne
+ 95.43 babanın
+ 95.86 da
+ 96.00 sınır
+ 96.29 bakımından
+ 96.86 tutarlı
+ 97.29 olması
+ 97.71 gerekiyor.
+ 98.74 Şimdi
+ 99.32 şunu
+ 99.58 bir
+ 99.70 düşünün.
+100.55 Çocuğunuza
+101.23 sınır
+101.50 koyduğunuzda
+102.38 aslında
+102.79 ona
+103.06 şu
+103.20 mesajı
+103.61 veriyorsunuz:
+104.64 “Ben
+104.79 senin
+105.09 ebeveyninim,
+106.11 güçlüyüm
+106.51 ve
+106.84 sana
+107.11 doğru
+107.38 yolu
+107.65 gösterebilirim.”
+108.89 Bu,
+109.27 bir
+109.39 çocuğun
+109.74 duyabileceği
+110.59 en
+110.72 güven
+110.98 verici
+111.37 cümlelerden
+111.88 biri
+112.14 değil
+112.40 mi?
+112.53 O
+113.03 yüzden
+113.34 bugünden
+113.82 başlayarak
+114.45 şunu
+114.77 değiştirelim.
+115.90 Çocuğunuz
+116.43 bir
+116.56 sınırı
+116.97 aştığında
+117.68 önce
+117.99 derin
+118.31 bir
+118.46 nefes
+118.77 alın
+119.62 ve
+119.79 hayır
+120.30 demek
+120.58 yerine
+121.16 sakin
+121.49 ve
+121.66 net
+121.83 bir
+121.99 cümleyle
+122.49 ona
+123.00 aslında
+123.44 ne
+123.59 beklediğinizi
+124.49 söyleyin.
+125.31 Deneyin
+125.80 ve
+125.96 görün.
+126.61 Bu
+126.76 küçük
+127.05 değişimin
+127.78 aranızdaki
+128.41 bağa
+128.66 ne
+128.78 kadar
+129.03 iyi
+129.28 geldiğini
+129.78 yorumlara
+130.28 yazın.

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels v15 — Sınır koymak</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+  #f { position: absolute; left: 0; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<canvas id="f" width="1080" height="1920"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script src="../splitfull.js"></script>
+<script>
+// Video 15: Sınır koymak ceza değil, güvencedir. Altyazı yok.
+// Açılış ~10 sn tam ekran konuşmacı → bölünmüş ekran; altta önceki videoların çocuk görüntüleri ağırlıkta,
+// konuşmacı üç kısa anda. HeyGen filigranı (sağ alt, y > 1375) kadraj dışında; tam ekranda yazılar yüzün altında.
+const DURATION = 130.88;
+const SRC = { w: 862, h: 1532 };
+const BAND = { x: 93, y: 250, w: 675, h: 600 };
+const FULLV = { x: 46, y: 0, w: 770, h: 1370 };
+const AVATAR = { chain: `crop=${BAND.w}:${BAND.h}:${BAND.x}:${BAND.y},scale=1620:1440:flags=lanczos`, focusY: 0.35 };
+const INTRO = { hold: 9.6, len: 1.2 };
+const OUTRO = { at: 1e9, len: 1 };
+const FULL_RANGES = [[0, INTRO.hold + INTRO.len]];
+const TOP_CLIPS = [{ name: 'avIn', src: 'avatar_src.mp4', from: 0, start: 0, end: INTRO.hold + INTRO.len + 0.2 }];
+const CHUNKS = [];
+
+// Alt bölüm: 'A' = konuşmacı; diğerleri [kaynak, başlangıç, bitiş, kaynaktaki başlangıç, dikey odak]
+const S12 = '../v12/clips/stok.mp4', S10 = '../v10/clips/stok.mp4', S9 = '../v9/clips/stok.mp4', S8 = '../v8/clips/stok.mp4';
+const KURE = '../v4/clips/kure.mp4', UZGUN = '../v4/clips/uzgun.mp4', DALGIN = '../v5/clips/dalgin.mp4';
+const BOTTOM_PLAN = [
+  ['A', 0, INTRO.hold + INTRO.len],
+  [S9, 10.8, 14.2, 99.0, 0.3],                     // sandığınız sınır → öfkeli kız
+  [S12, 14.2, 19.0, 89.5, 0.3],                    // yorgunluk, çaresizlik → bunalmış anne
+  ['A', 19.0, 22.2],                               // gelin itiraf edelim
+  [S8, 22.2, 27.6, 36.5, 0.2],                     // hayır, ceza, otorite → ağlayan kız
+  [S10, 27.6, 32.4, 106.0, 0.4],                   // hayatını kısıtlamak değil → koşan çocuk
+  [S10, 32.4, 37.6, 78.5, 0.35],                   // ben buradayım → sarılan anne
+  [S10, 37.6, 41.0, 97.0, 0.3],                    // güvende hisseder
+  ['A', 41.0, 44.3],                               // en sık hata?
+  [S9, 44.3, 48.4, 31.5, 0.3],                     // tablet yok!
+  [S12, 48.4, 52.6, 43.5, 0.3],                    // tehdit → somurtan kız
+  [S10, 52.6, 55.6, 10.5, 0.35],                   // ben kötüyüm → yüzünü kapatan çocuk
+  [UZGUN, 55.6, 58.8, 0.5, 0.6],                   // bu davranış yanlış
+  [S8, 58.8, 64.4, 1.0, 0.25],                     // öz saygı → gülen kız
+  [S10, 64.4, 67.5, 39.0, 0.3],                    // tutarsızlık
+  [S9, 67.5, 73.6, 15.0, 0.35],                    // bugün hayır, yarın tamam
+  [S8, 73.6, 77.1, 27.0, 0.15],                    // bizi ikna etmek → sırıtan çocuk
+  [S8, 77.1, 81.8, 19.5, 0.3],                     // yumuşak karnımız
+  [DALGIN, 81.8, 84.3, 3.0, 0.3],                  // bu şansı veriyoruz
+  [S10, 84.3, 88.3, 1.0, 0.45],                    // sertlik değil tutarlılık
+  [S10, 88.3, 95.1, 120.0, 0.4],                   // yumuşak ama kararlı, güvence
+  [S12, 95.1, 98.6, 29.5, 0.3],                    // anne baba tutarlı
+  ['A', 98.6, 100.8],                              // şimdi düşünün
+  [S10, 100.8, 104.8, 125.0, 0.4],                 // ben senin ebeveyninim
+  [S12, 104.8, 108.9, 33.5, 0.3],                  // doğru yolu gösterebilirim
+  [S10, 108.9, 113.0, 82.7, 0.35],                 // en güven verici cümle
+  [DALGIN, 113.0, 117.7, 22.0, 0.3],               // sınırı aştığında
+  [S10, 117.7, 121.0, 5.0, 0.45],                  // derin bir nefes
+  [KURE, 121.0, 125.3, 9.0, 0.3],                  // sakin ve net bir cümle
+  [S10, 125.3, DURATION, 88.5, 0.35],              // deneyin ve görün
+];
+const BOTTOM_CLIPS = BOTTOM_PLAN.map((p, i) => {
+  if (p[0] === 'A') return null;
+  const prev = BOTTOM_PLAN[i - 1], next = BOTTOM_PLAN[i + 1];
+  return { src: p[0], start: p[1], end: p[2], from: p[3], focusY: p[4],
+    fadeIn: prev[0] === 'A', fadeOut: !!next && next[0] === 'A' };
+}).filter(Boolean);
+
+window.preload = () => preloadFollow('../');
+
+function noRow(label, em, y, t, t0, tS, size = 42) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0) * (1 - 0.45 * prog(t, tS + 0.1, 0.4)), () => pill(label, em, size, 'rgba(255,255,255,0.9)', C.ink));
+  if (t >= tS) { font(size, 800); const w = ctx.measureText(label).width + size * 1.25 + 70; strike(540 - w / 2 - 20, 540 + w / 2 + 20, y, t, tS); }
+}
+function card(x, y, w, h, bg, t, t0, body, rot = 0) {
+  withT(x, y, popS(t, t0, 0.55), rot, popA(t, t0), () => { shadow(true, 36, 14); rrect(-w / 2, -h / 2, w, h, 44, bg); shadow(false); body(); });
+}
+
+
+// ---------- sahneler (üst panel) ----------
+const SCENES = [
+  { s: -0.4, e: 19.0, acc: C.lilac, acc2: C.sky, draw: sReflect },
+  { s: 19.0, e: 27.6, acc: C.coral, acc2: C.yellow, draw: sAdmit },
+  { s: 27.6, e: 41.0, acc: C.mint, acc2: C.sky, draw: sNotLimit },
+  { s: 41.0, e: 52.6, acc: C.coral, acc2: C.lilac, draw: sMistake },
+  { s: 52.6, e: 64.4, acc: C.yellow, acc2: C.mint, draw: sCompare },
+  { s: 64.4, e: 77.0, acc: C.lilac, acc2: C.coral, draw: sInconsistent },
+  { s: 77.0, e: 84.3, acc: C.coral, acc2: C.yellow, draw: sSoftSpot },
+  { s: 84.3, e: 90.4, acc: C.sky, acc2: C.mint, draw: sPower },
+  { s: 90.4, e: 98.6, acc: C.mint, acc2: C.yellow, draw: sSafe },
+  { s: 98.6, e: 113.0, acc: C.yellow, acc2: C.lilac, draw: sMessage },
+  { s: 113.0, e: 125.3, acc: C.sky, acc2: C.mint, draw: sToday },
+  { s: 125.3, e: 999, acc: C.coral, acc2: C.yellow, draw: sTry },
+];
+
+function row(label, em, y, t, t0, bg = 'rgba(255,255,255,0.92)', fg = C.ink, size = 40) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0), () => pill(label, em, size, bg, fg));
+}
+function bigText(label, y, t, t0, col, size = 90) {
+  withT(540, y, popS(t, t0, 0.6), 0, popA(t, t0), () => { shadow(true, 40, 0, col + '99'); text(label, 0, 0, size, col, 900); shadow(false); });
+}
+
+function sReflect(t) {
+  para('Belki de o *sınır, aslında *sınır değil…', 540, 290, 940, t, 10.9, { size: 52, weight: 900, per: 0.12, accent: C.yellow });
+  [['Yorgunluk', '😩', 15.2, 300, C.lilac], ['Çaresizlik', '😰', 16.4, 780, C.sky]].forEach(([l, em, t0, x, col]) =>
+    withT(x, 540, popS(t, t0, 0.5), 0, popA(t, t0), () => {
+      shadow(true, 26, 10); rrect(-200, -110, 400, 220, 40, col); shadow(false);
+      emoji(em, 0, -30, 90); text(l, 0, 65, 42, col === C.lilac ? C.white : C.ink, 900);
+    }));
+  withT(540, 760, popS(t, 17.6, 0.5), 0, popA(t, 17.6), () => text('…o anın bir yansıması 🪞', 0, 0, 44, C.white, 800));
+}
+
+function sAdmit(t) {
+  withT(540, 270, popS(t, 20.1, 0.5), 0, popA(t, 20.1), () => pill('Gelin itiraf edelim', '🙋‍♀️', 46, C.white, C.ink));
+  words('Sınır deyince aklımıza…', 540, 420, t, 22.2, { size: 50, weight: 900 });
+  [['Hayır', '🚫', 24.7, 220, C.coral], ['Ceza', '⚖️', 25.5, 540, C.yellow], ['Otorite', '👑', 26.5, 860, C.lilac]].forEach(([l, em, t0, x, col]) =>
+    withT(x, 600, popS(t, t0, 0.5), 0, popA(t, t0), () => pill(l, em, 44, col, col === C.yellow ? C.ink : C.white)));
+}
+
+function sNotLimit(t) {
+  noRow('Hayatını kısıtlamak', '⛓️', 300, t, 28.4, 31.0, 44);
+  card(540, 500, 900, 200, C.white, t, 33.5, () => {
+    emoji('🤗', -360, 0, 90);
+    text('“Ben buradayım,', 50, -32, 50, C.ink, 900);
+    text('seni koruyorum.”', 50, 32, 50, C.coral, 900);
+  });
+  withT(540, 740, popS(t, 37.7, 0.55), 0, popA(t, 37.7), () => pill('Sınır = Güven', '🛡️', 54, C.mint, C.ink));
+}
+
+function sMistake(t) {
+  words('En sık yaptığımız hata?', 540, 270, t, 41.1, { size: 54, weight: 900 });
+  bigText('Sınır ≠ Ceza', 410, t, 44.3, C.coral, 100);
+  withT(540, 600, popS(t, 46.6, 0.5), -0.02, popA(t, 46.6), () => speech('“Bir daha yaparsan tablet yok!”', 42, C.white, C.ink, -1));
+  withT(540, 790, popS(t, 51.2, 0.5), 0, popA(t, 51.2), () => pill('Bu sınır değil, tehdit', '⚠️', 42, C.yellow, C.ink));
+}
+
+function sCompare(t) {
+  [['CEZA', '“Ben kötüyüm.”', '😞', 52.6, 285, C.coral, C.white], ['SINIR', '“Bu davranış yanlış.”', '✅', 55.7, 795, C.mint, C.ink]].forEach(([h, q, em, t0, x, col, fg]) =>
+    card(x, 440, 470, 360, col, t, t0, () => {
+      text(h, 0, -120, 54, fg, 900);
+      emoji(em, 0, -20, 90);
+      para(q, 0, 100, 400, t, t0 + 0.4, { size: 38, weight: 900, color: fg, per: 0.08, lineH: 46 });
+    }));
+  withT(540, 700, popS(t, 58.8, 0.5), 0, popA(t, 58.8), () => text('Aradaki küçücük fark…', 0, 0, 40, C.muted, 800));
+  withT(540, 820, popS(t, 62.4, 0.55), 0, popA(t, 62.4), () => pill('Öz saygıyı etkiler', '💛', 46, C.yellow, C.ink));
+}
+
+function sInconsistent(t) {
+  withT(540, 260, popS(t, 64.5, 0.5), 0, popA(t, 64.5), () => pill('Diğer tuzak: tutarsızlık', '🎢', 44, C.lilac, C.white));
+  [['Bugün', 'Hayır ❌', 67.5, 285, C.coral], ['Yarın', 'Tamam ✅', 69.4, 795, C.mint]].forEach(([d, l, t0, x, col]) =>
+    card(x, 440, 440, 170, col, t, t0, () => { text(d, 0, -36, 36, col === C.mint ? C.ink : C.white, 800); text(l, 0, 28, 52, col === C.mint ? C.ink : C.white, 900); }));
+  withT(540, 600, popS(t, 71.0, 0.5), 0, popA(t, 71.0), () => text('Çocuk şunu öğrenir:', 0, 0, 38, C.muted, 800));
+  row('Sınır nerede bitiyor?', '🤔', 700, t, 71.7, C.white, C.ink, 40);
+  row('Sizi nasıl ikna eder?', '😏', 820, t, 74.6, C.yellow, C.ink, 40);
+}
+
+function sSoftSpot(t) {
+  para('Çocuklar ebeveynin *yumuşak *karnını çok iyi bilir', 540, 300, 940, t, 77.1, { size: 50, weight: 900, per: 0.1, accent: C.coral });
+  withT(540, 540, popS(t, 78.6, 0.6), 0, popA(t, 78.6), () => emoji('🎯', 0, 0, 170));
+  withT(540, 770, popS(t, 81.8, 0.5), 0, popA(t, 81.8), () => pill('Bu şansı ona biz veriyoruz', '🎁', 42, C.white, C.ink));
+}
+
+function sPower(t) {
+  words('Sınırın gücü…', 540, 270, t, 84.4, { size: 56, weight: 900 });
+  noRow('Sertlik', '💪', 410, t, 85.5, 86.2, 44);
+  row('Tutarlılık', '🔁', 540, t, 86.8, C.sky, C.ink, 50);
+  card(540, 740, 860, 170, C.yellow, t, 88.3, () => { emoji('🤝', -330, 0, 80); text('Yumuşak ama', 50, -26, 44, C.ink, 900); text('kararlı', 50, 30, 50, C.coral, 900); });
+}
+
+function sSafe(t) {
+  noRow('Saldırı', '⚔️', 300, t, 91.8, 92.6, 46);
+  bigText('Güvence 🛡️', 470, t, 93.4, C.mint, 100);
+  card(540, 720, 880, 170, C.white, t, 95.2, () => { emoji('👫', -340, 0, 80); text('Anne ve baba', 50, -26, 44, C.ink, 900); text('aynı çizgide', 50, 30, 44, '#2F8FE0', 900); });
+}
+
+function sMessage(t) {
+  words('Şimdi düşünün 💭', 540, 260, t, 98.8, { size: 56, weight: 900 });
+  withT(540, 520, popS(t, 103.6, 0.55), 0, popA(t, 103.6), () => {
+    shadow(true, 36, 14); rrect(-460, -170, 920, 340, 44, C.white); shadow(false);
+    rrect(-460, -170, 14, 340, 7, C.yellow);
+    [['“Ben senin ebeveyninim,', 104.6, -95, C.ink], ['güçlüyüm', 106.1, -15, C.coral], ['ve sana doğru yolu', 106.8, 60, C.ink], ['gösterebilirim.”', 107.6, 130, C.ink]].forEach(([l, t0, y, col]) =>
+      withT(0, y, 1, 0, popA(t, t0), () => text(l, 0, 0, 50, col, 900)));
+  });
+  withT(540, 820, popS(t, 109.7, 0.55), 0, popA(t, 109.7), () => pill('En güven verici cümlelerden biri', '💛', 40, C.yellow, C.ink));
+}
+
+function sToday(t) {
+  withT(540, 260, popS(t, 113.3, 0.5), 0, popA(t, 113.3), () => pill('Bugünden başlayarak', '🌱', 44, C.mint, C.ink));
+  [['1', 'Sınır aşıldığında', '🚧', 115.9, 400], ['2', 'Önce derin bir nefes', '🌬️', 117.7, 540], ['3', '“Hayır” yerine sakin, net bir cümle', '💬', 119.8, 680], ['4', 'Ne beklediğinizi söyleyin', '🎯', 123.0, 820]].forEach(([n, l, em, t0, y]) =>
+    withT(540, y, 0.9 + 0.1 * eBack(prog(t, t0, 0.4)), 0, popA(t, t0), () => {
+      shadow(true, 26, 10); rrect(-470, -55, 940, 110, 30, 'rgba(255,255,255,0.93)'); shadow(false);
+      circle(-410, 0, 36, C.coral); text(n, -410, 2, 38, C.white, 900);
+      text(l, 10, 2, 38, C.ink, 900);
+      emoji(em, 420, 0, 50);
+    }));
+}
+
+function sTry(t) {
+  bigText('Deneyin ve görün ✨', 330, t, 125.3, C.yellow, 76);
+  withT(540, 530, popS(t, 126.6, 0.55), 0, popA(t, 126.6), () => {
+    shadow(true, 36, 14); rrect(-440, -100, 880, 200, 40, C.white); shadow(false);
+    emoji('💬', -350, 0, 80);
+    text('Aranızdaki bağa nasıl', 50, -28, 42, C.ink, 900);
+    text('iyi geldiğini yazın 👇', 50, 30, 42, '#2F8FE0', 900);
+  });
+  if (t > 128.0) hearts(540, 800, t, 128.0, 8, 1.2, 0.6);
+}
+
+// ---------- açılış (tam ekran, yazılar yüzün altında) ----------
+function nameTag(t, t0, dur) {
+  const u = t - t0;
+  if (u < 0 || u > dur) return;
+  const c = eOut(prog(u, 0, 0.5)) * (1 - eInOut(prog(u, dur - 0.5, 0.5)));
+  withT(60 - 80 * (1 - eOut(prog(u, 0, 0.6))), 1640, 1, 0, c, () => {
+    font(28, 800);
+    const w = Math.max(ctx.measureText('Çocuk Psikolojisi & Dikkat Üzerine').width, 420) + 80;
+    shadow(true, 30, 10, 'rgba(0,0,0,0.35)'); rrect(0, -70, w, 140, 24, 'rgba(12,16,40,0.86)'); shadow(false);
+    rrect(0, -70, 12, 140, 6, C.yellow);
+    text('Pedagog', 38, -24, 30, C.yellow, 800, 'left');
+    text('Necla SAYGIN', 178, -24, 46, C.white, 900, 'left');
+    text('Çocuk Psikolojisi & Dikkat Üzerine', 38, 32, 28, 'rgba(255,255,255,0.8)', 800, 'left');
+  });
+}
+
+
+function introOverlay(t) {
+  const a = eOut(prog(t, 0.2, 0.5)) * (1 - eInOut(prog(t, 9.1, 0.5)));
+  if (a > 0) withT(540, 1260 + 30 * (1 - eOut(prog(t, 0.2, 0.5))), 1, 0, a, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-480, -130, 960, 260, 50, 'rgba(12,16,40,0.88)'); shadow(false);
+    text('Kural koydunuz…', 0, -50, 58, C.white, 900);
+    withT(0, 40, popS(t, 2.4, 0.5), 0, popA(t, 2.4), () => text('ama ortada kural kalmadı mı? 🤷', 0, 0, 48, C.yellow, 900));
+  });
+  const b = popA(t, 5.7) * (1 - eInOut(prog(t, 9.1, 0.5)));
+  if (b > 0) withT(540, 1460, popS(t, 5.7, 0.5), 0, b, () => pill('Sınır koymak yerine etrafında dönüyoruz', '🔄', 32, C.white, C.ink));
+  nameTag(t, 1.0, 4.4);
+}
+
+window.FULL = t => splitFull(t, introOverlay, () => {});
+</script>
+</body>
+</html>
