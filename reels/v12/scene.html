@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels v12 — Ödev kavgası</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+  #f { position: absolute; left: 0; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<canvas id="f" width="1080" height="1920"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script src="../splitfull.js"></script>
+<script>
+// Video 12: Her akşam ödev kavgası — 4 öneri + en önemlisi + MOXO. Altyazı yok.
+// Açılış 9,2 sn tam ekran konuşmacı → bölünmüş ekran; konuşmacı çok az görünür
+// ("Peki ne yapabilirsiniz?" cümlesinde görünmez); kapanış stok görüntüyle.
+// Tam ekranda yazılar yüzün altında (y > 1000).
+const DURATION = 155.01;
+const SRC = { w: 1894, h: 2842 };
+const BAND = { x: 197, y: 250, w: 1500, h: 1333 };
+const FULLV = { x: 216, y: 0, w: 1462, h: 2600 };
+const AVATAR = { chain: `crop=${BAND.w}:${BAND.h}:${BAND.x}:${BAND.y},scale=1620:1440:flags=lanczos`, focusY: 0.35 };
+const INTRO = { hold: 9.2, len: 1.2 };
+const OUTRO = { at: 1e9, len: 1 };
+const FULL_RANGES = [[0, INTRO.hold + INTRO.len]];
+const TOP_CLIPS = [{ name: 'avIn', src: 'avatar_src.mp4', from: 0, start: 0, end: INTRO.hold + INTRO.len + 0.2 },
+  { name: 'beyin', src: '../v5/clips/beyin.mp4', from: 0, start: 139.4, end: 147.2 }];
+const CHUNKS = [];
+
+// Alt bölüm: 'A' = konuşmacı; diğerleri [kaynak, başlangıç, bitiş, kaynaktaki başlangıç, dikey odak]
+// Yeni stok (clips/stok.mp4): 0–8 yazı yazan kız, 8–20 sırada çalışan kız, 20–28 yazı yazan çocuk,
+// 28–42 oğluna ödevde yardım eden baba, 42–54 kollarını kavuşturan kız, 54–67 yerde blok oynayan çocuk,
+// 67–88 boncuk labirentiyle oynayan küçük kız, 88–97 bunalmış anne
+const ST = 'clips/stok.mp4', S10 = '../v10/clips/stok.mp4', S9 = '../v9/clips/stok.mp4', S8 = '../v8/clips/stok.mp4';
+const BLOK = '../v4/clips/bloklar.mp4', KURE = '../v4/clips/kure.mp4', OKUMA = '../v5/clips/okuma.mp4', DALGIN = '../v5/clips/dalgin.mp4';
+const BOTTOM_PLAN = [
+  ['A', 0, INTRO.hold + INTRO.len],
+  [ST, 10.4, 14.4, 43.0, 0.3],                     // kitap oku artık → somurtan kız
+  [S9, 14.4, 18.2, 99.0, 0.3],                     // neden hiçbir şey yapmıyorsun → öfkeli kız
+  [ST, 18.2, 22.0, 89.0, 0.3],                     // karşı karşıya → bunalmış anne
+  ['A', 22.0, 24.6],                               // gelin farklı bakalım
+  [ST, 24.6, 29.3, 8.5, 0.35],                     // nereden başlayacağını bilemiyor
+  [DALGIN, 29.3, 32.5, 3.0, 0.3],                  // çabuk sıkılıyor
+  [ST, 32.5, 35.1, 20.5, 0.3],                     // çalışma alışkanlığı
+  [ST, 35.1, 39.4, 29.0, 0.3],                     // Peki ne yapabilirsiniz? (konuşmacı yok)
+  [ST, 39.4, 44.4, 0.5, 0.35],                     // her gün aynı saatte
+  [ST, 44.4, 47.6, 55.0, 0.4],                     // dinlenme, oyun
+  [KURE, 47.6, 50.5, 2.0, 0.3],                    // ödev zamanı
+  [ST, 50.5, 52.8, 24.0, 0.3],                     // masada çalışsın
+  [ST, 52.8, 56.8, 70.0, 0.4],                     // kardeşi girmesin
+  [S9, 56.8, 59.0, 14.5, 0.35],                    // televizyon kapalı
+  [S9, 59.0, 63.0, 1.0, 0.45],                     // telefona takılmamalı
+  [KURE, 63.0, 69.4, 9.0, 0.3],                    // süre yaşına uygun
+  [OKUMA, 69.4, 76.4, 0.5, 0.25],                  // siz de kitap okuyun
+  ['A', 76.4, 79.5],                               // ikincisi
+  [ST, 79.5, 83.9, 35.0, 0.3],                     // bütün sorumluluk sizde
+  [DALGIN, 83.9, 86.5, 14.0, 0.3],                 // yönlendirme bekler
+  [S8, 86.5, 91.9, 60.0, 0.2],                     // küçük parçalar, kendi başına
+  [ST, 91.9, 95.0, 48.5, 0.3],                     // kitap ceza olmasın
+  [OKUMA, 95.0, 98.5, 7.5, 0.25],                  // her gün 10–15 dk
+  [S10, 98.5, 102.8, 78.5, 0.35],                  // bazen siz, bazen o
+  [S10, 102.8, 108.8, 96.5, 0.3],                  // paylaşılan zaman
+  [S8, 108.8, 114.0, 26.5, 0.15],                  // çabayı takdir
+  [S8, 114.0, 119.6, 0.5, 0.25],                   // hoşuma gitti
+  ['A', 119.6, 122.6],                             // en önemlisi
+  [DALGIN, 122.6, 126.0, 22.0, 0.3],               // okumakta zorlanıyor
+  [S10, 126.0, 131.8, 39.0, 0.3],                  // tembellik demeyin
+  [KURE, 131.8, 135.2, 5.0, 0.3],                  // öğretmeniyle görüşün
+  ['A', 135.2, 139.6],                             // asistanım, MOXO
+  [OKUMA, 139.6, 143.0, 4.0, 0.25],                // odaklanma şüphesi
+  [S10, 143.0, 146.9, 0.5, 0.45],                  // iletişime geçin
+  [S10, 146.9, 151.5, 120.0, 0.4],                 // zorla oturtmak değil
+  [BLOK, 151.5, DURATION, 9.0, 0.08],              // kendi sorumluluğu
+];
+const BOTTOM_CLIPS = BOTTOM_PLAN.map((p, i) => {
+  if (p[0] === 'A') return null;
+  const prev = BOTTOM_PLAN[i - 1], next = BOTTOM_PLAN[i + 1];
+  return { src: p[0], start: p[1], end: p[2], from: p[3], focusY: p[4],
+    fadeIn: prev[0] === 'A', fadeOut: !!next && next[0] === 'A' };
+}).filter(Boolean);
+
+window.preload = () => preloadFollow('../');
+
+function noRow(label, em, y, t, t0, tS, size = 42) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0) * (1 - 0.45 * prog(t, tS + 0.1, 0.4)), () => pill(label, em, size, 'rgba(255,255,255,0.9)', C.ink));
+  if (t >= tS) { font(size, 800); const w = ctx.measureText(label).width + size * 1.25 + 70; strike(540 - w / 2 - 20, 540 + w / 2 + 20, y, t, tS); }
+}
+function card(x, y, w, h, bg, t, t0, body, rot = 0) {
+  withT(x, y, popS(t, t0, 0.55), rot, popA(t, t0), () => { shadow(true, 36, 14); rrect(-w / 2, -h / 2, w, h, 44, bg); shadow(false); body(); });
+}
+
+// Madde sahnesi: numara + başlık, ardından satırlar (bad: kaygı artıran söz, eff: etkisi, good: bunun yerine, tip: öneri).
+// Ekranda en fazla 3 satır kalır; yenisi gelince eskisi yukarı kayarak çıkar.
+const ROW = { bad: { h: 150, bg: C.coral, fg: C.white, em: '❌' }, good: { h: 160, bg: C.mint, fg: C.ink, em: '✅' },
+  eff: { h: 104, bg: 'rgba(255,255,255,0.12)', fg: C.white, em: '⚠️' }, tip: { h: 104, bg: C.yellow, fg: C.ink, em: '💡' } };
+function item(t, d) {
+  withT(540, 236, popS(t, d.t0, 0.5), 0, popA(t, d.t0), () => {
+    rrect(-80, -30, 160, 60, 30, C.coral); text(`${d.n} / 4`, 0, 2, 32, C.white, 900);
+  });
+  para(d.title, 540, 322, 960, t, d.t0 + 0.1, { size: 52, weight: 900, per: 0.1 });
+  const shown = d.rows.filter(r => t >= r.t0);
+  const win = shown.slice(-3);
+  let y = 430;
+  d.rows.forEach(r => {
+    const idx = win.indexOf(r);
+    const gone = t >= r.t0 && idx < 0;
+    if (t < r.t0 || gone && prog(t, d.rows[d.rows.indexOf(r) + 3].t0, 0.4) >= 1) return;
+    const st = ROW[r.k];
+    let a = popA(t, r.t0, 0.25), yy;
+    if (gone) {
+      const p = eInOut(prog(t, d.rows[d.rows.indexOf(r) + 3].t0, 0.4));
+      a *= 1 - p; yy = 430 + st.h / 2 - 80 * p;
+    } else {
+      // pencere içindeki yerine yumuşakça kay
+      let base = 430; for (let k = 0; k < idx; k++) base += ROW[win[k].k].h + 22;
+      const lastT = win[win.length - 1].t0;
+      const shift = d.rows.indexOf(win[0]) > 0 ? (1 - eInOut(prog(t, lastT, 0.4))) * (ROW[d.rows[d.rows.indexOf(win[0]) - 1].k].h + 22) : 0;
+      yy = base + shift + st.h / 2;
+    }
+    withT(540, yy, 0.9 + 0.1 * eBack(prog(t, r.t0, 0.4)), 0, a, () => {
+      shadow(true, 26, 10); rrect(-470, -st.h / 2, 940, st.h, 34, st.bg); shadow(false);
+      emoji(st.em, -415, 0, r.k === 'bad' || r.k === 'good' ? 54 : 44);
+      para(r.text, 40, 2, 800, t, r.t0, { size: r.k === 'bad' || r.k === 'good' ? 36 : 34, weight: 900, color: st.fg, accent: r.k === 'good' ? C.white : C.yellow, per: 0.05, lineH: 44 });
+    });
+  });
+}
+
+const ITEMS = [
+  { n: 1, title: 'Kısa ve düzenli *çalışma *rutini', t0: 37.1, rows: [
+    { k: 'tip', text: 'Her gün aynı saatte ⏰', t0: 37.9 },
+    { k: 'good', text: 'Okuldan gelince önce dinlenme ve oyun 🧸', t0: 44.9 },
+    { k: 'tip', text: 'Sonra ödev için belirli bir zaman', t0: 47.7 },
+    { k: 'good', text: 'Mümkünse odasında, masada çalışsın', t0: 50.6 },
+    { k: 'eff', text: 'Salondaysa kardeşi odaya girmesin', t0: 52.9 },
+    { k: 'bad', text: 'Kapı kapalı · TV kapalı · telefon yok 📵', t0: 56.9 },
+    { k: 'tip', text: 'Süre yaşına uygun olsun', t0: 63.0 },
+    { k: 'eff', text: 'Bununla ilgili video sayfamda 📌', t0: 65.7 },
+    { k: 'good', text: 'O masada çalışırken siz kitap okuyun 📖', t0: 69.4 },
+    { k: 'tip', text: 'Alışkanlık sizi görerek kazanılır', t0: 73.8 } ] },
+  { n: 2, title: 'Sürekli *hatırlatan kişi olmayın', t0: 76.8, rows: [
+    { k: 'eff', text: 'Tüm sorumluluk sizdeyse hep yönlendirme bekler', t0: 80.7 },
+    { k: 'good', text: 'Ödevi küçük parçalara bölün 🧩', t0: 86.5 },
+    { k: 'tip', text: 'Yapabildiğini kendi başına tamamlasın 💪', t0: 88.3 } ] },
+  { n: 3, title: 'Kitap okumayı *cezaya dönüştürmeyin', t0: 91.9, rows: [
+    { k: 'bad', text: '“Biraz da kitap oku artık!”', t0: 92.7 },
+    { k: 'good', text: 'Her gün 10–15 dk, ilgisini çeken bir kitap 📚', t0: 95.1 },
+    { k: 'tip', text: 'Bazen siz okuyun, bazen o 🔁', t0: 100.6 },
+    { k: 'good', text: 'Görev değil, paylaşılan bir zaman 💛', t0: 102.8 } ] },
+  { n: 4, title: 'Sonucu değil, *çabayı takdir edin', t0: 108.8, rows: [
+    { k: 'tip', text: 'Gösterdiği çabaya dikkat edin 👏', t0: 111.1 },
+    { k: 'good', text: '“Bugün hatırlatmadan başlaman hoşuma gitti.”', t0: 114.0 },
+    { k: 'eff', text: 'Kendi sorumluluğunu almasını destekler', t0: 116.7 } ] },
+];
+
+// ---------- sahneler (üst panel) ----------
+const SCENES = [
+  { s: -0.4, e: 17.3, acc: C.coral, acc2: C.lilac, draw: sPhrases },
+  { s: 17.3, e: 22.1, acc: C.coral, acc2: C.yellow, draw: sClash },
+  { s: 22.1, e: 35.0, acc: C.sky, acc2: C.mint, draw: sLook },
+  { s: 35.0, e: 37.0, acc: C.yellow, acc2: C.mint, draw: sWhat },
+  ...ITEMS.map((d, i) => ({ s: d.t0 - 0.1, e: i < ITEMS.length - 1 ? ITEMS[i + 1].t0 - 0.1 : 119.6,
+    acc: [C.mint, C.yellow, C.sky, C.lilac][i], acc2: [C.sky, C.coral, C.mint, C.yellow][i], draw: t => item(t, d) })),
+  { s: 119.6, e: 135.1, acc: C.coral, acc2: C.yellow, draw: sImportant },
+  { s: 135.1, e: 146.8, acc: C.sky, acc2: C.lilac, draw: sMoxo },
+  { s: 146.8, e: 999, acc: C.mint, acc2: C.yellow, draw: sEnd },
+];
+
+// Ebeveynin tanıdık cümleleri (konuşma balonları)
+function sPhrases(t) {
+  words('Tanıdık geldi mi? 🙈', 540, 260, t, 10.2, { size: 50, weight: 900 });
+  [['“Kaç kere söyleyeceğim?”', 10.4, 400, C.coral, C.white, -1],
+   ['“Hâlâ ödevini yapmadın!”', 11.6, 530, C.white, C.ink, 1],
+   ['“Biraz da kitap oku artık!”', 13.2, 660, C.yellow, C.ink, -1],
+   ['“Ben söylemeden neden hiçbir şey yapmıyorsun?”', 14.8, 800, C.lilac, C.white, 1]].forEach(([l, t0, y, bg, fg, tail], i) => {
+    withT(540 + tail * (i === 3 ? 0 : 90), y, popS(t, t0, 0.5), tail * -0.02, popA(t, t0), () => speech(l, i === 3 ? 34 : 40, bg, fg, tail));
+  });
+}
+
+function sClash(t) {
+  words('Bu cümleler ne yapar?', 540, 230, t, 17.4, { size: 50, weight: 900 });
+  withT(300, 470, popS(t, 18.3, 0.5), 0, popA(t, 18.3), () => emoji('😤', 0, 0, 150));
+  withT(780, 470, popS(t, 18.6, 0.5), 0, popA(t, 18.6), () => emoji('😠', 0, 0, 150));
+  withT(540, 470, popS(t, 19.2, 0.5), 0.1 * Math.sin(t * 20) * (t < 20 ? 1 : 0), popA(t, 19.2), () => emoji('⚡', 0, 0, 120));
+  withT(540, 640, popS(t, 19.3, 0.5), 0, popA(t, 19.3), () => pill('Sizi karşı karşıya getirir', '🥊', 44, C.white, C.ink));
+  withT(540, 790, popS(t, 21.1, 0.5), 0, popA(t, 21.1), () => pill('Başka işe yaramaz', '❌', 40, C.coral, C.white));
+}
+
+function sLook(t) {
+  withT(540, 265, popS(t, 22.3, 0.5), 0, popA(t, 22.3), () => pill('Farklı bakalım', '🔍', 48, C.sky, C.ink));
+  noRow('Ders çalışmak istemiyor', '🙅', 400, t, 24.6, 26.9, 40);
+  [['Nereden başlayacağını bilemiyor', '🤔', 27.5, 535, C.white],
+   ['Çabuk sıkılıyor', '🥱', 29.4, 655, C.yellow],
+   ['Çalışma alışkanlığı henüz yok', '🌱', 31.0, 775, C.mint]].forEach(([l, em, t0, y, bg]) =>
+    withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0), () => pill(l, em, 40, bg, C.ink)));
+  withT(540, 890, popS(t, 33.7, 0.5), 0, popA(t, 33.7), () => text('…bu yüzden zorlanıyor olabilir', 0, 0, 34, C.muted, 800));
+}
+
+function sWhat(t) {
+  words('Peki ne yapabilirsiniz?', 540, 380, t, 35.15, { size: 64, weight: 900 });
+  for (let i = 0; i < 4; i++) withT(540 + (i - 1.5) * 110, 560, popS(t, 35.9 + i * 0.12, 0.4), 0, popA(t, 35.9 + i * 0.12), () => {
+    circle(0, 0, 40, C.yellow); text(String(i + 1), 0, 2, 40, C.ink, 900);
+  });
+}
+
+function sImportant(t) {
+  withT(540, 260, popS(t, 119.9, 0.5), 0, popA(t, 119.9), () => pill('En önemlisi', '⚠️', 48, C.coral, C.white));
+  [['Okumakta sürekli zorlanıyorsa', '📖', 121.1, 380],
+   ['Okuduğunu anlamakta güçlük çekiyorsa', '🧩', 123.6, 480],
+   ['Ödevin başında belirgin zorlanıyorsa', '✏️', 126.1, 580]].forEach(([l, em, t0, y]) =>
+    withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0), () => pill(l, em, 38, 'rgba(255,255,255,0.92)', C.ink)));
+  noRow('Hemen “tembellik” demeyin', '🦥', 695, t, 129.4, 130.8, 40);
+  withT(540, 825, popS(t, 131.9, 0.55), 0, popA(t, 131.9), () => pill('Öğretmeniyle görüşün, nedenini anlayın', '🏫', 38, C.mint, C.ink));
+}
+
+function sMoxo(t) {
+  withT(540, 260, popS(t, 135.4, 0.5), 0, popA(t, 135.4), () => pill('Asistanım: odaklanma & dikkat uzmanı', '👩‍⚕️', 38, C.white, C.ink));
+  withT(540, 450, popS(t, 138.8, 0.6), 0, popA(t, 138.8), () => {
+    shadow(true, 40, 16); rrect(-340, -110, 680, 220, 44, C.white); shadow(false);
+    emoji('🧩', -230, 0, 100);
+    text('MOXO', 60, -28, 92, C.ink, 900);
+    text('Dikkat Testi', 60, 54, 42, '#2F8FE0', 900);
+  });
+  withT(540, 645, 0.9 + 0.1 * popS(t, 141.0, 0.6), 0, popA(t, 141.0), () => clipCard('beyin', 0, 0, 760, 150, 0.5, 1.0 + 0.04 * prog(t, 141, 6)));
+  withT(540, 645, popS(t, 141.0, 0.5), 0, popA(t, 141.0), () => { rrect(-380, -75, 760, 150, 40, 'rgba(10,15,39,0.55)'); text('Odaklanmasından şüpheleniyor musunuz?', 0, 0, 36, C.white, 900); });
+  withT(540, 790, popS(t, 143.4, 0.5), 0, popA(t, 143.4), () => pill('Benimle iletişime geçin', '💬', 40, C.yellow, C.ink));
+  withT(540, 885, popS(t, 145.0, 0.5), 0, popA(t, 145.0), () => pill('Test uzaktan uygulanabilir', '🌐', 38, C.sky, C.ink));
+}
+
+function sEnd(t) {
+  words('Unutmayın 💛', 540, 230, t, 146.95, { size: 60, weight: 900 });
+  noRow('Her gün zorla masaya oturtmak', '🪑', 400, t, 148.0, 150.5, 40);
+  card(540, 640, 920, 220, C.mint, t, 151.6, () => {
+    emoji('🌱', -370, 0, 90);
+    text('Kendi sorumluluğunu', 50, -32, 50, C.ink, 900);
+    text('alabilen bir çocuk', 50, 32, 50, C.ink, 900);
+  });
+  withT(540, 840, popS(t, 153.3, 0.5), 0, popA(t, 153.3), () => text('Kaydet, ihtiyacı olana gönder 🔖', 0, 0, 38, C.white, 800));
+}
+
+// ---------- açılış: tam ekran konuşmacı; yazılar yüzün altında ----------
+function introOverlay(t) {
+  // velinin cümlesi (balon)
+  const a = eOut(prog(t, 0.2, 0.5)) * (1 - eInOut(prog(t, 4.7, 0.5)));
+  if (a > 0) withT(540, 1180 + 30 * (1 - eOut(prog(t, 0.2, 0.5))), 1, 0, a, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-480, -120, 960, 240, 50, C.white);
+    ctx.beginPath(); ctx.moveTo(-40, -118); ctx.lineTo(0, -160); ctx.lineTo(40, -118); ctx.closePath(); ctx.fillStyle = C.white; ctx.fill(); shadow(false);
+    text('“Ödev mi yapıyor, milli mücadele mi', 0, -30, 44, C.ink, 900);
+    text('veriyorum belli değil!” 😩', 0, 38, 44, C.ink, 900);
+  });
+  // başlık kartı
+  const b = eOut(prog(t, 5.0, 0.5)) * (1 - eInOut(prog(t, 8.7, 0.5)));
+  if (b > 0) withT(540, 1200 + 30 * (1 - eOut(prog(t, 5.0, 0.5))), 1, 0, b, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-480, -140, 960, 280, 50, 'rgba(12,16,40,0.88)'); shadow(false);
+    withT(370, -135, popS(t, 5.4, 0.5), 0.12, 1, () => { rrect(-100, -34, 200, 68, 34, C.yellow); text('4 ÖNERİ', 0, 3, 32, C.ink, 900); });
+    text('HER AKŞAM', 0, -50, 64, C.white, 900);
+    text('ÖDEV KAVGASI MI?', 0, 50, 84, C.coral, 900);
+  });
+  // isim levhası
+  const u = t - 1.5;
+  if (u >= 0 && u <= 7) {
+    const c = eOut(prog(u, 0, 0.5)) * (1 - eInOut(prog(u, 6.5, 0.5)));
+    withT(60 - 80 * (1 - eOut(prog(u, 0, 0.6))), 1560, 1, 0, c, () => {
+      font(28, 800);
+      const w = Math.max(ctx.measureText('Çocuk Psikolojisi & Dikkat Üzerine').width, 420) + 80;
+      shadow(true, 30, 10, 'rgba(0,0,0,0.35)'); rrect(0, -70, w, 140, 24, 'rgba(12,16,40,0.86)'); shadow(false);
+      rrect(0, -70, 12, 140, 6, C.yellow);
+      text('Pedagog', 38, -24, 30, C.yellow, 800, 'left');
+      text('Necla SAYGIN', 178, -24, 46, C.white, 900, 'left');
+      text('Çocuk Psikolojisi & Dikkat Üzerine', 38, 32, 28, 'rgba(255,255,255,0.8)', 800, 'left');
+    });
+  }
+}
+
+window.FULL = t => splitFull(t, introOverlay, () => {});
+</script>
+</body>
+</html>
