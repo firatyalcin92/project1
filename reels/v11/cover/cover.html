@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kapak — Kaygıyı Artıran 12 Şey (Part 2)</title>
+<style>
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 1080px; height: 1920px; overflow: hidden; font-family: RD, 'Noto Color Emoji', sans-serif; background: #0A0F27; }
+  .cover { position: relative; width: 1080px; height: 1920px; overflow: hidden;
+    background: radial-gradient(520px 420px at 15% 18%, rgba(52,211,153,0.32), transparent 70%),
+                radial-gradient(560px 460px at 90% 28%, rgba(255,201,60,0.28), transparent 70%),
+                linear-gradient(#0A0F27, #1B1748); }
+  .photo { position: absolute; left: 0; bottom: 0; width: 1080px; height: 1420px; object-fit: cover; }
+  .fade { position: absolute; left: 0; top: 0; width: 1080px; height: 1000px;
+    background: linear-gradient(#0A0F27 0%, #15143A 45%, rgba(21,20,58,0.85) 62%, rgba(17,20,51,0) 100%); }
+  .tag { position: absolute; top: 150px; left: 50%; transform: translateX(-50%); padding: 12px 30px; border-radius: 40px;
+    background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.18); color: #fff; font-weight: 800; font-size: 30px; letter-spacing: 2px; white-space: nowrap; }
+  .title { position: absolute; top: 250px; width: 100%; text-align: center; color: #fff; font-weight: 900; text-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .l1 { font-size: 80px; line-height: 1.02; letter-spacing: -2px; }
+  .l2 { font-size: 168px; line-height: 0.98; color: #FFC93C; letter-spacing: -3px; }
+  .chips { position: absolute; top: 640px; width: 100%; display: flex; justify-content: center; gap: 22px; }
+  .chip { display: flex; align-items: center; gap: 12px; padding: 14px 28px; border-radius: 50px; font-weight: 900; font-size: 40px; color: #141A3A;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.35); }
+  .name { position: absolute; left: 60px; top: 1500px; background: rgba(12,16,40,0.88); border-radius: 26px; padding: 26px 40px 26px 46px; box-shadow: 0 16px 40px rgba(0,0,0,0.4); }
+  .name::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 14px; border-radius: 26px 0 0 26px; background: #FFC93C; }
+  .name .n1 { color: #fff; font-weight: 900; font-size: 52px; white-space: nowrap; }
+  .name .n1 span { color: #FFC93C; font-weight: 800; font-size: 34px; margin-right: 12px; }
+  .name .n2 { color: rgba(255,255,255,0.85); font-weight: 800; font-size: 30px; margin-top: 6px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="cover">
+  <img class="photo" src="necla.jpg" alt="">
+  <div class="fade"></div>
+  <div class="tag">🧩 PART 2 · 7–12</div>
+  <div class="title">
+    <div class="l1">ÇOCUKLARDA KAYGIYI<br>ARTIRAN</div>
+    <div class="l2">12 ŞEY</div>
+  </div>
+  <div class="chips">
+    <div class="chip" style="background:#FF5E6C;color:#fff;transform:rotate(-3deg)">📢 Bağırmak</div>
+    <div class="chip" style="background:#FFC93C">⚠️ Sürekli uyarı</div>
+    <div class="chip" style="background:#34D399;transform:rotate(3deg)">😢 “Ağlama”</div>
+  </div>
+  <div class="name">
+    <div class="n1"><span>Pedagog</span>Necla SAYGIN</div>
+    <div class="n2">Çocuk Psikolojisi &amp; Dikkat Üzerine</div>
+  </div>
+</div>
+</body>
+</html>
