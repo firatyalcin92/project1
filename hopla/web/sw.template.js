@@ -1,7 +1,7 @@
 /*
  * Hopla service worker (derlemede üretilir). Oyun bir kez açıldıktan sonra internet olmadan
- * da açılır. Sayfa önce önbellekten gelir (anında başlar), arka planda güncellenir; yeni
- * sürüm bir sonraki açılışta görünür. Sıralama API'si (/api/…) bu kapsamın dışındadır.
+ * da açılır. Sayfa önce ağdan istenir (yeni sürüm hemen görünür); ağ yoksa ya da 3 saniyede
+ * yanıt gelmezse önbellekten açılır. Sıralama API'si (/api/…) bu kapsamın dışındadır.
  */
 const VERSION = 'hopla-__VERSION__'
 const PRECACHE = __PRECACHE__
@@ -33,21 +33,20 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return
 
   if (request.mode === 'navigate') {
-    // Önbellekten hemen aç, arka planda yenile.
+    // Önce ağ (yeni sürüm ilk yenilemede gelsin); ağ yoksa ya da çok yavaşsa önbellek.
     event.respondWith(
       caches.open(VERSION).then(async (cache) => {
-        const cached = (await cache.match(request, { ignoreSearch: true })) || (await cache.match('./'))
-        const fresh = fetch(request)
+        const fresh = fetch(request, { cache: 'no-cache' })
           .then((res) => {
             if (res.ok) cache.put('./', res.clone())
             return res
           })
           .catch(() => null)
-        if (cached) {
-          event.waitUntil(fresh)
-          return cached
-        }
-        return (await fresh) || Response.error()
+        const slow = new Promise((resolve) => setTimeout(() => resolve(null), 3000))
+        const res = await Promise.race([fresh, slow])
+        if (res) return res
+        const cached = (await cache.match(request, { ignoreSearch: true })) || (await cache.match('./'))
+        return cached || (await fresh) || Response.error()
       }),
     )
     return
