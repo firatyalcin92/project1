@@ -154,5 +154,9 @@ export function createSupabaseHoplaStore(url: string, serviceKey: string): Hopla
       const { error } = await players().update({ banned }).eq('id', id)
       check(error, 'setBanned')
     },
+    async deletePlayer(id) {
+      const { error } = await players().delete().eq('id', id)
+      check(error, 'deletePlayer')
+    },
   }
 }

@@ -2,7 +2,7 @@ import { NAME_MAX, checkNameShape, cleanName, type Profile } from '../../core/ap
 import { COUNTRY_CODES, flagEmoji, guessCountry, isCountryCode } from '../../core/countries'
 import type { RunResult } from './game'
 import { LANG, countryName, errorText, t } from './i18n'
-import { ApiFailure, type Net, type SubmitStatus } from './net'
+import { ApiFailure, PRIVACY_URL, type Net, type SubmitStatus } from './net'
 
 /**
  * DOM arayüzü: skor, başlık, bitti kartı, isim ve sıralama pencereleri.
@@ -323,6 +323,27 @@ export class UI {
     const save = h('button', { class: 'primary', type: 'submit' }, t.save)
     const later = h('button', { class: 'link', type: 'button' }, opts.first ? t.notNow : t.close)
     let ctrl: AbortController | null = null
+    // Kayıtlıysa: ismi ve skorları kalıcı silme (iki dokunuşla onay)
+    let armed = false
+    const remove = h('button', { class: 'link danger', type: 'button' }, t.deleteMe)
+    remove.addEventListener('click', async () => {
+      if (!armed) {
+        armed = true
+        remove.textContent = t.deleteConfirm
+        return
+      }
+      remove.disabled = true
+      try {
+        await this.net.deleteMe()
+        this.refreshPlayer()
+        close()
+        this.toast(t.deleted)
+      } catch (err) {
+        remove.disabled = false
+        error.textContent = errorText(err instanceof ApiFailure ? err.code : 'NETWORK')
+      }
+    })
+    const privacy = h('a', { class: 'link small', href: PRIVACY_URL, target: '_blank', rel: 'noopener' }, t.privacy)
 
     const form = h(
       'form',
@@ -334,6 +355,8 @@ export class UI {
       error,
       save,
       later,
+      this.net.registered && remove,
+      privacy,
     )
     const close = this.sheet(form, () => {
       ctrl?.abort()
@@ -381,6 +404,30 @@ export class UI {
     })
     if (!this.net.registered) void this.net.prepareRegistration().catch(() => {})
     if (!opts.first) setTimeout(() => input.focus(), 220)
+  }
+
+  private reportAction(row: HTMLElement, name: string) {
+    const next = row.nextElementSibling
+    if (next?.classList.contains('report')) {
+      next.remove()
+      return
+    }
+    for (const old of row.parentElement?.querySelectorAll('.report') ?? []) old.remove()
+    const btn = h('button', { class: 'link danger', type: 'button' }, t.report)
+    const box = h('div', { class: 'report' }, btn)
+    btn.addEventListener('click', async () => {
+      btn.disabled = true
+      try {
+        await this.net.report(name)
+        row.remove()
+        box.remove()
+        this.toast(t.reported)
+      } catch (err) {
+        btn.disabled = false
+        this.toast(errorText(err instanceof ApiFailure ? err.code : 'NETWORK'))
+      }
+    })
+    row.after(box)
   }
 
   /** Dünya / ülke / ülkeler sıralaması */
@@ -433,16 +480,17 @@ export class UI {
           if (!res.entries.length) list.append(h('div', { class: 'empty' }, t.empty))
           const me = this.net.profile?.name
           for (const e of res.entries) {
-            list.append(
-              h(
-                'div',
-                { class: `item${e.name === me ? ' me' : ''}` },
-                h('span', { class: 'rank' }, String(e.rank)),
-                h('span', { class: 'flag' }, flagEmoji(e.country)),
-                h('span', { class: 'who' }, h('span', { class: 'name' }, e.name)),
-                h('span', { class: 'pts' }, fmt(e.score)),
-              ),
+            const row = h(
+              'div',
+              { class: `item${e.name === me ? ' me' : ''}` },
+              h('span', { class: 'rank' }, String(e.rank)),
+              h('span', { class: 'flag' }, flagEmoji(e.country)),
+              h('span', { class: 'who' }, h('span', { class: 'name' }, e.name)),
+              h('span', { class: 'pts' }, fmt(e.score)),
             )
+            // Başkasının satırına dokununca "İsmi bildir" seçeneği açılır
+            if (e.name !== me) row.addEventListener('click', () => this.reportAction(row, e.name))
+            list.append(row)
           }
           if (res.me && !res.entries.some((e) => e.name === res.me!.name)) {
             foot.append(

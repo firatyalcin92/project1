@@ -24,6 +24,8 @@ const ORIGIN = (window.__HOPLA_NATIVE__?.api ?? (import.meta.env.VITE_HOPLA_API 
   .trim()
   .replace(/\/+$/, '')
 const BASE = ORIGIN + API_PREFIX
+/** Gizlilik ve destek sayfası (App Store için de bu adres verilir) */
+export const PRIVACY_URL = `${ORIGIN}/hopla/privacy.html`
 
 export class ApiFailure extends Error {
   constructor(
@@ -275,6 +277,19 @@ export class Net {
       this.forget()
       return false
     }
+  }
+
+  /** İsmi ve skoru sunucudan tamamen siler, bu cihazdaki kaydı unutur. */
+  async deleteMe() {
+    if (this.token)
+      await call<{ ok: true }>('/players/me', this.token, { method: 'DELETE', auth: true, timeout: 75_000 })
+    this.forget()
+    storage.set('pending', null)
+  }
+
+  /** Uygunsuz bir ismi bildirir */
+  report(name: string) {
+    return call<{ ok: true }>('/reports', this.token, { method: 'POST', body: { name }, auth: true, timeout: 75_000 })
   }
 
   leaderboard(scope: 'world' | 'country', country?: string) {

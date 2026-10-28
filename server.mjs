@@ -20,7 +20,14 @@ const { default: app } = await import('./dist/server/server.js')
 async function headers(request, next) {
   const res = await next()
   const { pathname } = new URL(request.url)
-  const h = new Headers(res.headers)
+  // Başlıklar yerinde değiştirilir: yanıt gövdesini yeni bir Response'a sarmak, srvx'in dosya
+  // akışlarında Node'u "ReadableStream is already closed" hatasıyla çökertebiliyor.
+  let h = res.headers
+  try {
+    h.set('x-content-type-options', 'nosniff')
+  } catch {
+    h = new Headers(res.headers)
+  }
   h.set('x-content-type-options', 'nosniff')
   h.set('referrer-policy', 'strict-origin-when-cross-origin')
   h.set('permissions-policy', 'camera=(), microphone=(), geolocation=()')
@@ -35,6 +42,7 @@ async function headers(request, next) {
   )
     h.set('cache-control', 'no-cache')
   if (pathname.startsWith('/_serverFn')) h.set('cache-control', 'no-store')
+  if (h === res.headers) return res
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h })
 }
 

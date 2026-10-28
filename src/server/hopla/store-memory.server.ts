@@ -130,5 +130,12 @@ export function createMemoryHoplaStore(): HoplaStore {
       const row = players.get(id)
       if (row) row.banned = banned
     },
+    async deletePlayer(id) {
+      const row = players.get(id)
+      if (!row) return
+      players.delete(id)
+      byToken.delete(row.token_hash)
+      byKey.delete(row.name_key)
+    },
   }
 }

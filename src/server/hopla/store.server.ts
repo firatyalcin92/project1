@@ -81,6 +81,8 @@ export interface HoplaStore {
   /** Hiç skor göndermemiş eski kayıtları siler (isim kapatmayı önler); silinen sayısı */
   deleteStale(beforeIso: string): Promise<number>
   setBanned(id: string, banned: boolean): Promise<void>
+  /** Oyuncunun kendi isteğiyle kaydını ve skorunu tamamen siler */
+  deletePlayer(id: string): Promise<void>
 }
 
 let cached: HoplaStore | null = null

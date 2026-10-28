@@ -479,6 +479,31 @@ button:disabled {
   font-weight: 700;
 }
 
+.link.danger {
+  color: #b4472b;
+}
+
+.link.small {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.list .item:not(.me) {
+  cursor: pointer;
+}
+
+.list .report {
+  text-align: right;
+  padding: 0 4px 6px;
+}
+
+.list .report .link {
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
 /* ---------------------------------------------------------------- isim */
 
 .name-card {

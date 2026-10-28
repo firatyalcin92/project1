@@ -188,5 +188,8 @@ export function createSqliteHoplaStore(path: string): HoplaStore {
     async setBanned(id, banned) {
       run('update hopla_players set banned = ? where id = ?', banned ? 1 : 0, id)
     },
+    async deletePlayer(id) {
+      run('delete from hopla_players where id = ?', id)
+    },
   }
 }

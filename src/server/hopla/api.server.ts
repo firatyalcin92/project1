@@ -45,7 +45,7 @@ class ApiError extends Error {
 const CORS: Record<string, string> = {
   // Kimlik çerez değil Bearer anahtarı olduğundan her köken güvenle izinlidir (uygulama, web).
   'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
+  'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'access-control-allow-headers': 'content-type, authorization, x-admin-password',
   'access-control-max-age': '86400',
 }
@@ -152,6 +152,7 @@ export function __resetHoplaApiForTests() {
   buckets.clear()
   cache.clear()
   usedChallenges.clear()
+  reports.clear()
   secretCache = null
   lastCleanup = 0
 }
@@ -172,6 +173,14 @@ const ScoreBody = z.object({
   score: z.number().int().min(0).max(100_000_000),
 })
 const BanBody = z.object({ name: z.string().max(80), banned: z.boolean().optional() })
+const ReportBody = z.object({ name: z.string().max(80) })
+
+/**
+ * Uygunsuz isim bildirimleri: farklı ağlardan bu kadar bildirim gelen isim, yönetici bakana dek
+ * sıralamadan gizlenir (/admin/ban ile geri açılabilir). Bildirimler sunucu günlüğüne de yazılır.
+ */
+const reportsToHide = () => envInt('HOPLA_REPORTS_TO_HIDE', 3, 1, 1000)
+const reports = new Map<string, Set<string>>()
 
 async function body<T>(request: Request, schema: z.ZodType<T>, max = 8 * 1024): Promise<T> {
   if (Number(request.headers.get('content-length') ?? 0) > max) throw new ApiError(413, 'BAD_REQUEST')
@@ -365,6 +374,39 @@ async function route(request: Request, ip: string): Promise<Response> {
     if (row === 'name_taken') throw new ApiError(409, 'NAME_TAKEN')
     cache.clear()
     return json(200, { profile: await profileOf(store, row) })
+  }
+
+  if (key === 'DELETE /players/me') {
+    limit(`delete:${ip}`, 10, HOUR)
+    const store = await getHoplaStore()
+    const p = await requirePlayer(request, store)
+    await store.deletePlayer(p.id)
+    reports.delete(p.id)
+    cache.clear()
+    return json(200, { ok: true })
+  }
+
+  if (key === 'POST /reports') {
+    limit(`report:${ip}`, 20, HOUR)
+    const b = await body(request, ReportBody)
+    const store = await getHoplaStore()
+    const target = await store.playerByNameKey(nameKey(cleanName(b.name)))
+    const me = await authed(request, store).catch(() => null)
+    if (target && !target.banned && target.id !== me?.id) {
+      const set = reports.get(target.id) ?? new Set<string>()
+      set.add(hashIp(ip))
+      reports.set(target.id, set)
+      console.warn(`[hopla] isim bildirildi: "${target.name}" (${set.size} bildirim)`)
+      if (set.size >= reportsToHide()) {
+        await store.setBanned(target.id, true)
+        reports.delete(target.id)
+        cache.clear()
+        console.warn(`[hopla] isim gizlendi: "${target.name}"`)
+      }
+      if (reports.size > 20_000) reports.clear()
+    }
+    // Sonuç her durumda aynı (isimlerin varlığı bu yolla yoklanamasın)
+    return json(200, { ok: true })
   }
 
   if (key === 'POST /runs') {

@@ -406,6 +406,42 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       expect((await register('Berlin', 'DE', '9.9.9.9')).data.error.code).toBe('NAME_TAKEN')
     })
 
+    it('oyuncu ismini ve skorunu kalıcı olarak silebilir; isim yeniden alınabilir', async () => {
+      const a = await scored('Silinecek', 'TR', 5, 6, '1.0.0.5')
+      expect((await call('DELETE', '/players/me')).status).toBe(401)
+      const del = await call('DELETE', '/players/me', { token: a.token })
+      expect(del.data).toEqual({ ok: true })
+      expect((await call('GET', '/players/me', { token: a.token })).status).toBe(401)
+      const world = await call('GET', '/leaderboard?scope=world')
+      expect(world.data.entries.map((e: Json) => e.name)).not.toContain('Silinecek')
+      expect((await register('Silinecek', 'TR', '1.0.0.6')).status).toBe(201)
+    })
+
+    it('farklı ağlardan 3 bildirim alan isim gizlenir; kendini bildirmek sayılmaz', async () => {
+      const bad = await scored('Bildirilen', 'TR', 6, 5, '2.0.0.1')
+      const names = async () =>
+        (await call('GET', '/leaderboard?scope=world')).data.entries.map((e: Json) => e.name) as string[]
+      // kendi ismini bildirmek ve aynı ağdan tekrar bildirmek sayılmaz
+      await call('POST', '/reports', { body: { name: 'Bildirilen' }, token: bad.token, ip: '2.0.0.1' })
+      await call('POST', '/reports', { body: { name: 'bildirilen' }, ip: '3.0.0.1' })
+      await call('POST', '/reports', { body: { name: 'Bildirilen' }, ip: '3.0.0.1' })
+      expect(await names()).toContain('Bildirilen')
+      await call('POST', '/reports', { body: { name: 'Bildirilen' }, ip: '3.0.0.2' })
+      expect(await names()).toContain('Bildirilen')
+      const r = await call('POST', '/reports', { body: { name: 'Bildirilen' }, ip: '3.0.0.3' })
+      expect(r.data).toEqual({ ok: true })
+      expect(await names()).not.toContain('Bildirilen')
+      // olmayan isim için de aynı yanıt
+      expect((await call('POST', '/reports', { body: { name: 'Yokboyle' }, ip: '3.0.0.4' })).data).toEqual({ ok: true })
+      // yönetici geri açabilir
+      process.env.HOPLA_ADMIN_PASSWORD = 'gizli-sifre'
+      await call('POST', '/admin/ban', {
+        body: { name: 'Bildirilen', banned: false },
+        headers: { 'x-admin-password': 'gizli-sifre' },
+      })
+      expect(await names()).toContain('Bildirilen')
+    })
+
     it('kötüye kullanımda hız sınırı', async () => {
       let last = 0
       for (let i = 0; i < 32; i++) last = (await call('POST', '/challenge', { ip: '7.7.7.7' })).status
