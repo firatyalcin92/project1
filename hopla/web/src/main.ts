@@ -49,6 +49,14 @@ function start() {
         game.restart()
         ui.setScore(0)
         ui.showHud(true)
+        ui.showHome(true)
+      }),
+    home: () =>
+      void ui.fadeThrough(() => {
+        ui.showHome(false)
+        ui.showHud(false)
+        game.home()
+        ui.showTitle(true)
       }),
     toggleSound: () => {
       sound.setEnabled(!sound.enabled)
@@ -126,6 +134,7 @@ function start() {
       }
       e.preventDefault()
       sound.unlock()
+      ui.showHome(false)
       game.press(eventTime(e.timeStamp))
     },
     { passive: false },
@@ -156,6 +165,7 @@ function start() {
     }
     keyDown = true
     sound.unlock()
+    ui.showHome(false)
     game.press(eventTime(e.timeStamp))
   })
   // iOS Safari sesi yalnızca dokunuş bitince açar.

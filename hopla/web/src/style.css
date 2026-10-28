@@ -163,6 +163,15 @@ button:disabled {
   gap: 10px;
 }
 
+.icon.home {
+  position: absolute;
+  top: calc(var(--top) + 12px);
+  left: 14px;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s;
+}
+
 .spacer {
   flex: 1;
 }

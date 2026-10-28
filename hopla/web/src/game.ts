@@ -134,6 +134,13 @@ export class Game {
     this.wake()
   }
 
+  /** Başlangıç ekranına dön (oyun hazır kalır; ilk dokunuşta başlar). */
+  home() {
+    if (this.phase !== 'idle') return
+    this.phase = 'intro'
+    this.hero.face.set(EXPR.idle)
+  }
+
   /** Bitti ekranından yeni oyun. */
   restart() {
     this.setup('idle')

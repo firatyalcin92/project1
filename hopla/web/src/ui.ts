@@ -16,6 +16,7 @@ const ICON = {
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4ZM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
   soundOff:
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4ZM16 9.5l5 5M21 9.5l-5 5"/></svg>',
+  home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5M6.5 9.8V19h4v-5h3v5h4V9.8"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>',
 }
 
@@ -42,6 +43,8 @@ const fmt = (n: number) => n.toLocaleString(LANG === 'tr' ? 'tr-TR' : undefined)
 
 export interface UIHandlers {
   restart(): void
+  /** Başlangıç ekranına dön */
+  home(): void
   toggleSound(): boolean
   soundOn(): boolean
   /** İsim kaydedildikten sonra (bekleyen skor gönderilir) */
@@ -55,6 +58,7 @@ export class UI {
   private readonly chip: HTMLButtonElement
   private readonly soundBtn: HTMLButtonElement
   private readonly fade: HTMLElement
+  private readonly homeBtn: HTMLButtonElement
   private readonly toastEl: HTMLElement
   private overEl: HTMLElement | null = null
   private overStatus: HTMLElement | null = null
@@ -98,9 +102,18 @@ export class UI {
       ),
       h('div', { class: 'hint' }, h('span', { class: 'press', 'aria-hidden': 'true' }), t.hint),
     )
+    // Yeniden başlayan oyunda başlangıç ekranına dönüş; ilk dokunuşta kaybolur.
+    this.homeBtn = h('button', {
+      class: 'icon home hidden',
+      type: 'button',
+      'aria-label': t.home,
+      title: t.home,
+      html: ICON.home,
+      onclick: () => handlers.home(),
+    })
     this.fade = h('div', { class: 'fade' })
     this.toastEl = h('div', { class: 'toast', role: 'status' })
-    root.append(this.hud, this.title, this.fade, this.toastEl)
+    root.append(this.hud, this.title, this.homeBtn, this.fade, this.toastEl)
     this.paintSound()
     this.refreshPlayer()
   }
@@ -132,6 +145,10 @@ export class UI {
   }
 
   // ------------------------------------------------------------ başlık
+
+  showHome(show: boolean) {
+    this.homeBtn.classList.toggle('hidden', !show)
+  }
 
   showTitle(show: boolean) {
     this.title.classList.toggle('hidden', !show)
