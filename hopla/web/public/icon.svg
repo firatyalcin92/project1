@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f9f6f1"/><stop offset="1" stop-color="#ebe4da"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff7a45"/><stop offset="0.55" stop-color="#f2551d"/><stop offset="1" stop-color="#d9440d"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g transform="translate(256 256) scale(1) translate(-256 -256)">
+    <ellipse cx="306" cy="410" rx="120" ry="34" fill="#5a4434" opacity=".16" filter="url(#soft)"/>
+    <path d="M256 284 L424 368 L256 452 L88 368 Z" fill="#ffffff"/>
+    <path d="M88 368 L256 452 L256 484 L88 400 Z" fill="#e7dfd4"/>
+    <path d="M256 452 L424 368 L424 400 L256 484 Z" fill="#d3c8ba"/>
+    <ellipse cx="274" cy="370" rx="48" ry="16" fill="#5a4434" opacity=".18" filter="url(#soft)"/>
+    <rect x="210" y="150" width="92" height="218" rx="46" fill="url(#hero)"/>
+    <rect x="226" y="172" width="16" height="84" rx="8" fill="#ffffff" opacity=".28"/>
+  </g>
+</svg>
