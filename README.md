@@ -29,6 +29,12 @@ Gottman yaklaşımlarından ilham alınarak tasarlandı.
 
 ---
 
+## Hopla (oyun)
+
+Bu depoda MESELE'nin yanında, tek parmakla oynanan minimalist 3D zıplama oyunu **Hopla** da var. Aynı Render
+servisinde `/hopla/` adresinde yayınlanır; sıralama API'si `/api/hopla/v1` altındadır ve MESELE'nin
+tablolarına dokunmaz. iOS/Android uygulaması `hopla/mobile` (Expo). Ayrıntılar: [`hopla/README.md`](./hopla/README.md).
+
 ## En kolay yol: tek linkle yayınla (Render)
 
 **Her push'ta otomatik yayın:** `.github/workflows/render-deploy.yml` testleri ve derlemeyi çalıştırır, geçerse Render'ın

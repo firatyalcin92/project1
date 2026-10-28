@@ -204,7 +204,12 @@ function start() {
 start()
 
 // Çevrimdışı oynanabilsin diye service worker (yalnızca web sürümünde, https/localhost'ta)
-if (import.meta.env.PROD && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
+if (
+  import.meta.env.PROD &&
+  import.meta.env.MODE !== 'native' &&
+  'serviceWorker' in navigator &&
+  location.protocol.startsWith('http')
+) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {})
   })

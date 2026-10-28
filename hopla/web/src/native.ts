@@ -12,7 +12,8 @@ interface NativeBridge {
 declare global {
   interface Window {
     ReactNativeWebView?: NativeBridge
-    __HOPLA_NATIVE__?: { store?: Record<string, string>; platform?: string }
+    /** Uygulama kabuğunun sayfa yüklenmeden önce verdiği değerler (kayıtlı veriler, sunucu adresi) */
+    __HOPLA_NATIVE__?: { store?: Record<string, string>; platform?: string; api?: string }
   }
 }
 

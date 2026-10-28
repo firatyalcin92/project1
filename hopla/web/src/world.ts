@@ -80,7 +80,9 @@ export class World {
     const w = Math.max(1, this.container.clientWidth)
     const h = Math.max(1, this.container.clientHeight)
     const aspect = w / h
-    const viewH = Math.max(VIEW.width / aspect, VIEW.minHeight)
+    // Büyük ekranlarda (tablet, masaüstü) nesneler aşırı büyümesin: en fazla maxPxPerUnit piksel/birim.
+    const viewW0 = Math.max(VIEW.width, w / VIEW.maxPxPerUnit)
+    const viewH = Math.max(viewW0 / aspect, VIEW.minHeight)
     const viewW = viewH * aspect
     const cam = this.camera
     cam.left = -viewW / 2

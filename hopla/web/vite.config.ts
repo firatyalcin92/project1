@@ -44,6 +44,47 @@ function serviceWorker(): Plugin {
   }
 }
 
+/**
+ * Uygulama derlemesi: JS ve CSS index.html'in içine gömülür ve Expo uygulamasının doğrudan
+ * içe aktardığı html.ts üretilir (uygulama internetsiz açılır, sunucu yalnızca sıralama için).
+ */
+function singleFile(): Plugin {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return {
+    name: 'hopla-single-file',
+    apply: 'build',
+    enforce: 'post',
+    generateBundle(_options, bundle) {
+      const page = bundle['index.html']
+      if (!page || page.type !== 'asset') return
+      let html = String(page.source)
+      for (const [name, item] of Object.entries(bundle)) {
+        if (item.type === 'chunk' && item.isEntry) {
+          const code = item.code.replace(/<\/script/gi, '<\\/script')
+          html = html.replace(
+            new RegExp(`<script[^>]*src="\\./${esc(name)}"[^>]*></script>`),
+            () => `<script type="module">${code}</script>`,
+          )
+          delete bundle[name]
+        } else if (item.type === 'asset' && name.endsWith('.css')) {
+          html = html.replace(
+            new RegExp(`<link[^>]*href="\\./${esc(name)}"[^>]*>`),
+            () => `<style>${String(item.source)}</style>`,
+          )
+          delete bundle[name]
+        }
+      }
+      html = html.replace(/<link rel="(manifest|icon|apple-touch-icon)"[^>]*>\s*/g, '')
+      page.source = html
+      this.emitFile({
+        type: 'asset',
+        fileName: 'html.ts',
+        source: `// Otomatik üretildi (npm run hopla:native). Elle düzenlemeyin.\nexport default ${JSON.stringify(html)}\n`,
+      })
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const native = mode === 'native'
   return {
@@ -67,6 +108,6 @@ export default defineConfig(({ mode }) => {
       proxy: { '/api/hopla': 'http://localhost:3000' },
     },
     preview: { port: 4173, host: true },
-    plugins: native ? [] : [serviceWorker()],
+    plugins: native ? [singleFile()] : [serviceWorker()],
   }
 })

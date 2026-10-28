@@ -45,7 +45,6 @@ const targets = [
   { file: 'web/public/icons/apple-touch-icon.png', size: 180, svg: svg({ rounded: false, scale: 0.9 }) },
   { file: 'mobile/assets/icon.png', size: 1024, svg: svg({ rounded: false, scale: 0.9 }) },
   { file: 'mobile/assets/adaptive-icon.png', size: 1024, svg: svg({ rounded: false, scale: 0.62, background: false }) },
-  { file: 'mobile/assets/splash-icon.png', size: 512, svg: svg({ rounded: true, scale: 1 }) },
 ]
 
 const browser = await chromium.launch(

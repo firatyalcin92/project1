@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Hopla",
+    "slug": "hopla",
+    "version": "0.1.0",
+    "scheme": "hopla",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#f3efe8",
+    "ios": {
+      "bundleIdentifier": "com.firatyalcin.hopla",
+      "supportsTablet": false,
+      "requireFullScreen": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.firatyalcin.hopla",
+      "adaptiveIcon": {
+        "backgroundColor": "#f3efe8",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    }
+  }
+}

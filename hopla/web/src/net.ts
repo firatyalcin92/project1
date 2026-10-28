@@ -20,7 +20,9 @@ import { solve } from './pow'
  * arka planda yapılır, başarısız olursa oyun sessizce çevrimdışı devam eder.
  * Sunucu adresi: aynı köken (web) ya da VITE_HOPLA_API (uygulama derlemesi).
  */
-const ORIGIN = ((import.meta.env.VITE_HOPLA_API as string | undefined) ?? '').trim().replace(/\/+$/, '')
+const ORIGIN = (window.__HOPLA_NATIVE__?.api ?? (import.meta.env.VITE_HOPLA_API as string | undefined) ?? '')
+  .trim()
+  .replace(/\/+$/, '')
 const BASE = ORIGIN + API_PREFIX
 
 export class ApiFailure extends Error {

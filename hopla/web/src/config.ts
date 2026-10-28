@@ -15,6 +15,8 @@ export const VIEW = {
   width: 11.5,
   /** Yatay/geniş ekranlarda en az görünen yükseklik */
   minHeight: 15,
+  /** Büyük ekranlarda bir dünya biriminin en fazla kaç CSS pikseli olacağı */
+  maxPxPerUnit: 58,
   /** Odak noktası ekranın üstünden bu oranda aşağıda */
   focusFromTop: 0.57,
   /** Kameranın odağa göre konumu (izometriğe yakın, ~44° yükseklik) */
