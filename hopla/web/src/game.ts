@@ -2,6 +2,7 @@ import { Quaternion, Vector3, type Object3D } from 'three'
 import { PHYSICS, jumpPosition, newRun, step, type Jump, type Platform, type RunState } from '../../core/sim'
 import { Effects, clamp01, ease, spring, timed } from './anim'
 import { HERO, SQUASH } from './config'
+import { EXPR } from './face'
 import { Hero, Ripple, createPlatform, disposePlatform } from './meshes'
 import type { World } from './world'
 
@@ -111,7 +112,9 @@ export class Game {
     const mesh = this.meshes.get(p.i)
     if (mesh) mesh.scale.y = 1
     this.hero.squash.scale.set(1, 1, 1)
+    this.hero.spin.position.x = this.hero.spin.position.z = 0
     this.hero.root.position.y = p.height
+    this.hero.face.set(EXPR.idle)
     this.wake()
   }
 
@@ -141,6 +144,7 @@ export class Game {
     this.addPlatform(1, false)
     const p0 = this.run.level.get(0)
     this.hero.reset()
+    this.hero.face.snap(EXPR.idle)
     this.hero.root.position.set(p0.x, p0.height, p0.z)
     this.aimCamera()
     this.world.snap()
@@ -184,18 +188,27 @@ export class Game {
     this.events.charge(true)
   }
 
-  private applyCharge(c: number) {
+  /** c: şarj oranı (0..1). Görünüm erken tepki versin diye ezilme hızlı başlar. */
+  private applyCharge(c: number, now = 0) {
     const p = this.run.level.get(this.run.cur)
-    const s = 1 - SQUASH.platform * c
+    const k = ease.outQuad(c)
+    const s = 1 - SQUASH.platform * k
     const mesh = this.meshes.get(p.i)
     if (mesh) mesh.scale.y = s
-    this.hero.squash.scale.set(1 + SQUASH.heroXZ * c, 1 - SQUASH.heroY * c, 1 + SQUASH.heroXZ * c)
+    this.hero.squash.scale.set(1 + SQUASH.heroXZ * k, 1 - SQUASH.heroY * k, 1 + SQUASH.heroXZ * k)
     this.hero.root.position.y = p.height * s
+    // Sona doğru gerilip titrer
+    const shake = 0.014 * clamp01((c - 0.7) / 0.3)
+    this.hero.spin.position.x = shake * Math.sin(now * 0.09)
+    this.hero.spin.position.z = shake * Math.cos(now * 0.071)
+    this.hero.face.set(EXPR.charge(c))
   }
 
   private jump(hold: number) {
     const c = clamp01(hold / PHYSICS.holdMaxMs)
     this.applyCharge(c)
+    this.hero.spin.position.x = this.hero.spin.position.z = 0
+    this.hero.face.set(EXPR.flying(c))
     this.events.charge(false)
     const res = step(this.run, hold)
     this.holds.push(hold)
@@ -256,6 +269,7 @@ export class Game {
       this.landSquash()
       const mesh = this.meshes.get(p.i)
       if (mesh) this.bounce(mesh, -0.05, 0.5)
+      this.mood(o.kind === 'land' && o.perfect)
       if (o.kind === 'land') {
         if (o.perfect) this.rippleAt(p)
         this.addPlatform(this.run.cur + 1, true)
@@ -275,6 +289,7 @@ export class Game {
     }
 
     this.phase = 'falling'
+    hero.face.set(EXPR.shocked)
     this.events.fell()
     if (o.kind === 'edge') {
       const p = o.on === 'target' ? f.to : f.from
@@ -307,12 +322,32 @@ export class Game {
       root.position.copy(start).applyQuaternion(Q).add(pivot)
     }
     const finish = () => {
-      // Kısa bir duraklamadan sonra bitti ekranı
+      // Yere çarpınca: çarpı gözler, kafa birkaç kez sekip yatışır; ardından bitti ekranı.
+      this.hero.face.set(EXPR.dizzy)
+      const q0 = root.quaternion.clone()
+      const sq = this.hero.squash
       this.effects.add(
         timed(
-          0.55,
-          () => {},
-          () => this.over(),
+          0.75,
+          (t) => {
+            const time = t * 0.75
+            const lift = 0.13 * Math.abs(Math.sin(time * 13)) * Math.exp(-time * 5.5)
+            Q.setFromAxisAngle(axis, -lift)
+            root.quaternion.copy(Q).multiply(q0)
+            const j = spring(0.07, time, 5, 0.25)
+            sq.scale.set(1 - j * 0.5, 1 + j, 1 - j * 0.5)
+          },
+          () => {
+            root.quaternion.copy(q0)
+            sq.scale.set(1, 1, 1)
+            this.effects.add(
+              timed(
+                0.25,
+                () => {},
+                () => this.over(),
+              ),
+            )
+          },
         ),
       )
     }
@@ -385,6 +420,26 @@ export class Game {
     )
   }
 
+  /** İnişten sonra yüz: tam isabette bir süre gülen gözler, sonra sakin. */
+  private mood(perfect: boolean) {
+    const face = this.hero.face
+    if (!perfect) {
+      face.set(EXPR.idle)
+      return
+    }
+    face.set(EXPR.happy)
+    const jumps = this.run.jumps
+    this.effects.add(
+      timed(
+        0.9,
+        () => {},
+        () => {
+          if (this.phase === 'idle' && this.run.jumps === jumps) face.set(EXPR.idle)
+        },
+      ),
+    )
+  }
+
   private rippleAt(p: Platform) {
     const ring = this.ripple.mesh
     ring.visible = true
@@ -411,6 +466,7 @@ export class Game {
       this.phase === 'flying' ||
       this.phase === 'falling' ||
       this.effects.active ||
+      !this.hero.face.settled ||
       !this.world.settled
     )
   }
@@ -426,9 +482,10 @@ export class Game {
   private readonly frame = (now: number) => {
     const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000))
     this.last = now
-    if (this.phase === 'charging') this.applyCharge(clamp01((now - this.pressAt) / PHYSICS.holdMaxMs))
+    if (this.phase === 'charging') this.applyCharge(clamp01((now - this.pressAt) / PHYSICS.holdMaxMs), now)
     if (this.phase === 'flying') this.updateFlight(dt, now)
     this.effects.update(dt)
+    this.hero.face.update(dt)
     this.world.update(dt)
     this.world.render()
     this.idle = this.busy ? 0 : this.idle + dt

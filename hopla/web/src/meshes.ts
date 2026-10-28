@@ -6,6 +6,7 @@ import {
   LatheGeometry,
   Mesh,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   RingGeometry,
   SplineCurve,
@@ -16,7 +17,8 @@ import {
 } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import type { Platform } from '../../core/sim'
-import { COLORS, HERO } from './config'
+import { COLORS, HERO, VIEW } from './config'
+import { Face } from './face'
 
 const materials = new Map<string, MeshStandardMaterial>()
 
@@ -177,27 +179,59 @@ export function disposePlatform(obj: Object3D) {
   obj.removeFromParent()
 }
 
-/** Fasulye insan: tek parça; altta geniş etek, ince bel, yuvarlak baş. Boyu HERO.height. */
-function beanGeometry() {
-  const k = HERO.height / 1.52
-  const r = HERO.radius / 0.37 // taban yarıçapı fizikteki kahraman yarıçapıyla aynı
-  const pts: [number, number][] = [
-    [0.001, 0],
-    [0.36, 0.02],
-    [0.37, 0.18],
-    [0.27, 0.5],
-    [0.19, 0.82],
-    [0.24, 1.08],
-    [0.26, 1.25],
-    [0.2, 1.44],
-    [0.001, 1.52],
-  ]
-  const curve = new SplineCurve(pts.map(([x, y]) => new Vector2(x * r, y * k)))
-  return new LatheGeometry(curve.getPoints(64), 40)
+/** Sosis profili: gövde hafif tombul, uçlar küt yuvarlak (süperelips). Taban yarıçapı fizikle aynı. */
+const END = 0.3
+export function sausageRadius(y: number) {
+  const h = HERO.height
+  const mid = HERO.radius + 0.022 * Math.sin((Math.PI * clamp(y, 0, h)) / h)
+  const d = y < END ? (END - y) / END : y > h - END ? (y - (h - END)) / END : 0
+  return mid * Math.pow(Math.max(0, 1 - Math.pow(Math.min(1, d), 2.3)), 1 / 2.3)
+}
+
+const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x))
+
+/** Sosis kıvrımı: uçlar eksende, orta kısım ekranda sağa doğru hafifçe kavislenir. */
+const BEND_DIR = { x: Math.SQRT1_2, z: Math.SQRT1_2 }
+export function sausageBend(y: number) {
+  const t = clamp(y / HERO.height, 0, 1) * 2 - 1
+  return 0.05 * (1 - t * t)
+}
+
+function sausageGeometry() {
+  const pts: Vector2[] = []
+  const n = 72
+  for (let i = 0; i <= n; i++) {
+    // Uçlarda daha sık örnek (yuvarlaklık düzgün görünsün)
+    const t = 0.5 - 0.5 * Math.cos((Math.PI * i) / n)
+    const y = t * HERO.height
+    pts.push(new Vector2(Math.max(0.0005, sausageRadius(y)), y))
+  }
+  const g = new LatheGeometry(pts, 48)
+  const pos = g.attributes.position!
+  for (let i = 0; i < pos.count; i++) {
+    const b = sausageBend(pos.getY(i))
+    pos.setXYZ(i, pos.getX(i) + b * BEND_DIR.x, pos.getY(i), pos.getZ(i) + b * BEND_DIR.z)
+  }
+  g.computeVertexNormals()
+  return g
+}
+
+/** Tepedeki bağ düğümü (kılıfın büküldüğü uç) */
+function knotGeometry() {
+  const pts = [
+    [0.0005, -0.02],
+    [0.07, -0.015],
+    [0.042, 0.02],
+    [0.03, 0.045],
+    [0.042, 0.07],
+    [0.036, 0.095],
+    [0.0005, 0.105],
+  ].map(([x, y]) => new Vector2(x!, y!))
+  return new LatheGeometry(new SplineCurve(pts).getPoints(24), 20)
 }
 
 /**
- * Kahraman: turuncu fasulye insan.
+ * Kahraman: yüzlü sosis.
  * root (tabandaki nokta, devrilmede döner) → squash (ezilme) → spin (gövde ortası, takla) → body
  */
 export class Hero {
@@ -205,14 +239,37 @@ export class Hero {
   readonly squash = new Group()
   readonly spin = new Group()
   readonly height = HERO.height
+  readonly face: Face
 
   constructor() {
-    const body = new Mesh(
-      beanGeometry(),
-      new MeshStandardMaterial({ color: COLORS.hero, roughness: 0.48, metalness: 0 }),
-    )
+    const skin = new MeshPhysicalMaterial({
+      color: COLORS.hero,
+      roughness: 0.42,
+      metalness: 0,
+      clearcoat: 0.55,
+      clearcoatRoughness: 0.32,
+      sheen: 0.4,
+      sheenRoughness: 0.5,
+      sheenColor: new Color(0xffc2a8),
+    })
+    const body = new Mesh(sausageGeometry(), skin)
     body.castShadow = true
     body.receiveShadow = true
+    const knot = new Mesh(knotGeometry(), new MeshStandardMaterial({ color: COLORS.heroKnot, roughness: 0.55 }))
+    knot.position.y = HERO.height - 0.012
+    knot.rotation.z = -0.12
+    knot.castShadow = true
+    body.add(knot)
+    const [cx, cy, cz] = VIEW.cameraOffset
+    this.face = new Face({
+      radius: sausageRadius,
+      y: HERO.height * 0.68,
+      angle: Math.atan2(cz, cx),
+      tilt: cy / Math.hypot(cx, cz),
+      bend: sausageBend,
+      bendDir: BEND_DIR,
+    })
+    body.add(this.face.group)
     body.position.y = -this.height / 2
     this.spin.position.y = this.height / 2
     this.spin.add(body)
@@ -223,6 +280,7 @@ export class Hero {
   reset() {
     this.root.quaternion.identity()
     this.spin.quaternion.identity()
+    this.spin.position.set(0, this.height / 2, 0)
     this.squash.scale.set(1, 1, 1)
   }
 }

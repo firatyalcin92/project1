@@ -1,6 +1,7 @@
 import './style.css'
 import { PHYSICS } from '../../core/sim'
 import { Sound } from './audio'
+import { EXPR } from './face'
 import { Game } from './game'
 import { LANG } from './i18n'
 import { haptic, storage } from './native'
@@ -183,7 +184,7 @@ function start() {
   // Yerel kabuk (Expo) uygulama arka plana geçince bunu çağırır.
   ;(window as unknown as { hopla: unknown }).hopla = { pause }
   if (new URLSearchParams(location.search).has('debug')) {
-    ;(window as unknown as { __hopla: unknown }).__hopla = { game, net, ui }
+    ;(window as unknown as { __hopla: unknown }).__hopla = { game, net, ui, expr: EXPR }
   }
 
   // ------------------------------------------------------------ arka plan işleri

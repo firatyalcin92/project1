@@ -6,12 +6,14 @@ import {
   OrthographicCamera,
   PCFShadowMap,
   PlaneGeometry,
+  PMREMGenerator,
   Scene,
   ShadowMaterial,
   SRGBColorSpace,
   Vector3,
   WebGLRenderer,
 } from 'three'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { COLORS, VIEW } from './config'
 
 /**
@@ -22,7 +24,7 @@ export class World {
   readonly renderer: WebGLRenderer
   readonly scene = new Scene()
   readonly camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 120)
-  readonly sun = new DirectionalLight(0xfff7ef, 2.5)
+  readonly sun = new DirectionalLight(0xfff4e8, VIEW.sun)
   readonly focus = new Vector3()
   readonly goal = new Vector3()
   private readonly ground: Mesh
@@ -46,7 +48,12 @@ export class World {
     container.appendChild(renderer.domElement)
     this.renderer = renderer
 
-    this.scene.add(new HemisphereLight(0xffffff, 0xd2c6b9, 2.1))
+    // Yumuşak oda yansıması: yüzeylere hacim ve parlaklık verir (yalnızca açılışta bir kez hesaplanır).
+    const pmrem = new PMREMGenerator(renderer)
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    this.scene.environmentIntensity = VIEW.envIntensity
+    pmrem.dispose()
+    this.scene.add(new HemisphereLight(0xffffff, 0xd2c6b9, VIEW.hemi))
 
     const sun = this.sun
     sun.castShadow = true
