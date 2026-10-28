@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels v16 — Günde kaç dakika ekran?</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+  #f { position: absolute; left: 0; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<canvas id="f" width="1080" height="1920"></canvas>
+<script src="../engine.js"></script>
+<script src="../follow.js"></script>
+<script src="../splitfull.js"></script>
+<script>
+// Video 16: Çocuğum günde kaç dakika ekran izlemeli? Yaşa göre süreler + neden sınır. Altyazı yok.
+// Açılış ~9 sn tam ekran konuşmacı → bölünmüş ekran; altta önceki videoların çocuk görüntüleri ağırlıkta,
+// konuşmacı iki kısa anda ve kapanışta. Tam ekranda yazılar yüzün altında.
+const DURATION = 141.18;
+const SRC = { w: 1266, h: 2246 };
+const BAND = { x: 137, y: 367, w: 991, h: 881 };
+const FULLV = { x: 2, y: 0, w: 1262, h: 2244 };
+const AVATAR = { chain: `crop=${BAND.w}:${BAND.h}:${BAND.x}:${BAND.y},scale=1620:1440:flags=lanczos`, focusY: 0.35 };
+const INTRO = { hold: 7.6, len: 1.2 };
+const OUTRO = { at: 1e9, len: 1 };
+const FULL_RANGES = [[0, INTRO.hold + INTRO.len]];
+const TOP_CLIPS = [{ name: 'avIn', src: 'avatar_src.mp4', from: 0, start: 0, end: INTRO.hold + INTRO.len + 0.2 }];
+const CHUNKS = [];
+
+// Alt bölüm: 'A' = konuşmacı; diğerleri [kaynak, başlangıç, bitiş, kaynaktaki başlangıç, dikey odak]
+const S12 = '../v12/clips/stok.mp4', S10 = '../v10/clips/stok.mp4', S9 = '../v9/clips/stok.mp4', S8 = '../v8/clips/stok.mp4';
+const KURE = '../v4/clips/kure.mp4', BLOK = '../v4/clips/bloklar.mp4', DALGIN = '../v5/clips/dalgin.mp4', OKUMA = '../v5/clips/okuma.mp4';
+const BOTTOM_PLAN = [
+  ['A', 0, INTRO.hold + INTRO.len],
+  [S9, 8.8, 12.0, 1.0, 0.45],                      // ekranın etkisi → telefon tutan eller
+  [S9, 12.0, 15.0, 15.0, 0.35],                    // nelerden geri kalıyor → cihaza bakan çocuklar
+  ['A', 15.0, 16.7],                               // yaş yaş bakalım
+  [S9, 16.7, 21.9, 50.0, 0.35],                    // 0–2 yaş → bebek
+  [S8, 21.9, 24.9, 19.5, 0.3],                     // görüntülü görüşme
+  [S10, 24.9, 30.8, 88.5, 0.35],                   // dedesiyle, nenesiyle
+  [S12, 30.8, 37.6, 70.0, 0.4],                    // 2 yaş, 1 saat
+  [BLOK, 37.6, 42.5, 2.0, 0.08],                   // 3 yaş 30 dk
+  [KURE, 42.5, 46.8, 2.0, 0.3],                    // 4–5 yaş
+  [S12, 46.8, 49.0, 55.0, 0.4],                    // 6 yaş
+  [S9, 49.0, 54.5, 67.0, 0.3],                     // 7–17 yaş
+  [S9, 54.5, 58.5, 32.0, 0.3],                     // eğlence amaçlı ekran
+  [DALGIN, 58.5, 62.2, 3.0, 0.3],                  // kesin süre yok
+  [S10, 62.2, 65.0, 106.0, 0.4],                   // uyku, hareket
+  [S12, 65.0, 67.9, 1.0, 0.35],                    // ders, sosyal yaşam
+  [S10, 67.9, 72.5, 51.0, 0.25],                   // ergenlik
+  [S10, 72.5, 76.1, 120.0, 0.4],                   // sınır olması dahi olumlu
+  ['A', 76.1, 78.9],                               // neden sınır?
+  [S9, 78.9, 85.5, 19.0, 0.35],                    // pasif izleme, arka planda TV
+  [S10, 85.5, 90.2, 29.0, 0.4],                    // bilişsel gelişim
+  [S10, 90.2, 93.4, 97.0, 0.3],                    // konuşma, oyun
+  [S12, 93.4, 96.9, 60.0, 0.4],                    // hareket, keşif
+  [S9, 96.9, 101.0, 40.0, 0.3],                    // akşam ekranı, uyku
+  [S9, 101.0, 104.5, 99.0, 0.3],                   // çok ekran
+  [DALGIN, 104.5, 108.9, 14.0, 0.3],               // dil, dikkat
+  [S9, 108.9, 111.9, 119.5, 0.3],                  // zamanlama, işlemleme
+  [S8, 111.9, 115.3, 27.0, 0.15],                  // otizmle ilişki yok
+  [S12, 115.3, 120.3, 29.5, 0.3],                  // her ekran aynı değil
+  [OKUMA, 120.3, 124.8, 1.0, 0.25],                // içerik, süre, eşlik
+  [S10, 124.8, 128.3, 78.5, 0.35],                 // gerçek zaman
+  [S10, 128.3, 131.1, 124.5, 0.4],
+  ['A', 131.1, DURATION],                          // paylaşın, sağlıkla kalın
+];
+const BOTTOM_CLIPS = BOTTOM_PLAN.map((p, i) => {
+  if (p[0] === 'A') return null;
+  const prev = BOTTOM_PLAN[i - 1], next = BOTTOM_PLAN[i + 1];
+  return { src: p[0], start: p[1], end: p[2], from: p[3], focusY: p[4],
+    fadeIn: prev[0] === 'A', fadeOut: !!next && next[0] === 'A' };
+}).filter(Boolean);
+
+window.preload = () => preloadFollow('../');
+
+function noRow(label, em, y, t, t0, tS, size = 42) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0) * (1 - 0.45 * prog(t, tS + 0.1, 0.4)), () => pill(label, em, size, 'rgba(255,255,255,0.9)', C.ink));
+  if (t >= tS) { font(size, 800); const w = ctx.measureText(label).width + size * 1.25 + 70; strike(540 - w / 2 - 20, 540 + w / 2 + 20, y, t, tS); }
+}
+function card(x, y, w, h, bg, t, t0, body, rot = 0) {
+  withT(x, y, popS(t, t0, 0.55), rot, popA(t, t0), () => { shadow(true, 36, 14); rrect(-w / 2, -h / 2, w, h, 44, bg); shadow(false); body(); });
+}
+
+
+// ---------- sahneler (üst panel) ----------
+const SCENES = [
+  { s: -0.4, e: 16.7, acc: C.sky, acc2: C.lilac, draw: sWhy },
+  { s: 16.7, e: 30.8, acc: C.mint, acc2: C.sky, draw: sAge02 },
+  { s: 30.8, e: 37.6, acc: C.yellow, acc2: C.mint, draw: sAge2 },
+  { s: 37.6, e: 49.0, acc: C.coral, acc2: C.yellow, draw: sTurkey },
+  { s: 49.0, e: 67.9, acc: C.lilac, acc2: C.sky, draw: s717 },
+  { s: 67.9, e: 76.1, acc: C.sky, acc2: C.mint, draw: sTeen },
+  { s: 76.1, e: 90.2, acc: C.coral, acc2: C.lilac, draw: sResearch },
+  { s: 90.2, e: 101.0, acc: C.yellow, acc2: C.mint, draw: sMissed },
+  { s: 101.0, e: 115.3, acc: C.lilac, acc2: C.coral, draw: sRisks },
+  { s: 115.3, e: 124.8, acc: C.mint, acc2: C.yellow, draw: sNotSame },
+  { s: 124.8, e: 131.1, acc: C.coral, acc2: C.yellow, draw: sRealTime },
+  { s: 131.1, e: 999, acc: C.sky, acc2: C.mint, draw: sShare },
+];
+
+function row(label, em, y, t, t0, bg = 'rgba(255,255,255,0.92)', fg = C.ink, size = 40) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0), () => pill(label, em, size, bg, fg));
+}
+function bigText(label, y, t, t0, col, size = 90) {
+  withT(540, y, popS(t, t0, 0.6), 0, popA(t, t0), () => { shadow(true, 40, 0, col + '99'); text(label, 0, 0, size, col, 900); shadow(false); });
+}
+
+function ageBadge(label, t, t0, col) {
+  withT(540, 270, popS(t, t0, 0.55), 0, popA(t, t0), () => { shadow(true, 30, 10); rrect(-200, -55, 400, 110, 55, col); shadow(false); text(label, 0, 3, 64, C.ink, 900); });
+}
+
+function sWhy(t) {
+  para('Önemli olan sadece *kaç *dakika değil', 540, 300, 940, t, 8.9, { size: 52, weight: 900, per: 0.12, accent: C.yellow });
+  card(540, 520, 900, 170, C.white, t, 12.2, () => { emoji('🤔', -350, 0, 80); text('İzlerken nelerden', 50, -26, 46, C.ink, 900); text('geri kalıyor?', 50, 30, 46, C.coral, 900); });
+  withT(540, 760, popS(t, 15.1, 0.5), 0, popA(t, 15.1), () => pill('Yaş yaş bakalım', '👇', 46, C.yellow, C.ink));
+}
+
+function sAge02(t) {
+  ageBadge('0–2 YAŞ', t, 16.8, C.mint);
+  withT(540, 450, popS(t, 18.4, 0.5), 0, popA(t, 18.4), () => pill('Mümkün olduğunca ekransız', '🚫', 46, C.white, C.ink));
+  card(540, 640, 900, 170, C.sky, t, 22.0, () => { emoji('📲', -350, 0, 80); text('Canlı görüntülü', 50, -26, 46, C.ink, 900); text('görüşme hariç', 50, 30, 46, C.ink, 900); });
+  withT(540, 820, popS(t, 25.0, 0.5), 0, popA(t, 25.0), () => text('👵 Dede, nene ile — abartmadan 👴', 0, 0, 38, C.white, 800));
+}
+
+function sAge2(t) {
+  ageBadge('2 YAŞ', t, 30.9, C.yellow);
+  card(540, 500, 900, 190, C.white, t, 31.8, () => { emoji('⏱️', -350, 0, 90); text('Dünya Sağlık Örgütü:', 50, -32, 40, '#5B6478', 800); text('günde en fazla 1 saat', 50, 30, 50, C.ink, 900); });
+  withT(540, 740, popS(t, 35.4, 0.5), 0, popA(t, 35.4), () => pill('Daha azı daha iyi', '✅', 48, C.mint, C.ink));
+}
+
+// Türkiye önerisi: yaşa göre çubuk grafik (3→30, 4→40, 5→50, 6→60 dk)
+function sTurkey(t) {
+  withT(540, 260, popS(t, 37.7, 0.5), 0, popA(t, 37.7), () => pill('Türkiye’deki koruyucu öneri', '🇹🇷', 42, C.white, C.ink));
+  const base = 800, unit = 6.2;
+  rrect(140, base, 800, 6, 3, 'rgba(255,255,255,0.3)');
+  [[3, 30, 41.3, C.mint], [4, 40, 43.6, C.sky], [5, 50, 45.0, C.yellow], [6, 60, 46.9, C.coral]].forEach(([age, dk, t0, col], i) => {
+    const x = 240 + i * 200, h = dk * unit * eOut(prog(t, t0, 0.6));
+    if (t < t0) return;
+    shadow(true, 20, 8); rrect(x - 70, base - h, 140, h, 18, col); shadow(false);
+    withT(x, base - h - 40, 1, 0, popA(t, t0 + 0.3), () => text(`${dk} dk`, 0, 0, 40, C.white, 900));
+    withT(x, base + 48, 1, 0, popA(t, t0), () => text(`${age} yaş`, 0, 0, 36, C.muted, 900));
+  });
+}
+
+function s717(t) {
+  const fade = 1 - eInOut(prog(t, 62.0, 0.4));
+  ageBadge('7–17 YAŞ', t, 49.1, C.lilac);
+  withT(0, 0, 1, 0, fade, () => {
+    card(540, 470, 900, 190, C.white, t, 51.7, () => { emoji('🌍', -350, 0, 90); text('Bazı ülkeler: eğlence amaçlı', 50, -30, 36, '#5B6478', 800); text('günde en fazla 2 saat', 50, 30, 50, C.ink, 900); });
+    withT(540, 680, popS(t, 58.6, 0.5), 0, popA(t, 58.6), () => pill('Herkes için kesin bir süre yok', '🤷', 42, C.yellow, C.ink));
+  });
+  if (t > 62.0) {
+    words('Önemli olan, ekran şunlara *engel olmasın:', 540, 430, t, 62.2, { size: 42, weight: 900, accent: C.coral });
+    [['Uyku', '😴', 63.5, 285, 580, C.lilac], ['Hareket', '🏃', 64.3, 795, 580, C.mint], ['Dersler', '📚', 65.0, 285, 720, C.yellow], ['Sosyal yaşam', '👫', 65.7, 795, 720, C.sky]].forEach(([l, em, t0, x, y, col]) =>
+      withT(x, y, popS(t, t0, 0.5), 0, popA(t, t0), () => pill(l, em, 44, col, col === C.lilac ? C.white : C.ink)));
+  }
+}
+
+function sTeen(t) {
+  words('Ergenlikte 2 saat? 🤷', 540, 280, t, 68.0, { size: 58, weight: 900 });
+  withT(540, 450, popS(t, 71.5, 0.5), 0, popA(t, 71.5), () => text('Pek uygulanabilir durmuyor', 0, 0, 42, C.muted, 800));
+  card(540, 650, 900, 180, C.mint, t, 73.2, () => { emoji('✅', -350, 0, 80); text('Bir sınır olması', 50, -26, 48, C.ink, 900); text('dahi olumludur', 50, 32, 48, C.ink, 900); });
+}
+
+function sResearch(t) {
+  words('Peki neden sınır?', 540, 260, t, 76.2, { size: 58, weight: 900 });
+  withT(540, 380, popS(t, 78.9, 0.5), 0, popA(t, 78.9), () => pill('Araştırmalar', '🔬', 42, C.white, C.ink));
+  [['Pasif ekran izleme', '📱', 82.2, 285, C.sky], ['Arka planda açık TV', '📺', 83.4, 795, C.lilac]].forEach(([l, em, t0, x, col]) =>
+    card(x, 560, 460, 170, col, t, t0, () => { emoji(em, 0, -30, 70); para(l, 0, 45, 420, t, t0, { size: 34, weight: 900, color: col === C.lilac ? C.white : C.ink, per: 0, lineH: 40 }); }));
+  withT(540, 790, popS(t, 85.5, 0.55), 0, popA(t, 85.5), () => pill('Olumsuz bilişsel gelişimle ilişkili', '⚠️', 38, C.coral, C.white));
+}
+
+function sMissed(t) {
+  const fade = 1 - eInOut(prog(t, 97.4, 0.4));
+  withT(0, 0, 1, 0, fade, () => {
+    words('Ekrana bakarken kaçırdıkları:', 540, 270, t, 90.3, { size: 50, weight: 900 });
+    [['Konuşma', '💬', 92.6, 285, 470, C.white], ['Oyun', '🧸', 93.2, 795, 470, C.yellow], ['Hareket', '🏃', 94.1, 285, 650, C.mint], ['Keşif', '🔍', 95.6, 795, 650, C.sky]].forEach(([l, em, t0, x, y, col]) =>
+      card(x, y, 440, 150, col, t, t0, () => { emoji(em, -130, 0, 70); text(l, 50, 2, 44, C.ink, 900); }));
+  });
+  if (t > 97.4) {
+    withT(540, 380, popS(t, 97.7, 0.6), 0, popA(t, 97.7), () => emoji('🌙', 0, 0, 150));
+    card(540, 620, 900, 180, C.lilac, t, 98.3, () => { text('Akşam ekranı', 0, -30, 50, C.white, 900); text('uykuya dalmayı geciktirir', 0, 32, 44, C.yellow, 900); });
+  }
+}
+
+function sRisks(t) {
+  para('Çok ekrana maruz kalan çocuklarda *görülmüş:', 540, 290, 940, t, 101.1, { size: 46, weight: 900, per: 0.1, accent: C.coral });
+  row('Dil ve konuşma güçlükleri', '🗣️', 430, t, 105.4, C.white, C.ink, 40);
+  row('Dikkat ve odaklanma sorunları', '🎯', 545, t, 107.1, C.white, C.ink, 40);
+  row('Zamanlama ve işlemlemede zorlanma', '⏱️', 660, t, 109.0, C.white, C.ink, 38);
+  withT(540, 820, popS(t, 112.0, 0.55), 0, popA(t, 112.0), () => pill('Otizmle ilişkisi saptanmadı', '✅', 42, C.mint, C.ink));
+}
+
+function sNotSame(t) {
+  para('Her ekran her çocuk için *aynı etkiyi yaratmaz', 540, 300, 940, t, 115.4, { size: 50, weight: 900, per: 0.1, accent: C.yellow });
+  [['İçerik', '🎬', 120.3, 220, C.sky], ['Süre', '⏱️', 121.0, 540, C.yellow], ['Eşlik', '🤝', 122.4, 860, C.mint]].forEach(([l, em, t0, x, col]) =>
+    withT(x, 560, popS(t, t0, 0.5), 0, popA(t, t0), () => {
+      shadow(true, 26, 10); rrect(-140, -110, 280, 220, 36, col); shadow(false);
+      emoji(em, 0, -25, 90); text(l, 0, 65, 40, C.ink, 900);
+    }));
+  withT(540, 790, popS(t, 123.3, 0.5), 0, popA(t, 123.3), () => text('…hepsi önemli', 0, 0, 40, C.white, 800));
+}
+
+function sRealTime(t) {
+  para('Gelişimini destekleyen *en *değerli şey:', 540, 300, 940, t, 124.9, { size: 50, weight: 900, per: 0.1, accent: C.mint });
+  withT(540, 540, popS(t, 129.9, 0.6), 0, popA(t, 129.9), () => { shadow(true, 40, 0, 'rgba(255,94,108,0.6)'); text('Gerçek zaman 💛', 0, 0, 96, C.coral, 900); shadow(false); });
+  withT(540, 700, popS(t, 128.6, 0.5), 0, popA(t, 128.6), () => text('onunla geçirdiğiniz', 0, 0, 42, C.white, 800));
+}
+
+function sShare(t) {
+  withT(540, 300, popS(t, 131.2, 0.55), 0, popA(t, 131.2), () => {
+    shadow(true, 36, 14); rrect(-430, -100, 860, 200, 40, C.white); shadow(false);
+    emoji('🔁', -340, 0, 80);
+    text('Hikayenizde paylaşın', 50, -28, 44, C.ink, 900);
+    text('daha çok kişiye ulaşsın', 50, 30, 40, '#2F8FE0', 900);
+  });
+  withT(540, 540, popS(t, 136.9, 0.5), 0, popA(t, 136.9), () => pill('Daha sağlıklı nesiller için', '🌱', 44, C.mint, C.ink));
+  withT(540, 720, popS(t, 140.1, 0.5), 0, popA(t, 140.1), () => text('Sağlıkla kalın 💛', 0, 0, 60, C.yellow, 900));
+}
+
+// ---------- açılış (tam ekran, yazılar yüzün altında) ----------
+function nameTag(t, t0, dur) {
+  const u = t - t0;
+  if (u < 0 || u > dur) return;
+  const c = eOut(prog(u, 0, 0.5)) * (1 - eInOut(prog(u, dur - 0.5, 0.5)));
+  withT(60 - 80 * (1 - eOut(prog(u, 0, 0.6))), 1640, 1, 0, c, () => {
+    font(28, 800);
+    const w = Math.max(ctx.measureText('Çocuk Psikolojisi & Dikkat Üzerine').width, 420) + 80;
+    shadow(true, 30, 10, 'rgba(0,0,0,0.35)'); rrect(0, -70, w, 140, 24, 'rgba(12,16,40,0.86)'); shadow(false);
+    rrect(0, -70, 12, 140, 6, C.yellow);
+    text('Pedagog', 38, -24, 30, C.yellow, 800, 'left');
+    text('Necla SAYGIN', 178, -24, 46, C.white, 900, 'left');
+    text('Çocuk Psikolojisi & Dikkat Üzerine', 38, 32, 28, 'rgba(255,255,255,0.8)', 800, 'left');
+  });
+}
+
+
+
+function introOverlay(t) {
+  const a = eOut(prog(t, 0.2, 0.5)) * (1 - eInOut(prog(t, 8.1, 0.5)));
+  if (a > 0) withT(540, 1230 + 30 * (1 - eOut(prog(t, 0.2, 0.5))), 1, 0, a, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-480, -130, 960, 260, 50, C.white); shadow(false);
+    emoji('📱', -390, 0, 80);
+    text('“Hocam, çocuğum günde', 40, -40, 50, C.ink, 900);
+    text('kaç dakika ekran izlemeli?”', 40, 30, 50, C.coral, 900);
+  });
+  const b = popA(t, 5.6) * (1 - eInOut(prog(t, 8.1, 0.5)));
+  if (b > 0) withT(540, 1440, popS(t, 5.6, 0.5), 0, b, () => pill('Cevap: yaşına göre değişir', '🎂', 40, C.yellow, C.ink));
+  nameTag(t, 1.0, 4.4);
+}
+
+window.FULL = t => splitFull(t, introOverlay, () => {});
+</script>
+</body>
+</html>

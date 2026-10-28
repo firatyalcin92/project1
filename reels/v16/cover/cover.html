@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kapak — Günde kaç dakika ekran?</title>
+<style>
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 1080px; height: 1920px; overflow: hidden; font-family: RD, 'Noto Color Emoji', sans-serif; background: #0A0F27; }
+  .cover { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #0B0B10; }
+  .photo { position: absolute; left: 0; top: -120px; width: 1080px; }
+  .topfade { position: absolute; left: 0; top: 0; width: 1080px; height: 200px; background: linear-gradient(#0A0F27 30%, rgba(10,15,39,0)); }
+  /* yüzün altından başlayan koyu geçiş: yazılar elbisenin üstünde, yüz açık */
+  .fade { position: absolute; left: 0; top: 900px; width: 1080px; height: 1020px;
+    background: linear-gradient(rgba(10,15,39,0) 0%, rgba(10,15,39,0.82) 16%, rgba(10,15,39,0.95) 34%, #0A0F27 75%); }
+  .tag { position: absolute; top: 1070px; left: 50%; transform: translateX(-50%); padding: 12px 30px; border-radius: 40px;
+    background: #FFC93C; color: #141A3A; font-weight: 900; font-size: 34px; letter-spacing: 2px; white-space: nowrap; box-shadow: 0 10px 26px rgba(0,0,0,0.35); }
+  .title { position: absolute; top: 1150px; width: 100%; text-align: center; color: #fff; font-weight: 900; text-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .l1 { font-size: 84px; line-height: 1.05; letter-spacing: -1px; }
+  .l2 { font-size: 150px; line-height: 1.0; color: #FFC93C; letter-spacing: -3px; }
+  .chips { position: absolute; top: 1415px; width: 100%; display: flex; justify-content: center; gap: 22px; }
+  .chip { display: flex; align-items: center; gap: 12px; padding: 14px 28px; border-radius: 50px; font-weight: 900; font-size: 30px; color: #141A3A;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.35); }
+  .name { position: absolute; left: 50%; transform: translateX(-50%); top: 1545px; text-align: center; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.16);
+    border-radius: 26px; padding: 20px 44px; white-space: nowrap; }
+  .name .n1 { color: #fff; font-weight: 900; font-size: 48px; }
+  .name .n1 span { color: #FFC93C; font-weight: 800; font-size: 32px; margin-right: 12px; }
+  .name .n2 { color: rgba(255,255,255,0.8); font-weight: 800; font-size: 28px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="cover">
+  <img class="photo" src="necla.jpg" alt="">
+  <div class="fade"></div>
+  <div class="topfade"></div>
+  <div class="tag">📱 YAŞA GÖRE</div>
+  <div class="title">
+    <div class="l1">GÜNDE KAÇ DAKİKA</div>
+    <div class="l2">EKRAN?</div>
+  </div>
+  <div class="chips">
+    <div class="chip" style="background:#34D399;transform:rotate(-3deg)">👶 0–2 yaş</div>
+    <div class="chip" style="background:#FFC93C">⏱️ 2 yaş</div>
+    <div class="chip" style="background:#7CC4FF;transform:rotate(3deg)">📅 3–6 yaş</div>
+  </div>
+  <div class="name">
+    <div class="n1"><span>Pedagog</span>Necla SAYGIN</div>
+    <div class="n2">Çocuk Psikolojisi &amp; Dikkat Üzerine</div>
+  </div>
+</div>
+</body>
+</html>
