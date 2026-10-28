@@ -97,7 +97,7 @@ export class UI {
       h(
         'div',
         { class: 'brand' },
-        h('h1', { class: 'wordmark' }, 'hopla', h('span', { class: 'dot', 'aria-hidden': 'true' })),
+        h('h1', { class: 'wordmark' }, 'hopdog', h('span', { class: 'dot', 'aria-hidden': 'true' })),
         h('p', { class: 'tagline' }, t.tagline),
       ),
       h('div', { class: 'hint' }, h('span', { class: 'press', 'aria-hidden': 'true' }), t.hint),

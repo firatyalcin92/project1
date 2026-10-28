@@ -41,4 +41,4 @@ npx eas-cli@latest build -p android --profile production   # Google Play Console
 npx eas-cli@latest build -p android --profile preview      # telefona doğrudan kurulabilen .apk
 ```
 
-Paket kimlikleri: `com.firatyalcin.hopla` (`app.json`).
+Paket kimlikleri: `com.firatyalcin.hopdog` (`app.json`).

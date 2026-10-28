@@ -1,0 +1,24 @@
+<!doctype html>
+<html><body style="margin:0;background:transparent">
+<div id="c" style="width:1024px;height:1024px"></div>
+<script type="module">
+import { World } from './src/world'
+import { Hero, createPlatform } from './src/meshes'
+import { EXPR } from './src/face'
+const q = new URLSearchParams(location.search)
+const world = new World(document.getElementById('c'))
+const plat = createPlatform({ i: 0, shape: 'box', x: 0, z: 0, size: 2.1, height: 1.1, dir: 'x', tone: Number(q.get('tone') ?? 0) })
+world.scene.add(plat)
+const hero = new Hero()
+hero.root.position.set(0, 1.1, 0)
+hero.face.snap(EXPR[q.get('expr') ?? 'idle'])
+world.scene.add(hero.root)
+world.goal.set(0, Number(q.get('y') ?? 1.85), 0); world.snap()
+const s = Number(q.get('zoom') ?? 1.55)
+const cam = world.camera
+cam.left = -s; cam.right = s; cam.top = s; cam.bottom = -s; cam.updateProjectionMatrix()
+world.renderer.setPixelRatio(1); world.renderer.setSize(1024, 1024, false)
+world.render()
+window.done = true
+</script>
+</body></html>

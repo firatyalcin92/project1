@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Hopla",
-    "slug": "hopla",
+    "name": "Hopdog",
+    "slug": "hopdog",
     "version": "0.1.0",
-    "scheme": "hopla",
+    "scheme": "hopdog",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#f3efe8",
     "ios": {
-      "bundleIdentifier": "com.firatyalcin.hopla",
+      "bundleIdentifier": "com.firatyalcin.hopdog",
       "supportsTablet": false,
       "requireFullScreen": true,
       "infoPlist": {
@@ -17,7 +17,7 @@
       }
     },
     "android": {
-      "package": "com.firatyalcin.hopla",
+      "package": "com.firatyalcin.hopdog",
       "adaptiveIcon": {
         "backgroundColor": "#f3efe8",
         "foregroundImage": "./assets/adaptive-icon.png"

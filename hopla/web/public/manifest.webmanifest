@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Hopla",
-  "short_name": "Hopla",
+  "name": "Hopdog",
+  "short_name": "Hopdog",
   "description": "Hold. Release. Hop. A minimalist one-finger 3D jumping game.",
   "start_url": "./",
   "scope": "./",
