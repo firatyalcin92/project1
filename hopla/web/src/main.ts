@@ -130,6 +130,7 @@ function start() {
     { passive: false },
   )
   const up = (e: PointerEvent) => {
+    sound.unlock()
     if (e.pointerId !== pointer) return
     pointer = null
     game.release(eventTime(e.timeStamp))
@@ -156,6 +157,9 @@ function start() {
     sound.unlock()
     game.press(eventTime(e.timeStamp))
   })
+  // iOS Safari sesi yalnızca dokunuş bitince açar.
+  window.addEventListener('touchend', () => sound.unlock(), { passive: true })
+  window.addEventListener('click', () => sound.unlock())
   window.addEventListener('keyup', (e) => {
     if (!isJumpKey(e) || !keyDown) return
     keyDown = false

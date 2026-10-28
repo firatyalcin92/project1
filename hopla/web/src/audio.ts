@@ -14,7 +14,12 @@ export class Sound {
 
   /** Kullanıcı hareketi içinde çağrılmalı (tarayıcı kuralı). */
   unlock() {
-    if (this.ctx || !this.enabled) return
+    if (!this.enabled) return
+    if (this.ctx) {
+      // iOS dokunuşta sesi yalnızca parmak kalkınca (touchend/pointerup) açar: her fırsatta yeniden dene.
+      if (this.ctx.state !== 'running') void this.ctx.resume().catch(() => {})
+      return
+    }
     try {
       const nav = navigator as Navigator & { audioSession?: { type: string } }
       if (nav.audioSession) nav.audioSession.type = 'ambient'
@@ -24,6 +29,12 @@ export class Sound {
       this.master = this.ctx.createGain()
       this.master.gain.value = 0.55
       this.master.connect(this.ctx.destination)
+      // Eski iOS sürümleri için: kullanıcı hareketi içinde kısa sessiz bir ses çal.
+      const silent = this.ctx.createBufferSource()
+      silent.buffer = this.ctx.createBuffer(1, 1, 22050)
+      silent.connect(this.ctx.destination)
+      silent.start(0)
+      if (this.ctx.state !== 'running') void this.ctx.resume().catch(() => {})
     } catch {
       this.ctx = null
     }
