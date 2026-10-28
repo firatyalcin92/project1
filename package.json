@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "dev:lan": "vite dev --port 3000 --host",
-    "build": "vite build",
+    "build": "vite build && npm run hopla:build",
     "start": "node server.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
@@ -20,7 +20,11 @@
     "format": "npx -y prettier@3.8.1 --write .",
     "setup": "node scripts/setup-env.mjs",
     "paket:cpanel": "node scripts/cpanel-paket.mjs",
-    "test:sqlite": "MESELE_TEST_STORE=sqlite vitest run tests/flow.test.ts"
+    "test:sqlite": "MESELE_TEST_STORE=sqlite vitest run tests/flow.test.ts",
+    "hopla:dev": "vite --config hopla/web/vite.config.ts",
+    "hopla:build": "vite build --config hopla/web/vite.config.ts",
+    "hopla:native": "vite build --config hopla/web/vite.config.ts --mode native",
+    "hopla:icons": "node hopla/scripts/icons.mjs"
   },
   "dependencies": {
     "@capacitor/core": "8.5.2",
@@ -35,6 +39,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "srvx": "0.11.22",
+    "three": "0.186.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
@@ -46,6 +51,7 @@
     "@types/node": "24.19.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
     "@vitejs/plugin-react": "6.1.1",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",

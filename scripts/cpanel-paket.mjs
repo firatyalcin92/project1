@@ -8,7 +8,8 @@ const OUT = 'paket/mesele'
 rmSync('paket', { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 
-execFileSync('npx', ['vite', 'build'], { stdio: 'inherit', shell: process.platform === 'win32' })
+// Ana uygulama + Hopla oyunu (dist/client/hopla)
+execFileSync('npm', ['run', 'build'], { stdio: 'inherit', shell: process.platform === 'win32' })
 
 await build({
   input: 'server.mjs',

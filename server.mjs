@@ -25,10 +25,24 @@ async function headers(request, next) {
   h.set('referrer-policy', 'strict-origin-when-cross-origin')
   h.set('permissions-policy', 'camera=(), microphone=(), geolocation=()')
   if (pathname.endsWith('.webmanifest')) h.set('content-type', 'application/manifest+json; charset=utf-8')
-  if (pathname.startsWith('/assets/')) h.set('cache-control', 'public, max-age=31536000, immutable')
-  if (pathname === '/sw.js') h.set('cache-control', 'no-cache')
+  if (pathname.startsWith('/assets/') || pathname.startsWith('/hopla/assets/'))
+    h.set('cache-control', 'public, max-age=31536000, immutable')
+  if (
+    pathname === '/sw.js' ||
+    pathname === '/hopla/sw.js' ||
+    pathname === '/hopla/' ||
+    pathname === '/hopla/index.html'
+  )
+    h.set('cache-control', 'no-cache')
   if (pathname.startsWith('/_serverFn')) h.set('cache-control', 'no-store')
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h })
+}
+
+/** Hopla oyunu dist/client/hopla'dan sunulur; /hopla → /hopla/ (göreli dosya yolları için). */
+async function hopla(request, next) {
+  const url = new URL(request.url)
+  if (url.pathname !== '/hopla') return next()
+  return new Response(null, { status: 308, headers: { location: `/hopla/${url.search}` } })
 }
 
 /** /durum: kurulum teşhisi (gizli bilgi içermez). */
@@ -45,6 +59,6 @@ async function status(request, next) {
 serve({
   port: Number(process.env.PORT ?? 3000),
   hostname: process.env.HOST ?? '0.0.0.0',
-  middleware: [status, headers, serveStatic({ dir: here('./dist/client') })],
+  middleware: [status, hopla, headers, serveStatic({ dir: here('./dist/client') })],
   fetch: (request) => app.fetch(request),
 })

@@ -1,5 +1,14 @@
 {
-  "include": ["src", "tests", "vite.config.ts", "vitest.config.ts", "capacitor.config.ts"],
+  "include": [
+    "src",
+    "tests",
+    "hopla/core",
+    "hopla/web/src",
+    "hopla/web/vite.config.ts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "capacitor.config.ts"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["DOM", "DOM.Iterable", "ES2023"],
