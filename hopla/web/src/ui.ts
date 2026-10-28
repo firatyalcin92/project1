@@ -362,6 +362,7 @@ export class UI {
         save.textContent = t.save
       }
     })
+    if (!this.net.registered) void this.net.prepareRegistration().catch(() => {})
     if (!opts.first) setTimeout(() => input.focus(), 220)
   }
 

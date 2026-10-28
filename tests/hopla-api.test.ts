@@ -172,6 +172,22 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       })
       expect(again.data.error.code).toBe('POW_INVALID')
 
+      // Kayıt başarısızsa (isim alınmış) aynı iş kanıtı başka bir isimle kullanılabilir — ama yalnızca bir kez.
+      const chR = await call('POST', '/challenge')
+      const nonceR = await solve(chR.data.challenge, chR.data.bits)
+      const taken = await call('POST', '/players', {
+        body: { name: 'BIR', country: 'TR', challenge: chR.data.challenge, nonce: nonceR },
+      })
+      expect(taken.data.error.code).toBe('NAME_TAKEN')
+      const retry = await call('POST', '/players', {
+        body: { name: 'Bir Daha', country: 'TR', challenge: chR.data.challenge, nonce: nonceR },
+      })
+      expect(retry.status).toBe(201)
+      const third = await call('POST', '/players', {
+        body: { name: 'Uc Kez', country: 'TR', challenge: chR.data.challenge, nonce: nonceR },
+      })
+      expect(third.data.error.code).toBe('POW_INVALID')
+
       const ch2 = await call('POST', '/challenge')
       let bad = 0
       while (true) {

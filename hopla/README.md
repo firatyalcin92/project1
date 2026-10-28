@@ -106,7 +106,7 @@ Run. Tekrar çalıştırmak zararsızdır. Kontrol: `https://<sunucu>/api/hopla/
 | Değişken                        | Varsayılan                                                                              |
 | ------------------------------- | --------------------------------------------------------------------------------------- |
 | `HOPLA_SECRET`                  | Bilet imza anahtarı; yoksa `SUPABASE_SERVICE_ROLE_KEY`/`MESELE_HASH_SALT`'tan türetilir |
-| `HOPLA_POW_BITS`                | `18` (iş kanıtı zorluğu; her +1 süreyi ikiye katlar)                                    |
+| `HOPLA_POW_BITS`                | `17` (iş kanıtı zorluğu; her +1 süreyi ikiye katlar)                                    |
 | `HOPLA_MAX_PLAYERS_PER_IP`      | `10` (24 saatte aynı IP'den yeni isim)                                                  |
 | `HOPLA_ADMIN_PASSWORD`          | yoksa `MESELE_ADMIN_PASSWORD`; ikisi de yoksa yönetici ucu kapalı                       |
 | `HOPLA_NAME_AI`                 | `off` → OpenAI moderasyonu kapalı                                                       |

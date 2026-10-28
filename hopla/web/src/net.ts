@@ -196,19 +196,49 @@ export class Net {
     if (cur && cur.ticket === run.ticket) storage.set('pending', null)
   }
 
-  async register(name: string, country: string, signal?: AbortSignal): Promise<Profile> {
-    const ch = await call<Challenge>('/challenge', null, { method: 'POST', timeout: 75_000, signal })
-    const nonce = await solve(ch.challenge, ch.bits, signal)
-    const res = await call<RegisterResponse>('/players', null, {
-      method: 'POST',
-      body: { name, country, challenge: ch.challenge, nonce },
-      timeout: 30_000,
-      signal,
+  private pow: Promise<{ challenge: string; nonce: string }> | null = null
+  private powAt = 0
+
+  /** İş kanıtını isim penceresi açılır açılmaz arka planda çözer (kaydet'e basınca beklenmez). */
+  prepareRegistration() {
+    if (this.pow && Date.now() - this.powAt < 8 * 60_000) return this.pow
+    this.powAt = Date.now()
+    const p = (async () => {
+      const ch = await call<Challenge>('/challenge', null, { method: 'POST', timeout: 75_000 })
+      return { challenge: ch.challenge, nonce: await solve(ch.challenge, ch.bits) }
+    })()
+    this.pow = p
+    p.catch(() => {
+      if (this.pow === p) this.pow = null
     })
-    this.token = res.token
-    storage.set('token', res.token)
-    this.setProfile(res.profile)
-    return res.profile
+    return p
+  }
+
+  async register(name: string, country: string, signal?: AbortSignal): Promise<Profile> {
+    for (let attempt = 0; ; attempt++) {
+      const pow = await this.prepareRegistration()
+      if (signal?.aborted) throw new DOMException('aborted', 'AbortError')
+      try {
+        const res = await call<RegisterResponse>('/players', null, {
+          method: 'POST',
+          body: { name, country, ...pow },
+          timeout: 30_000,
+          signal,
+        })
+        this.pow = null
+        this.token = res.token
+        storage.set('token', res.token)
+        this.setProfile(res.profile)
+        return res.profile
+      } catch (e) {
+        // Süresi geçmiş ya da kullanılmış bilmece: bir kez yenisiyle dene.
+        if (e instanceof ApiFailure && e.code === 'POW_INVALID' && attempt === 0) {
+          this.pow = null
+          continue
+        }
+        throw e
+      }
+    }
   }
 
   async update(body: UpdateRequest): Promise<Profile> {

@@ -63,7 +63,7 @@ function envInt(name: string, fallback: number, min: number, max: number) {
   const n = Number(process.env[name])
   return Number.isInteger(n) && n >= min && n <= max ? n : fallback
 }
-const powBits = () => envInt('HOPLA_POW_BITS', 18, 0, 26)
+const powBits = () => envInt('HOPLA_POW_BITS', 17, 0, 26)
 const maxPlayersPerIp = () => envInt('HOPLA_MAX_PLAYERS_PER_IP', 10, 1, 10_000)
 const RENAMES_PER_DAY = 3
 const TICKET_MAX_AGE = 3 * DAY
@@ -139,6 +139,7 @@ async function cached<T>(key: string, ttl: number, fn: () => Promise<T>): Promis
   const hit = cache.get(key)
   if (hit && hit.until > Date.now()) return hit.value as T
   const value = await fn()
+  if (cache.size > 500) cache.clear()
   cache.set(key, { until: Date.now() + ttl, value })
   return value
 }
@@ -308,23 +309,30 @@ async function route(request: Request, ip: string): Promise<Response> {
     limit(`register:${ip}`, 8, HOUR)
     const b = await body(request, RegisterBody)
     verifyPow(b.challenge, b.nonce)
-    const store = await getHoplaStore()
-    const profile = await checkProfile(store, b.name, b.country, null)
-    await cleanup(store)
-    const ipHash = hashIp(ip)
-    if ((await store.countRecentByIp(ipHash, iso(Date.now() - DAY))) >= maxPlayersPerIp()) {
-      throw new ApiError(429, 'RATE_LIMITED')
+    try {
+      const store = await getHoplaStore()
+      const profile = await checkProfile(store, b.name, b.country, null)
+      await cleanup(store)
+      const ipHash = hashIp(ip)
+      if ((await store.countRecentByIp(ipHash, iso(Date.now() - DAY))) >= maxPlayersPerIp()) {
+        throw new ApiError(429, 'RATE_LIMITED')
+      }
+      const token = randomBytes(32).toString('base64url')
+      const row = await store.createPlayer({
+        name: profile.name!,
+        name_key: profile.name_key!,
+        country: profile.country!,
+        token_hash: sha256(token),
+        created_ip_hash: ipHash,
+      })
+      if (row === 'name_taken') throw new ApiError(409, 'NAME_TAKEN')
+      return json(201, { token, profile: await profileOf(store, row) })
+    } catch (e) {
+      // Kayıt olmadıysa (isim alınmış, uygunsuz…) aynı iş kanıtı başka bir isimle yeniden denenebilir;
+      // bir iş kanıtıyla en fazla bir isim alınır.
+      usedChallenges.delete(b.challenge)
+      throw e
     }
-    const token = randomBytes(32).toString('base64url')
-    const row = await store.createPlayer({
-      name: profile.name!,
-      name_key: profile.name_key!,
-      country: profile.country!,
-      token_hash: sha256(token),
-      created_ip_hash: ipHash,
-    })
-    if (row === 'name_taken') throw new ApiError(409, 'NAME_TAKEN')
-    return json(201, { token, profile: await profileOf(store, row) })
   }
 
   if (key === 'GET /players/me') {
