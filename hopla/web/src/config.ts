@@ -41,7 +41,7 @@ export const HERO = {
   /** Taban yarıçapı fizikle aynı olmalı (kenardan devrilme hesabı) */
   radius: PHYSICS.heroRadius,
   /** Sosisin boyu (bağ düğümü hariç); uzun boy, ezilme belli olsun diye */
-  height: 1.46,
+  height: 1.8,
 }
 
 /** Şarj sırasında ezilme (0..1 şarjda) */

@@ -77,6 +77,22 @@ export class Game {
   ) {
     world.scene.add(this.hero.root, this.ripple.mesh)
     this.setup('intro')
+    this.scheduleBlink()
+  }
+
+  /** Beklerken ara ara göz kırpar (bazen iki kez). Çizim döngüsü uyurken de çalışır. */
+  private scheduleBlink(delay = 1800 + Math.random() * 3200) {
+    setTimeout(() => {
+      const waiting = this.phase === 'idle' || this.phase === 'intro'
+      if (waiting && !document.hidden && this.hero.face.blink()) {
+        this.wake()
+        if (Math.random() < 0.25) {
+          this.scheduleBlink(260)
+          return
+        }
+      }
+      this.scheduleBlink()
+    }, delay)
   }
 
   get score() {

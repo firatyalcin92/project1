@@ -263,7 +263,7 @@ export class Hero {
     const [cx, cy, cz] = VIEW.cameraOffset
     this.face = new Face({
       radius: sausageRadius,
-      y: HERO.height * 0.68,
+      y: HERO.height * 0.71,
       angle: Math.atan2(cz, cx),
       tilt: cy / Math.hypot(cx, cz),
       bend: sausageBend,

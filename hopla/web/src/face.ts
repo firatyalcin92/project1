@@ -32,6 +32,12 @@ export interface Expr {
   mouthCurve: number
   blush: number
   sweat: number
+  /** Sol kaşın ötekinden fazla kalkması (muzip bakış) */
+  browAsym: number
+  /** Ağzın sağ köşesinin kalkması (yamuk gülüş) */
+  mouthTilt: number
+  /** Dil ucunun görünmesi (0..1) */
+  tongue: number
   eyes: 'open' | 'happy' | 'x'
 }
 
@@ -46,6 +52,9 @@ const KEYS: Num[] = [
   'mouthCurve',
   'blush',
   'sweat',
+  'browAsym',
+  'mouthTilt',
+  'tongue',
 ]
 
 const smooth = (a: number, b: number, x: number) => {
@@ -54,16 +63,20 @@ const smooth = (a: number, b: number, x: number) => {
 }
 
 export const EXPR = {
+  /** Bekleme: kocaman parlak gözler, bir kaş havada, yamuk gülüş, dil ucu dışarıda */
   idle: {
     eyeOpen: 1,
-    eyeSize: 1,
-    browLift: 0.008,
-    browTilt: 0,
-    mouthW: 0.1,
-    mouthOpen: 0,
-    mouthCurve: 0.022,
-    blush: 0.25,
+    eyeSize: 1.1,
+    browLift: 0.012,
+    browTilt: -0.05,
+    mouthW: 0.12,
+    mouthOpen: 0.02,
+    mouthCurve: 0.042,
+    blush: 0.45,
     sweat: 0,
+    browAsym: 0.022,
+    mouthTilt: 0.014,
+    tongue: 0.75,
     eyes: 'open',
   } satisfies Expr,
   /** Basma şiddetine göre: kararlı → zorlanan → kıpkırmızı, terlemiş */
@@ -79,6 +92,9 @@ export const EXPR = {
       mouthCurve: 0.01 - 0.05 * smooth(0.15, 0.9, c),
       blush: 0.25 + 0.75 * c,
       sweat: smooth(0.62, 0.9, c),
+      browAsym: 0.022 * (1 - smooth(0, 0.3, c)),
+      mouthTilt: 0.014 * (1 - smooth(0, 0.3, c)),
+      tongue: 0,
       eyes: 'open',
     }
   },
@@ -94,6 +110,9 @@ export const EXPR = {
       mouthCurve: 0.025,
       blush: 0.35,
       sweat: 0,
+      browAsym: 0,
+      mouthTilt: 0,
+      tongue: 0,
       eyes: 'open',
     }
   },
@@ -108,6 +127,9 @@ export const EXPR = {
     mouthCurve: 0.045,
     blush: 0.7,
     sweat: 0,
+    browAsym: 0,
+    mouthTilt: 0.008,
+    tongue: 1,
     eyes: 'happy',
   } satisfies Expr,
   /** Kenarda/havada düşerken: şaşkın */
@@ -121,6 +143,9 @@ export const EXPR = {
     mouthCurve: 0,
     blush: 0.2,
     sweat: 0.6,
+    browAsym: 0,
+    mouthTilt: 0,
+    tongue: 0,
     eyes: 'open',
   } satisfies Expr,
   /** Yere düştü: çarpı gözler, "o" ağız */
@@ -134,6 +159,9 @@ export const EXPR = {
     mouthCurve: 0,
     blush: 0.15,
     sweat: 0,
+    browAsym: 0.015,
+    mouthTilt: 0,
+    tongue: 0,
     eyes: 'x',
   } satisfies Expr,
 }
@@ -237,13 +265,17 @@ export interface FaceSurface {
 
 const M = 28
 const BROW = 7
+const EYE_V = 0.035
+const MOUTH_V = -0.13
+/** Göz kırpma süresi (s) */
+const BLINK = 0.17
 
 export class Face {
   readonly group = new Group()
   private readonly cur: Expr = { ...EXPR.idle }
   private target: Expr = { ...EXPR.idle }
   private dirty = true
-  private readonly eyes: { root: Group; oval: Mesh; shine: Mesh; happy: Mesh; x: Group }[] = []
+  private readonly eyes: { root: Group; oval: Mesh; shine: Mesh; shine2: Mesh; happy: Mesh; x: Group }[] = []
   private readonly brows: Stroke[]
   private readonly lips: Stroke
   private readonly inside: Mesh
@@ -251,6 +283,10 @@ export class Face {
   private readonly cheeks: Mesh[] = []
   private readonly cheekMat: MeshBasicMaterial
   private readonly sweat: Mesh
+  private readonly tongue: Mesh
+  /** Göz kırpma ilerlemesi (−1: kırpmıyor) */
+  private blinkT = -1
+  private blinkK = 1
   private readonly pts = new Float32Array(M * 3)
   private readonly ns = new Float32Array(M * 3)
 
@@ -261,19 +297,22 @@ export class Face {
     const mouthMat = new MeshStandardMaterial({ color: 0x5e1b17, roughness: 0.7, side: DoubleSide })
     this.cheekMat = new MeshBasicMaterial({ color: 0xff5a5f, transparent: true, opacity: 0, depthWrite: false })
 
-    const ovalGeo = new SphereGeometry(0.07, 20, 14)
-    const shineGeo = new SphereGeometry(0.021, 10, 8)
+    const ovalGeo = new SphereGeometry(0.074, 20, 14)
+    const shineGeo = new SphereGeometry(0.024, 10, 8)
+    const shine2Geo = new SphereGeometry(0.011, 8, 6)
     const flat = new Float32Array(BROW * 3)
     const out = new Float32Array(BROW * 3)
     for (let i = 0; i < BROW; i++) out[i * 3 + 2] = 1
 
     for (const side of [-1, 1]) {
       const root = new Group()
-      this.place(root, side * 0.12, 0.06, 0)
+      this.place(root, side * 0.12, EYE_V, 0)
       const oval = new Mesh(ovalGeo, eyeMat)
       oval.scale.z = 0.5
       const shine = new Mesh(shineGeo, shineMat)
-      shine.position.set(0.024, 0.038, 0.032)
+      shine.position.set(0.026, 0.038, 0.032)
+      const shine2 = new Mesh(shine2Geo, shineMat)
+      shine2.position.set(-0.024, -0.03, 0.03)
       // Mutlu göz: ters "U"
       const happy = new Stroke(BROW, false, 0.026, eyeMat)
       for (let i = 0; i < BROW; i++) {
@@ -296,9 +335,9 @@ export class Face {
         st.set(flat, out)
         x.add(st.mesh)
       }
-      root.add(oval, shine, happy.mesh, x)
+      root.add(oval, shine, shine2, happy.mesh, x)
       this.group.add(root)
-      this.eyes.push({ root, oval, shine, happy: happy.mesh, x })
+      this.eyes.push({ root, oval, shine, shine2, happy: happy.mesh, x })
 
       const cheek = new Mesh(new SphereGeometry(0.062, 16, 10), this.cheekMat)
       cheek.scale.set(1, 0.55, 0.2)
@@ -331,7 +370,11 @@ export class Face {
       new MeshStandardMaterial({ color: 0x9fd6f2, roughness: 0.08, metalness: 0 }),
     )
     this.place(this.sweat, 0.3, 0.2, 0.02)
-    this.group.add(this.sweat)
+    this.tongue = new Mesh(
+      new SphereGeometry(0.036, 16, 10),
+      new MeshStandardMaterial({ color: 0xf0707a, roughness: 0.45, metalness: 0 }),
+    )
+    this.group.add(this.sweat, this.tongue)
 
     for (const o of this.group.children) o.traverse((m) => (m.castShadow = false))
     this.apply()
@@ -376,6 +419,14 @@ export class Face {
     return !this.dirty
   }
 
+  /** Kısa göz kırpma (yalnızca gözler açıkken) */
+  blink() {
+    if (this.cur.eyes !== 'open' || this.blinkT >= 0) return false
+    this.blinkT = 0
+    this.dirty = true
+    return true
+  }
+
   update(dt: number) {
     if (!this.dirty) return
     const k = 1 - Math.exp(-dt * 16)
@@ -387,6 +438,13 @@ export class Face {
         moving = true
       } else this.cur[key] = this.target[key]
     }
+    if (this.blinkT >= 0) {
+      this.blinkT += dt
+      const t = this.blinkT / BLINK
+      this.blinkK = t >= 1 ? 1 : 1 - Math.sin(Math.PI * t) ** 0.6
+      if (t >= 1) this.blinkT = -1
+      else moving = true
+    }
     this.apply()
     this.dirty = moving
   }
@@ -394,14 +452,16 @@ export class Face {
   private apply() {
     const e = this.cur
     // Gözler
+    const eyeOpen = Math.max(0.08, e.eyeOpen * this.blinkK)
     for (const eye of this.eyes) {
       const open = e.eyes === 'open'
       eye.oval.visible = open
-      eye.shine.visible = open && e.eyeOpen > 0.45
+      eye.shine.visible = eye.shine2.visible = open && eyeOpen > 0.45
       eye.happy.visible = e.eyes === 'happy'
       eye.x.visible = e.eyes === 'x'
-      eye.oval.scale.set(e.eyeSize, 1.3 * e.eyeSize * Math.max(0.12, e.eyeOpen), 0.5 * e.eyeSize)
-      eye.shine.position.y = 0.03 * Math.max(0.12, e.eyeOpen) * e.eyeSize
+      eye.oval.scale.set(e.eyeSize, 1.3 * e.eyeSize * eyeOpen, 0.5 * e.eyeSize)
+      eye.shine.position.y = 0.03 * eyeOpen * e.eyeSize
+      eye.shine2.position.y = -0.026 * eyeOpen * e.eyeSize
       eye.root.scale.setScalar(open ? 1 : 1 + 0.15 * (e.eyeSize - 1))
     }
     // Kaşlar
@@ -409,12 +469,12 @@ export class Face {
       const side = b === 0 ? -1 : 1
       // İç uç (yüzün ortasına bakan) tilt > 0 iken aşağı iner.
       const a = side < 0 ? -e.browTilt : e.browTilt
-      const cu = side * 0.125
-      const cv = 0.185 + e.browLift + (e.eyeSize - 1) * 0.05
+      const cu = side * 0.13
+      const cv = EYE_V + 0.165 + e.browLift + (e.eyeSize - 1) * 0.06 + (side < 0 ? e.browAsym : 0)
       for (let i = 0; i < BROW; i++) {
         const s = (i / (BROW - 1)) * 2 - 1
-        const u = cu + s * 0.068 * Math.cos(a)
-        const v = cv + s * 0.068 * Math.sin(a) + 0.014 * (1 - s * s)
+        const u = cu + s * 0.058 * Math.cos(a)
+        const v = cv + s * 0.058 * Math.sin(a) + 0.014 * (1 - s * s)
         this.surface(u, v, 0.006, TMP, NRM)
         TMP.toArray(this.pts, i * 3)
         NRM.toArray(this.ns, i * 3)
@@ -431,7 +491,7 @@ export class Face {
       const s = -Math.cos(th)
       const sn = Math.sin(th)
       const mid = e.mouthCurve * (s * s - 1)
-      const v = -0.125 + mid + (sn >= 0 ? 0.25 : -0.75) * open * Math.abs(sn)
+      const v = MOUTH_V + mid + s * e.mouthTilt + (sn >= 0 ? 0.25 : -0.75) * open * Math.abs(sn)
       const u = s * w
       cu += u
       cv += v
@@ -447,6 +507,11 @@ export class Face {
     this.inside.visible = e.mouthOpen > 0.008
     this.inside.geometry.attributes.position!.needsUpdate = true
     this.inside.geometry.computeBoundingSphere()
+    // Dil: alt dudağın ortasından hafifçe dışarı taşar
+    const tongue = e.tongue * clamp01(e.mouthOpen / 0.015)
+    this.tongue.visible = tongue > 0.05
+    this.place(this.tongue, w * 0.25, MOUTH_V - e.mouthCurve - 0.75 * open + 0.004, 0.006)
+    this.tongue.scale.set(tongue, 0.62 * tongue, 0.4 * tongue)
     // Yanaklar, ter
     this.cheekMat.opacity = 0.6 * clamp01(e.blush)
     for (const c of this.cheeks) c.visible = e.blush > 0.02
