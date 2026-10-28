@@ -1,4 +1,4 @@
-import { Quaternion, Vector3, type Mesh } from 'three'
+import { Quaternion, Vector3, type Object3D } from 'three'
 import { PHYSICS, jumpPosition, newRun, step, type Jump, type Platform, type RunState } from '../../core/sim'
 import { Effects, clamp01, ease, spring, timed } from './anim'
 import { HERO, SQUASH } from './config'
@@ -57,7 +57,7 @@ export class Game {
   phase: Phase = 'intro'
   private run!: RunState
   private holds: number[] = []
-  private readonly meshes = new Map<number, Mesh>()
+  private readonly meshes = new Map<number, Object3D>()
   private readonly hero = new Hero()
   private readonly ripple = new Ripple()
   private readonly effects = new Effects()
@@ -359,7 +359,7 @@ export class Game {
 
   // ---------------------------------------------------------------- küçük efektler
 
-  private bounce(mesh: Mesh, x0: number, duration: number) {
+  private bounce(mesh: Object3D, x0: number, duration: number) {
     this.effects.add(
       timed(
         duration,

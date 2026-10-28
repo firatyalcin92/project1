@@ -4,8 +4,13 @@ import { PHYSICS } from '../../core/sim'
 export const COLORS = {
   /** Kahraman: sahnedeki tek doygun renk */
   hero: 0xf2551d,
-  /** Platform tonları (sim.TONES ile aynı sayıda) */
-  tones: [0xffffff, 0xece6de, 0xffb994, 0xd8d2ca, 0xffa673, 0x47423f, 0xf6e8d9],
+  /**
+   * Platform renkleri (sim.TONES ile aynı sayıda): kırık beyaz, petrol yeşili, hardal, çelik mavisi,
+   * zeytin, gül kurusu, kömür. Doygunluğu orta: canlı ama göz yormayan, turuncu kahramanla çakışmayan.
+   */
+  tones: [0xf3efe9, 0x2f8c85, 0xe2a83a, 0x4e6e9e, 0x86a05a, 0xd3828c, 0x3f3c3a],
+  /** Televizyon ekranı vb. koyu ayrıntılar */
+  detail: 0x26262b,
   shadow: 0x5a4434,
   ring: 0xffffff,
 } as const
@@ -30,13 +35,13 @@ export const VIEW = {
 export const HERO = {
   /** Taban yarıçapı fizikle aynı olmalı (kenardan devrilme hesabı) */
   radius: PHYSICS.heroRadius,
-  /** Kapsülün düz gövde uzunluğu; toplam boy = length + 2·radius */
-  length: 0.66,
+  /** Fasulye insanın boyu (uzun boy, basılı tutunca ezilmesi belli olsun diye) */
+  height: 1.52,
 }
 
 /** Şarj sırasında ezilme (0..1 şarjda) */
 export const SQUASH = {
-  heroY: 0.4,
-  heroXZ: 0.17,
+  heroY: 0.45,
+  heroXZ: 0.2,
   platform: 0.17,
 }
