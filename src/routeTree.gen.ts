@@ -21,6 +21,7 @@ import { Route as PanelRouteImport } from './routes/panel'
 import { Route as UyelikRouteImport } from './routes/uyelik'
 import { Route as YonetimRouteImport } from './routes/yonetim'
 import { Route as MeseleIdRouteImport } from './routes/mesele.$id'
+import { Route as ApiHoplaSplatRouteImport } from './routes/api/hopla/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,11 @@ const MeseleIdRoute = MeseleIdRouteImport.update({
   path: '/mesele/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHoplaSplatRoute = ApiHoplaSplatRouteImport.update({
+  id: '/api/hopla/$',
+  path: '/api/hopla/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/uyelik': typeof UyelikRoute
   '/yonetim': typeof YonetimRoute
   '/mesele/$id': typeof MeseleIdRoute
+  '/api/hopla/$': typeof ApiHoplaSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/uyelik': typeof UyelikRoute
   '/yonetim': typeof YonetimRoute
   '/mesele/$id': typeof MeseleIdRoute
+  '/api/hopla/$': typeof ApiHoplaSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/uyelik': typeof UyelikRoute
   '/yonetim': typeof YonetimRoute
   '/mesele/$id': typeof MeseleIdRoute
+  '/api/hopla/$': typeof ApiHoplaSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/uyelik'
     | '/yonetim'
     | '/mesele/$id'
+    | '/api/hopla/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/uyelik'
     | '/yonetim'
     | '/mesele/$id'
+    | '/api/hopla/$'
   id:
     | '__root__'
     | '/'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/uyelik'
     | '/yonetim'
     | '/mesele/$id'
+    | '/api/hopla/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +196,7 @@ export interface RootRouteChildren {
   UyelikRoute: typeof UyelikRoute
   YonetimRoute: typeof YonetimRoute
   MeseleIdRoute: typeof MeseleIdRoute
+  ApiHoplaSplatRoute: typeof ApiHoplaSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MeseleIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/hopla/$': {
+      id: '/api/hopla/$'
+      path: '/api/hopla/$'
+      fullPath: '/api/hopla/$'
+      preLoaderRoute: typeof ApiHoplaSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -288,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   UyelikRoute: UyelikRoute,
   YonetimRoute: YonetimRoute,
   MeseleIdRoute: MeseleIdRoute,
+  ApiHoplaSplatRoute: ApiHoplaSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
