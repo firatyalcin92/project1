@@ -51,7 +51,9 @@ async function launch() {
 // Üst bölüm klip pencerelerini 25 fps JPG karelerine çıkarır (aynı ayar için tekrar kullanılır)
 function extractTopClips(clips) {
   const sceneDir = path.dirname(new URL(SCENE).pathname);
-  const key = require('crypto').createHash('md5').update(SCENE + JSON.stringify(clips)).digest('hex').slice(0, 10);
+  // kaynak dosya değişince (ör. filigranlı önizleme → temiz sürüm) kareler yeniden çıkarılsın
+  const stamp = clips.map(c => { try { const st = fs.statSync(path.join(sceneDir, c.src)); return `${st.size}:${st.mtimeMs}`; } catch { return ''; } });
+  const key = require('crypto').createHash('md5').update(SCENE + JSON.stringify(clips) + stamp.join(',')).digest('hex').slice(0, 10);
   const base = path.join(require('os').tmpdir(), `reels-clips-${key}`);
   for (const c of clips) {
     const dir = path.join(base, c.name);
