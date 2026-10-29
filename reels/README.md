@@ -25,7 +25,7 @@
 | `v13/scene.html`, `v13/final_reels.mp4` | Video 13 — Dikkat dağınıklığı DEHB belirtisi mi? (106 sn); ilk 15 sn ve son 10 sn konuşmacı tam ekran, arada bölünmüş ekran; HeyGen filigranı kadraj dışında |
 | `v14/scene.html`, `v14/final_reels.mp4` | Video 14 — Çocuğunuz odasına girmiyor mu? Odanın 3 kuralı (100 sn); stok görüntü ağırlıklı, konuşmacı açılış dışında iki kısa anda |
 | `v15/scene.html`, `v15/final_reels.mp4` | Video 15 — Sınır koymak ceza değil, güvencedir (131 sn); önceki videoların çocuk görüntüleri ağırlıkta, konuşmacı açılış dışında üç kısa anda |
-| `v16/scene.html`, `v16/cover` | Video 16 — Günde kaç dakika ekran? Yaşa göre süreler (141 sn); sahne ve kapak hazır, filigransız HeyGen kaynağı bekleniyor |
+| `v16/scene.html`, `v16/final_reels.mp4` | Video 16 — Günde kaç dakika ekran? Yaşa göre süreler (141 sn); konuşmacı açılış dışında üç kısa anda, altta önceki videoların çocuk görüntüleri |
 | `splitfull.js` | Bölünmüş ekran ↔ tam ekran konuşmacı geçişleri (v8–v16) |
 | `cover_render.cjs`, `v6/cover` … `v16/cover` | Reels kapakları (HTML → `kapak.png`) |
 
