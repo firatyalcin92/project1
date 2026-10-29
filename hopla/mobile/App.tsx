@@ -113,7 +113,6 @@ export default function App() {
         automaticallyAdjustContentInsets={false}
         allowsBackForwardNavigationGestures={false}
         allowsLinkPreview={false}
-        textInteractionEnabled={false}
         mediaPlaybackRequiresUserAction={false}
         androidLayerType="hardware"
         webviewDebuggingEnabled={__DEV__}

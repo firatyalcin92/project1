@@ -17,6 +17,7 @@
 </head>
 <body>
 <main>
+<section id="tr" lang="tr">
   <h1>Hopdog</h1>
   <p class="muted">Gizlilik politikası ve destek · Son güncelleme: 28 Ekim 2026</p>
 
@@ -48,7 +49,11 @@
   <h2>Çocuklar</h2>
   <p>Oyun her yaşa uygundur ve bilerek kişisel veri toplamaz.</p>
 
+</section>
+
   <hr />
+
+<section id="en" lang="en">
 
   <h1>Hopdog</h1>
   <p class="muted">Privacy policy &amp; support · Last updated: October 28, 2026</p>
@@ -79,6 +84,16 @@
 
   <h2>Children</h2>
   <p>The game is suitable for all ages and does not knowingly collect personal data.</p>
+</section>
 </main>
+<script>
+  // Türkçe olmayan cihazlarda İngilizce metin önce gösterilir
+  if (!/^tr/i.test(navigator.language || '')) {
+    var m = document.querySelector('main')
+    m.insertBefore(document.getElementById('en'), m.firstChild)
+    m.insertBefore(document.querySelector('hr'), document.getElementById('tr'))
+    document.documentElement.lang = 'en'
+  }
+</script>
 </body>
 </html>
