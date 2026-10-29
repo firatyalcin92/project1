@@ -351,3 +351,33 @@ describe('hopla yapay zekâ moderasyonu (isteğe bağlı)', () => {
     expect(await moderateWithAI('x', { ...env, HOPLA_NAME_AI: 'off' })).toBe('skip')
   })
 })
+
+describe('hopla bitişik kısaltma küfürler', () => {
+  it('ismin başında ya da sonunda kısaltma küfür engellenir', () => {
+    for (const n of [
+      'admininmk',
+      'hasanınamk',
+      'bekleyinorçlar',
+      'AMKadmin',
+      'adminaq',
+      'Aliamq',
+      'stfuNoob',
+      'juanptm',
+      'joaovsf',
+      'pierrentm',
+      'Adminsg',
+      'Mehmetoç',
+      'KYSnow',
+      'adminbsdk',
+      'hasaninaminakoyim',
+    ]) {
+      expect(screenName(n).ok, n).toBe(false)
+    }
+  })
+
+  it('kısaltmaya benzeyen gerçek isimler geçer', () => {
+    for (const n of ['Orçun', 'McGregor', 'Amina', 'Samina', 'Hamka', 'Ishaq', 'Razzaq', 'Selcuk', 'Aqil', 'Tamer']) {
+      expect(screenName(n).ok, n).toBe(true)
+    }
+  })
+})

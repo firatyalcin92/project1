@@ -1,10 +1,12 @@
 import './style.css'
 import { PHYSICS } from '../../core/sim'
 import { Sound } from './audio'
+import { confetti, countryRecord, worldRecord } from './celebrate'
+import { flagEmoji } from '../../core/countries'
 import { EXPR } from './face'
 import { Game } from './game'
-import { LANG } from './i18n'
-import { haptic, storage } from './native'
+import { LANG, countryName, t } from './i18n'
+import { haptic, isNative, postNative, storage } from './native'
 import { Net } from './net'
 import { UI } from './ui'
 import { World } from './world'
@@ -68,6 +70,8 @@ function start() {
       void net.flushPending().then((s) => {
         if (s) ui.setOverStatus(s)
       })
+      // İsim alınınca bildirim izni istenir ("rekorun geçilince haber verelim")
+      if (isNative) postNative({ type: 'push', ask: true })
     },
   })
 
@@ -111,7 +115,24 @@ function start() {
         ui.showHud(false)
         ui.showOver(r, best, newBest)
         ui.setOverStatus({ kind: 'pending' })
-        void net.submit(r).then((s) => ui.setOverStatus(s))
+        // Kişisel rekor: konfeti (ilk birkaç puanlık oyunlarda değil)
+        if (newBest && r.score >= 10) {
+          confetti(uiRoot)
+          sound.perfect(4)
+          haptic('success')
+        }
+        void net.submit(r).then((s) => {
+          ui.setOverStatus(s)
+          // Ülke ya da dünya birincisi olduysa ayrıca kutla
+          if (s.kind !== 'sent' || !s.improved || !s.profile.rank) return
+          if (s.profile.rank.world === 1) worldRecord(uiRoot, t.worldRecord)
+          else if (s.profile.rank.country === 1) {
+            const flag = flagEmoji(s.profile.country)
+            countryRecord(uiRoot, flag, `${flag} ${t.countryRecord(countryName(s.profile.country))}`)
+          } else return
+          sound.perfect(7)
+          haptic('success')
+        })
       },
     },
     randomSeed,
@@ -192,9 +213,21 @@ function start() {
   }).observe(stage)
 
   // Yerel kabuk (Expo) uygulama arka plana geçince bunu çağırır.
-  ;(window as unknown as { hopla: unknown }).hopla = { pause }
+  // Uygulama kabuğu bildirim anahtarını buradan verir (izin yoksa null)
+  const pushToken = (token: string | null) => {
+    if (!net.registered || (token ?? '') === (storage.get('push') ?? '')) return
+    void net.setPush(token, LANG)
+  }
+  ;(window as unknown as { hopla: unknown }).hopla = { pause, pushToken }
   if (new URLSearchParams(location.search).has('debug')) {
-    ;(window as unknown as { __hopla: unknown }).__hopla = { game, net, ui, expr: EXPR }
+    ;(window as unknown as { __hopla: unknown }).__hopla = {
+      game,
+      net,
+      ui,
+      expr: EXPR,
+      celebrate: { confetti, countryRecord, worldRecord },
+      root: uiRoot,
+    }
   }
 
   // ------------------------------------------------------------ arka plan işleri
@@ -203,6 +236,8 @@ function start() {
     await net.refresh()
     ui.refreshPlayer()
     await net.flushPending()
+    // İzin daha önce verildiyse anahtarı sessizce tazele (pencere açmadan)
+    if (isNative && net.registered) postNative({ type: 'push', ask: false })
   })
   window.addEventListener('online', () => void net.flushPending())
 

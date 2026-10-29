@@ -50,6 +50,8 @@ export interface Profile {
   name: string
   country: string
   best: number
+  /** 50 puanı geçen oyun sayısı */
+  plays?: number
   /** Dünya ve ülke sıralaması (skoru yoksa null) */
   rank: { world: number; country: number } | null
 }
@@ -87,6 +89,8 @@ export interface LeaderEntry {
   name: string
   country: string
   score: number
+  /** 50 puanı geçen oyun sayısı */
+  plays?: number
 }
 
 export interface LeaderboardResponse {
@@ -94,7 +98,7 @@ export interface LeaderboardResponse {
   country: string | null
   total: number
   entries: LeaderEntry[]
-  me: { rank: number; score: number; name: string; country: string } | null
+  me: { rank: number; score: number; name: string; country: string; plays?: number } | null
 }
 
 export interface CountryEntry {

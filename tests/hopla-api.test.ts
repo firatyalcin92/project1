@@ -123,7 +123,7 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       const r = await register('Fırat', 'TR')
       expect(r.status).toBe(201)
       expect(r.data.token).toMatch(/^[A-Za-z0-9_-]{43}$/)
-      expect(r.data.profile).toEqual({ name: 'Fırat', country: 'TR', best: 0, rank: null })
+      expect(r.data.profile).toEqual({ name: 'Fırat', country: 'TR', best: 0, plays: 0, rank: null })
       const me = await call('GET', '/players/me', { token: r.data.token })
       expect(me.data.profile.name).toBe('Fırat')
       expect((await call('GET', '/players/me')).status).toBe(401)
@@ -336,6 +336,125 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
         body: { ticket: t2.ticket, holds: run2.holds, score: run2.score },
       })
       expect(old.data.error.code).toBe('RUN_INVALID')
+    })
+
+    it('isim seçmeden oynanıp sonradan aktarılan skor ismi kilitlemez: silinince isim serbest kalır', async () => {
+      const t = await ticket(4242)
+      const run = play(4242, 5)
+      advance(run.minMs + 2000)
+      const tok = (await register('Aktarilan', 'TR', '10.4.4.1')).data.token
+      const ok = await call('POST', '/scores', {
+        token: tok,
+        body: { ticket: t.ticket, holds: run.holds, score: run.score },
+      })
+      expect(ok.data.improved).toBe(true)
+      expect((await call('DELETE', '/players/me', { token: tok })).status).toBe(200)
+      expect((await register('Aktarilan', 'TR', '10.4.4.2')).status).toBe(201)
+    })
+
+    it('oyun sayısı: yalnızca 50 puanı geçen oyunlar sayılır, aynı bilet iki kez sayılmaz', async () => {
+      const tok = (await register('Sayac', 'TR', '10.5.5.1')).data.token as string
+      const send = async (seed: number, landings: number) => {
+        const t = await ticket(seed, tok)
+        const run = play(seed, landings)
+        advance(run.minMs + 1000)
+        const r = await call('POST', '/scores', {
+          token: tok,
+          body: { ticket: t.ticket, holds: run.holds, score: run.score },
+        })
+        return { r, t, run }
+      }
+      const a = await send(31, 11)
+      expect(a.run.score).toBeGreaterThan(50)
+      expect(a.r.data.profile.plays).toBe(1)
+      // rekor olmasa da 50'yi geçen oyun sayılır
+      const b = await send(32, 10)
+      expect(b.run.score).toBeGreaterThan(50)
+      expect(b.r.data.profile.plays).toBe(2)
+      // 50 ve altı sayılmaz
+      const c = await send(33, 3)
+      expect(c.run.score).toBeLessThanOrEqual(50)
+      expect(c.r.data.profile.plays).toBe(2)
+      // aynı bilet yeniden gönderilemez
+      const again = await call('POST', '/scores', {
+        token: tok,
+        body: { ticket: b.t.ticket, holds: b.run.holds, score: b.run.score },
+      })
+      expect(again.data.profile.plays).toBe(2)
+      const board = await call('GET', '/leaderboard?scope=world')
+      expect(board.data.entries.find((e: Json) => e.name === 'Sayac').plays).toBe(2)
+    })
+
+    it('bildirimler: ülke birincisi geçilince bir kez, aynı gün tekrar yok, oyuna girince sayaç sıfırlanır', async () => {
+      const sent: Json[] = []
+      const realFetch = globalThis.fetch
+      globalThis.fetch = (async (_url: string, init: RequestInit) => {
+        const msgs = JSON.parse(String(init.body)) as Json[]
+        sent.push(...msgs)
+        return new Response(JSON.stringify({ data: msgs.map(() => ({ status: 'ok' })) }))
+      }) as unknown as typeof fetch
+      try {
+        const scoreRun = async (tok: string, seed: number, landings: number) => {
+          const t = await ticket(seed, tok)
+          const run = play(seed, landings)
+          advance(run.minMs + 1000)
+          return call('POST', '/scores', { token: tok, body: { ticket: t.ticket, holds: run.holds, score: run.score } })
+        }
+        const champ = (await register('Sampiyon', 'TR', '10.6.6.1')).data.token as string
+        await scoreRun(champ, 41, 4)
+        const bad = await call('PUT', '/players/me/push', { token: champ, body: { token: 'not-a-token' } })
+        expect(bad.status).toBe(400)
+        const ok = await call('PUT', '/players/me/push', {
+          token: champ,
+          body: { token: 'ExponentPushToken[abcdefghijkl]', lang: 'tr' },
+        })
+        expect(ok.data).toEqual({ ok: true })
+
+        const rival = (await register('Rakip', 'TR', '10.6.6.2')).data.token as string
+        await scoreRun(rival, 42, 6)
+        await new Promise((r) => setTimeout(r, 20))
+        expect(sent).toHaveLength(1)
+        expect(sent[0]!.to).toBe('ExponentPushToken[abcdefghijkl]')
+        expect(sent[0]!.body).toContain('Rakip')
+
+        // aynı gün yeniden geçilse de bildirim yok
+        const third = (await register('Ucuncu', 'TR', '10.6.6.3')).data.token as string
+        await scoreRun(third, 43, 8)
+        await new Promise((r) => setTimeout(r, 20))
+        expect(sent).toHaveLength(1)
+
+        const tick = () => new Promise((r) => setTimeout(r, 20))
+        // ertesi gün şampiyon geri alır, rakip yine geçer: bir bildirim daha (oyuna girmeden 2.)
+        advance(24 * 3600_000)
+        await scoreRun(champ, 44, 10)
+        await scoreRun(rival, 45, 12)
+        await tick()
+        expect(sent).toHaveLength(2)
+        // üçüncü gün: oyuna girmeden en fazla iki bildirim
+        advance(24 * 3600_000)
+        await scoreRun(champ, 46, 14)
+        await scoreRun(rival, 47, 16)
+        await tick()
+        expect(sent).toHaveLength(2)
+        // oyuna girince sayaç sıfırlanır
+        await call('GET', '/players/me', { token: champ })
+        advance(24 * 3600_000)
+        await scoreRun(champ, 48, 18)
+        await scoreRun(rival, 49, 20)
+        await tick()
+        expect(sent).toHaveLength(3)
+
+        // haftalık: şifre yoksa kapalı, varsa ülke birincisi duyurulur
+        expect((await call('POST', '/cron/weekly')).status).toBe(404)
+        process.env.HOPLA_CRON_SECRET = 'cron-gizli'
+        expect((await call('POST', '/cron/weekly', { headers: { 'x-cron-secret': 'yanlis' } })).status).toBe(401)
+        const w = await call('POST', '/cron/weekly', { headers: { 'x-cron-secret': 'cron-gizli' } })
+        expect(w.data.messages).toBe(1)
+        expect(sent.at(-1)!.body).toContain('Rakip')
+      } finally {
+        globalThis.fetch = realFetch
+        delete process.env.HOPLA_CRON_SECRET
+      }
     })
 
     it('süresi geçmiş bilet', async () => {

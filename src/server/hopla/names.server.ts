@@ -1,5 +1,5 @@
 import '@tanstack/react-start/server-only'
-import { ALLOW, ANYWHERE, FIGURES, NEGATIVE, RESERVED, SCRIPT, WORDS } from './blocklist'
+import { ALLOW, ANYWHERE, FIGURES, NEGATIVE, PREFIX, RESERVED, SCRIPT, SUFFIX, WORDS } from './blocklist'
 
 /**
  * Hopla isim denetimi.
@@ -158,6 +158,8 @@ const RE_ANYWHERE = compile(ANYWHERE, true, false)
 const RE_WORDS = compile(WORDS, true, true)
 const RE_SCRIPT = compile(SCRIPT, false, false)
 const RE_RESERVED = compile(RESERVED, true, true)
+const RE_PREFIX = new RegExp(`^${compile(PREFIX, true, false).source}`, 'u')
+const RE_SUFFIX = new RegExp(`${compile(SUFFIX, true, false).source}$`, 'u')
 const ALLOW_F = [...new Set(ALLOW.map((t) => stripSeparators(fold(t, true))))].sort((a, b) => b.length - a.length)
 const FIGURES_F = [...new Set(FIGURES.map((t) => stripSeparators(fold(t, true))))]
 const NEGATIVE_F = [...new Set(NEGATIVE.map((t) => stripSeparators(fold(t, true))))]
@@ -201,7 +203,9 @@ export function screenName(name: string): Verdict {
   for (const j of joined) {
     if (RE_RESERVED.test(j)) return { ok: false, reason: 'reserved' }
     if (RE_WORDS.test(j)) return { ok: false, reason: 'blocked' }
-    if (RE_ANYWHERE.test(maskAllowed(j))) return { ok: false, reason: 'blocked' }
+    const masked = maskAllowed(j)
+    if (RE_ANYWHERE.test(masked)) return { ok: false, reason: 'blocked' }
+    if (RE_PREFIX.test(masked) || RE_SUFFIX.test(masked)) return { ok: false, reason: 'blocked' }
   }
   for (const t of tokens) if (RE_WORDS.test(t)) return { ok: false, reason: 'blocked' }
 

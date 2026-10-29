@@ -1,0 +1,35 @@
+# Hopdog haftalık bildirimi: her pazar akşamı (Türkiye saatiyle ~20:07) her ülkede haftanın
+# birincisini o ülkedeki oyunculara duyurur.
+# Kurulum (bir kez): rastgele uzun bir şifre belirleyin; aynı değeri
+#  - GitHub → Settings → Secrets and variables → Actions → New repository secret: HOPLA_CRON_SECRET
+#  - Render → mesele → Environment: HOPLA_CRON_SECRET
+# olarak girin. Şifre yoksa bu iş hiçbir şey yapmadan biter.
+name: Hopdog haftalık bildirim
+
+on:
+  schedule:
+    - cron: '7 17 * * 0'
+  workflow_dispatch:
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Haftalık bildirimi gönder
+        env:
+          SECRET: ${{ secrets.HOPLA_CRON_SECRET }}
+          URL: https://mesele-0zvp.onrender.com/api/hopla/v1/cron/weekly
+        run: |
+          if [ -z "$SECRET" ]; then
+            echo "::warning::HOPLA_CRON_SECRET tanımlı değil; haftalık bildirim gönderilmedi."
+            exit 0
+          fi
+          # Ücretsiz Render uyuyorsa ilk istek sunucuyu uyandırır; birkaç kez denenir.
+          for i in 1 2 3 4; do
+            if curl -fsS --max-time 120 -X POST -H "x-cron-secret: $SECRET" "$URL"; then
+              echo
+              exit 0
+            fi
+            sleep 20
+          done
+          exit 1

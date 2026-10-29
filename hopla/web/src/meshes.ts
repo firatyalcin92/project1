@@ -62,42 +62,85 @@ function box(w: number, h: number, d: number, r = 0.06) {
   return g
 }
 
+/** Sabit renkli ayrıntılar (ahşap, ekmek, metal, döküm) */
+const fixed = new Map<number, MeshStandardMaterial>()
+function solid(color: number, roughness = 0.75, metalness = 0) {
+  let m = fixed.get(color)
+  if (!m) {
+    m = new MeshStandardMaterial({ color, roughness, metalness })
+    fixed.set(color, m)
+  }
+  return m
+}
+const WOOD = 0xb98352
+const CRUST = 0xc4823f
+const CRUMB = 0xf0d6a2
+const STEEL = 0xb7bcc2
+const IRON = 0x34302d
+
+const CORNERS = [
+  [-1, -1],
+  [1, -1],
+  [-1, 1],
+  [1, 1],
+] as const
+
 /**
  * Platformun görünüşü yalnızca süs: üst yüzey (iniş alanı) her zaman sim.ts'teki kare ya da daire
  * izdüşümüyle aynıdır. Çeşit, platformun sırası ve renginden türetilir (seviye üretimi değişmez).
+ * Üst yüzey çoğunlukla gövdeden farklı renktedir (nesne tek renk bir kütle gibi durmasın).
  */
-export type Look = 'block' | 'tv' | 'table' | 'chair' | 'cylinder' | 'cone' | 'roundTable'
+export type Look =
+  | 'block'
+  | 'tv'
+  | 'table'
+  | 'chair'
+  | 'drawer'
+  | 'fridge'
+  | 'bread'
+  | 'grill'
+  | 'tray'
+  | 'cylinder'
+  | 'cone'
+  | 'roundTable'
+  | 'pot'
+  | 'pan'
+
+const BOX_LOOKS: Look[] = ['block', 'block', 'tv', 'table', 'chair', 'drawer', 'fridge', 'bread', 'grill', 'tray']
+const CYL_LOOKS: Look[] = ['cylinder', 'cone', 'roundTable', 'pot', 'pan']
 
 export function lookOf(p: Platform): Look {
   if (p.i === 0) return 'block'
   const h = (Math.imul(p.i + 1, 2654435761) ^ Math.imul(p.tone + 7, 40503)) >>> 0
-  if (p.shape === 'cyl') return (['cylinder', 'cone', 'roundTable'] as const)[h % 3]!
-  const v = h % 10
-  return v < 4 ? 'block' : v < 6 ? 'tv' : v < 8 ? 'table' : 'chair'
+  const list = p.shape === 'cyl' ? CYL_LOOKS : BOX_LOOKS
+  return list[h % list.length]!
 }
 
 /** Platform: tabanı y=0'da; y ölçeği tabana göre ezilir. */
-export function createPlatform(p: Platform): Object3D {
+export function createPlatform(p: Platform, look: Look = lookOf(p)): Object3D {
   const s = p.size
   const h = p.height
   const r = s / 2
+  const n = COLORS.tones.length
   const main = toneMaterial(p.tone)
   const dark = toneMaterial(p.tone, 0.72)
+  // Üst yüzey için gövdeyle uyumlu ama farklı bir ton
+  const top = toneMaterial((p.tone + 3) % n, 1)
   const g = new Group()
-  switch (lookOf(p)) {
+  /** Kutu gövde + farklı renkte üst kapak */
+  const capped = (body: Material, cap: Material, capH = 0.09, rad = 0.07) => {
+    g.add(part(box(s, h - capH, s, rad), body))
+    g.add(part(box(s, capH + 0.02, s, Math.min(rad, 0.04)), cap, 0, h - capH - 0.02))
+  }
+  switch (look) {
     case 'block':
-      g.add(part(box(s, h, s, 0.07), main))
+      capped(main, top)
       break
     case 'tv': {
       // Kısa ayaklı eski televizyon; ekran kameraya bakan yüzde.
       const feet = 0.1
       g.add(part(box(s, h - feet, s, 0.12), main, 0, feet))
-      for (const [fx, fz] of [
-        [-1, -1],
-        [1, -1],
-        [-1, 1],
-        [1, 1],
-      ] as const)
+      for (const [fx, fz] of CORNERS)
         g.add(
           part(
             new CylinderGeometry(0.06, 0.06, feet, 12).translate(0, feet / 2, 0),
@@ -107,14 +150,7 @@ export function createPlatform(p: Platform): Object3D {
             fz * r * 0.7,
           ),
         )
-      const screen = part(
-        box(s * 0.72, (h - feet) * 0.62, 0.03, 0.06),
-        detailMaterial,
-        -r * 0.1,
-        feet + (h - feet) * 0.14,
-        r,
-      )
-      g.add(screen)
+      g.add(part(box(s * 0.72, (h - feet) * 0.62, 0.03, 0.06), detailMaterial, -r * 0.1, feet + (h - feet) * 0.14, r))
       for (const k of [0, 1])
         g.add(
           part(
@@ -125,46 +161,104 @@ export function createPlatform(p: Platform): Object3D {
             r + 0.01,
           ),
         )
+      // üstte ince örtü
+      g.add(part(box(s * 0.7, 0.025, s * 0.7, 0.012), top, 0, h - 0.01))
       break
     }
     case 'table': {
-      const top = 0.16
-      g.add(part(box(s, top, s, 0.05), main, 0, h - top))
-      for (const [fx, fz] of [
-        [-1, -1],
-        [1, -1],
-        [-1, 1],
-        [1, 1],
-      ] as const)
-        g.add(part(box(0.13, h - top, 0.13, 0.03), dark, fx * (r - 0.14), 0, fz * (r - 0.14)))
+      const t = 0.16
+      g.add(part(box(s, t, s, 0.05), solid(WOOD), 0, h - t))
+      for (const [fx, fz] of CORNERS)
+        g.add(part(box(0.13, h - t, 0.13, 0.03), main, fx * (r - 0.14), 0, fz * (r - 0.14)))
       break
     }
     case 'chair': {
       // Oturak iniş alanıdır; arkalık uzak kenarda (kameradan uzakta) alçak durur.
       const seat = 0.16
-      g.add(part(box(s, seat, s, 0.05), main, 0, h - seat))
-      for (const [fx, fz] of [
-        [-1, -1],
-        [1, -1],
-        [-1, 1],
-        [1, 1],
-      ] as const)
+      g.add(part(box(s, seat, s, 0.05), top, 0, h - seat))
+      for (const [fx, fz] of CORNERS)
         g.add(part(box(0.12, h - seat, 0.12, 0.03), dark, fx * (r - 0.12), 0, fz * (r - 0.12)))
       g.add(part(box(s, 0.55, 0.1, 0.04), main, 0, h - seat, -r - 0.05))
       break
     }
+    case 'drawer': {
+      // Çekmeceli komodin: ahşap üst, önde üç çekmece ve kulplar
+      capped(main, solid(WOOD), 0.1, 0.05)
+      const rows = 3
+      const fh = (h - 0.2) / rows
+      for (let k = 0; k < rows; k++) {
+        const y = 0.06 + k * fh
+        g.add(part(box(s * 0.86, fh - 0.06, 0.03, 0.02), dark, 0, y, r))
+        g.add(part(box(s * 0.22, 0.05, 0.05, 0.02), solid(STEEL, 0.35, 0.6), 0, y + (fh - 0.06) / 2 - 0.025, r + 0.03))
+      }
+      break
+    }
+    case 'fridge': {
+      // Buzdolabı: iki kapı çizgisi, metal kulp, üstte farklı renk
+      capped(main, top, 0.08, 0.1)
+      g.add(part(box(s * 0.96, 0.025, 0.02, 0.008), dark, 0, h * 0.62, r + 0.005))
+      for (const [y0, len] of [
+        [h * 0.68, h * 0.18],
+        [h * 0.2, h * 0.3],
+      ] as const)
+        g.add(part(box(0.06, len, 0.06, 0.025), solid(STEEL, 0.3, 0.7), r * 0.72, y0, r + 0.04))
+      break
+    }
+    case 'bread': {
+      // Somun ekmek: açık renk iç, kızarmış kabuk üstte, üstte çizikler
+      g.add(part(box(s, h - 0.12, s, 0.18), solid(CRUMB, 0.9)))
+      g.add(part(box(s, 0.16, s, 0.1), solid(CRUST, 0.8), 0, h - 0.16))
+      for (const k of [-1, 0, 1])
+        g.add(part(box(0.06, 0.012, s * 0.6, 0.005), solid(0x9a5f2b, 0.9), k * s * 0.25, h - 0.003, 0))
+      break
+    }
+    case 'grill': {
+      // Mangal: koyu gövde, üstte metal ızgara çubukları, ince ayaklar
+      const legs = h * 0.45
+      g.add(part(box(s, h - legs - 0.06, s, 0.08), main, 0, legs))
+      g.add(part(box(s * 0.96, 0.06, s * 0.96, 0.02), solid(IRON, 0.5, 0.3), 0, h - 0.06))
+      for (let k = -4; k <= 4; k++)
+        g.add(part(box(0.035, 0.02, s * 0.9, 0.008), solid(STEEL, 0.3, 0.7), (k / 4.6) * r, h - 0.01, 0))
+      for (const [fx, fz] of CORNERS)
+        g.add(part(box(0.07, legs, 0.07, 0.02), solid(IRON, 0.5, 0.3), fx * (r - 0.1), 0, fz * (r - 0.1)))
+      break
+    }
+    case 'tray': {
+      // Ters çevrilmiş kaşıklık: plastik kasa, üstte bölme izleri
+      capped(main, top, 0.06, 0.08)
+      for (const k of [-1, 0, 1]) g.add(part(box(0.04, 0.015, s * 0.82, 0.006), dark, k * s * 0.24, h - 0.004, 0))
+      g.add(part(box(s * 0.82, 0.015, 0.04, 0.006), dark, 0, h - 0.004, s * 0.1))
+      break
+    }
     case 'cylinder':
-      g.add(part(roundedLathe(r, r, h), main))
+      g.add(part(roundedLathe(r, r, h - 0.08), main))
+      g.add(part(roundedLathe(r * 0.98, r * 0.98, 0.1).translate(0, h - 0.1, 0), top))
       break
     case 'cone':
-      // Ters koni: aşağı doğru daralır
-      g.add(part(roundedLathe(r * 0.42, r, h), main))
+      // Ters koni: aşağı doğru daralır, üstte farklı renk kapak
+      g.add(part(roundedLathe(r * 0.42, r * 0.97, h - 0.08), main))
+      g.add(part(roundedLathe(r, r, 0.1).translate(0, h - 0.1, 0), top))
       break
     case 'roundTable': {
-      const top = 0.16
-      g.add(part(roundedLathe(r, r, top).translate(0, h - top, 0), main))
-      g.add(part(new CylinderGeometry(0.11, 0.13, h - top, 20).translate(0, (h - top) / 2, 0), dark))
-      g.add(part(new CylinderGeometry(r * 0.48, r * 0.52, 0.06, 32).translate(0, 0.03, 0), dark))
+      const t = 0.16
+      g.add(part(roundedLathe(r, r, t).translate(0, h - t, 0), solid(WOOD)))
+      g.add(part(new CylinderGeometry(0.11, 0.13, h - t, 20).translate(0, (h - t) / 2, 0), main))
+      g.add(part(new CylinderGeometry(r * 0.48, r * 0.52, 0.06, 32).translate(0, 0.03, 0), main))
+      break
+    }
+    case 'pot': {
+      // Tencere: gövde, iki yan kulp, üstte metal kapak
+      g.add(part(roundedLathe(r * 0.95, r * 0.95, h - 0.07), main))
+      g.add(part(roundedLathe(r, r, 0.08).translate(0, h - 0.08, 0), solid(STEEL, 0.3, 0.6)))
+      for (const side of [-1, 1]) g.add(part(box(0.12, 0.08, 0.32, 0.03), dark, side * (r * 0.95 + 0.04), h * 0.72, 0))
+      break
+    }
+    case 'pan': {
+      // Ocağın üstünde döküm tava: üst yüzey tavanın içi, sapı dışarı uzanır
+      const panH = 0.2
+      g.add(part(roundedLathe(r * 0.8, r * 0.8, h - panH), main))
+      g.add(part(roundedLathe(r * 0.82, r, panH).translate(0, h - panH, 0), solid(IRON, 0.45, 0.35)))
+      g.add(part(box(r * 0.95, 0.07, 0.13, 0.03), solid(WOOD), -(r + r * 0.42), h - 0.1, 0))
       break
     }
   }

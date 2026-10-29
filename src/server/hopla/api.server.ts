@@ -5,6 +5,7 @@ import { API_PREFIX, checkNameShape, cleanName, type ErrorCode, type Profile } f
 import { isCountryCode } from '../../../hopla/core/countries'
 import { MAX_HOLD_MS, MAX_JUMPS, SIM_VERSION, replayRun } from '../../../hopla/core/sim'
 import { moderateWithAI, nameKey, screenName } from './names.server'
+import { notifyPassed, sendWeekly } from './push.server'
 import { SetupRequired, getHoplaStore, type HoplaStore, type PlayerRow, type ProfilePatch } from './store.server'
 
 /**
@@ -19,6 +20,10 @@ import { SetupRequired, getHoplaStore, type HoplaStore, type PlayerRow, type Pro
  *  POST  /scores           {ticket, holds, score} → sunucu oyunu yeniden oynatıp doğrular
  *  GET   /leaderboard      ?scope=world|country&country=TR&limit=50
  *  GET   /countries        Ülkeler: en iyi 10 oyuncunun rekor toplamı
+ *  DELETE /players/me      İsmi ve skoru sil (sıralamada görünmüş isim kalıcı kapanır)
+ *  PUT   /players/me/push  {token, lang} — bildirim anahtarı (null: bildirim kapalı)
+ *  POST  /reports          {name} — uygunsuz isim bildirimi
+ *  POST  /cron/weekly      Haftalık bildirim (x-cron-secret: HOPLA_CRON_SECRET)
  *  POST  /admin/ban        {name, banned} — x-admin-password başlığıyla isim kapatma
  *
  * Toplu isim almaya karşı: iş kanıtı, IP başına günlük kayıt sınırı (IP yalnızca tuzlu
@@ -45,7 +50,7 @@ class ApiError extends Error {
 const CORS: Record<string, string> = {
   // Kimlik çerez değil Bearer anahtarı olduğundan her köken güvenle izinlidir (uygulama, web).
   'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'access-control-allow-headers': 'content-type, authorization, x-admin-password',
   'access-control-max-age': '86400',
 }
@@ -170,6 +175,15 @@ const RegisterBody = z.object({
   challenge: z.string().max(600),
   nonce: z.string().max(16),
 })
+const PushBody = z.object({
+  token: z
+    .string()
+    .regex(/^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,200}\]$/)
+    .nullable(),
+  lang: z.enum(['tr', 'en']).optional(),
+})
+/** Bu puanın üstündeki oyunlar "oyun sayısı"na girer (başlat-yan ile sayı şişirilmesin) */
+const PLAY_MIN_SCORE = 50
 const UpdateBody = z.object({ name: z.string().max(80).optional(), country: z.string().max(4).optional() })
 const RunBody = z.object({ seed: z.number().int().min(0).max(0xffffffff) })
 const ScoreBody = z.object({
@@ -268,6 +282,7 @@ async function profileOf(store: HoplaStore, p: PlayerRow): Promise<Profile> {
     name: p.name,
     country: p.country,
     best: p.best_score,
+    plays: p.plays,
     rank: ranked
       ? {
           world: await store.rank(p.best_score, p.best_at!, null),
@@ -353,7 +368,27 @@ async function route(request: Request, ip: string): Promise<Response> {
     limit(`me:${ip}`, 120, MINUTE)
     const store = await getHoplaStore()
     const p = await requirePlayer(request, store)
+    // Oyuncu oyuna girdi: "geçildin" bildirim sayacı sıfırlanır
+    if (p.notify_unseen > 0) await store.markSeen(p.id)
     return json(200, { profile: await profileOf(store, p) })
+  }
+
+  if (key === 'PUT /players/me/push') {
+    limit(`push:${ip}`, 20, HOUR)
+    const store = await getHoplaStore()
+    const p = await requirePlayer(request, store)
+    const b = await body(request, PushBody)
+    if (!(await store.extras())) return json(200, { ok: false })
+    await store.setPush(p.id, b.token, b.lang ?? null)
+    return json(200, { ok: true })
+  }
+
+  if (key === 'POST /cron/weekly') {
+    const secret = process.env.HOPLA_CRON_SECRET?.trim()
+    if (!secret) throw new ApiError(404, 'NOT_FOUND')
+    if (!safeEqual(request.headers.get('x-cron-secret') ?? '', secret)) throw new ApiError(401, 'UNAUTHORIZED')
+    limit(`cron:${ip}`, 5, HOUR)
+    return json(200, await sendWeekly(await getHoplaStore()))
   }
 
   if (key === 'PATCH /players/me') {
@@ -386,9 +421,10 @@ async function route(request: Request, ip: string): Promise<Response> {
     limit(`delete:${ip}`, 10, HOUR)
     const store = await getHoplaStore()
     const p = await requirePlayer(request, store)
-    // Sıralamada görünmüş isim kalıcı olarak kapatılır (taklit edilemesin); kişisel veri silinir.
-    if (p.best_score > 0)
-      await store.retirePlayer(p.id, retiredKey(p.name_key), sha256(randomBytes(32).toString('hex')))
+    // Bu isimle oynanıp sıralamada görünmüş isim kalıcı olarak kapatılır (taklit edilemesin); kişisel veri
+    // silinir. İsim seçmeden önce oynanıp sonradan aktarılan skor "bu isimle oynamak" sayılmaz.
+    const played = p.best_score > 0 && p.last_run_iat >= Date.parse(p.created_at)
+    if (played) await store.retirePlayer(p.id, retiredKey(p.name_key), sha256(randomBytes(32).toString('hex')))
     else await store.deletePlayer(p.id)
     reports.delete(p.id)
     cache.clear()
@@ -448,18 +484,27 @@ async function route(request: Request, ip: string): Promise<Response> {
     if (!r.valid || r.score !== b.score) throw new ApiError(422, 'RUN_INVALID')
     if (now - t.i < r.minMs * 0.85 - 1500) throw new ApiError(422, 'RUN_TOO_FAST')
 
-    let improved = false
-    if (b.score > p.best_score) {
-      improved = await store.submitBest(p.id, {
-        score: b.score,
-        jumps: r.jumps,
-        perfects: r.perfects,
-        iat: t.i,
-        at: iso(now),
-      })
+    const counted = b.score > PLAY_MIN_SCORE
+    if (b.score <= p.best_score && !counted) return json(200, { improved: false, profile: await profileOf(store, p) })
+    // Bildirim için kayıttan önceki birinciler (yalnızca rekor kırılabilecekse bakılır)
+    const beats = b.score > p.best_score && !p.banned
+    const [worldBefore, countryBefore] = beats
+      ? await Promise.all([store.leader(null), store.leader(p.country)])
+      : [null, null]
+    const improved =
+      (await store.recordRun(
+        p.id,
+        { score: b.score, jumps: r.jumps, perfects: r.perfects, iat: t.i, at: iso(now) },
+        counted,
+      )) === true
+    if (improved) {
+      cache.clear()
+      // Bildirimler yanıtı bekletmez
+      void notifyPassed(store, p, b.score, p.best_score, worldBefore, countryBefore).catch((e) =>
+        console.error('[hopla] bildirim hatası', e),
+      )
     }
-    if (improved) cache.clear()
-    const fresh = improved ? ((await store.playerByToken(p.token_hash)) ?? p) : p
+    const fresh = (await store.playerByToken(p.token_hash)) ?? p
     return json(200, { improved, profile: await profileOf(store, fresh) })
   }
 
@@ -482,6 +527,7 @@ async function route(request: Request, ip: string): Promise<Response> {
             score: p.best_score,
             name: p.name,
             country: p.country,
+            plays: p.plays,
           }
         : null
     return json(200, { scope, country, total: board.total, entries: board.entries, me })

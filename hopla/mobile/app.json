@@ -23,6 +23,20 @@
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false
+    },
+    "owner": "firatyalcin",
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "mode": "production"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1de21188-23b7-4522-b498-3680fd473632"
+      }
     }
   }
 }

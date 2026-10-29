@@ -146,7 +146,8 @@ export class Net {
       this.keepPending(run)
       return { kind: 'needsName' }
     }
-    if (this.profile && r.score <= this.profile.best) return { kind: 'skipped' }
+    // Rekor değilse de 50'yi geçen oyunlar gönderilir (oyun sayısına girer)
+    if (this.profile && r.score <= this.profile.best && r.score <= 50) return { kind: 'skipped' }
     return this.send(run)
   }
 
@@ -287,6 +288,17 @@ export class Net {
     storage.set('pending', null)
   }
 
+  /** Bildirim anahtarını sunucuya kaydeder (null: bildirimleri kapat) */
+  async setPush(token: string | null, lang: string) {
+    if (!this.token) return
+    try {
+      await call('/players/me/push', this.token, { method: 'PUT', body: { token, lang }, auth: true, timeout: 75_000 })
+      storage.set('push', token ?? '')
+    } catch {
+      // bir sonraki açılışta yeniden denenir
+    }
+  }
+
   /** Uygunsuz bir ismi bildirir */
   report(name: string) {
     return call<{ ok: true }>('/reports', this.token, { method: 'POST', body: { name }, auth: true, timeout: 75_000 })
@@ -312,5 +324,6 @@ export class Net {
     this.profile = null
     storage.set('token', null)
     storage.set('profile', null)
+    storage.set('push', null)
   }
 }

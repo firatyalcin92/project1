@@ -14,6 +14,16 @@ export function createMemoryHoplaStore(): HoplaStore {
   const sorted = (rows: PlayerRow[]) =>
     rows.sort((a, b) => b.best_score - a.best_score || (a.best_at ?? '').localeCompare(b.best_at ?? ''))
 
+  const target = (p: PlayerRow) => ({
+    id: p.id,
+    name: p.name,
+    score: p.best_score,
+    push_token: p.push_token!,
+    push_lang: p.push_lang,
+    notify_day: p.notify_day,
+    notify_unseen: p.notify_unseen,
+  })
+
   return {
     kind: 'memory',
 
@@ -35,6 +45,11 @@ export function createMemoryHoplaStore(): HoplaStore {
         rename_window: null,
         banned: false,
         created_at: new Date().toISOString(),
+        plays: 0,
+        push_token: null,
+        push_lang: null,
+        notify_day: null,
+        notify_unseen: 0,
       }
       players.set(row.id, row)
       byToken.set(row.token_hash, row.id)
@@ -91,7 +106,7 @@ export function createMemoryHoplaStore(): HoplaStore {
     async top(limit, country) {
       return sorted(ranked(country))
         .slice(0, limit)
-        .map((p) => ({ name: p.name, country: p.country, score: p.best_score }))
+        .map((p) => ({ name: p.name, country: p.country, score: p.best_score, plays: p.plays }))
     },
 
     async countRanked(country) {
@@ -147,10 +162,80 @@ export function createMemoryHoplaStore(): HoplaStore {
         last_run_iat: 0,
         created_ip_hash: null,
         banned: true,
+        plays: 0,
+        push_token: null,
+        push_lang: null,
       })
       byToken.set(deadTokenHash, id)
       byKey.set(retiredKey, id)
     },
+    async recordRun(id, run, count) {
+      const row = players.get(id)
+      if (!row || row.last_run_iat >= run.iat) return null
+      row.last_run_iat = run.iat
+      if (count) row.plays += 1
+      if (run.score <= row.best_score) return false
+      row.best_score = run.score
+      row.best_at = run.at
+      row.best_jumps = run.jumps
+      row.best_perfects = run.perfects
+      return true
+    },
+
+    async extras() {
+      return true
+    },
+
+    async setPush(id, token, lang) {
+      for (const p of players.values()) if (token && p.push_token === token && p.id !== id) p.push_token = null
+      const row = players.get(id)
+      if (row) Object.assign(row, { push_token: token, push_lang: lang })
+    },
+
+    async clearPushToken(token) {
+      for (const p of players.values()) if (p.push_token === token) p.push_token = null
+    },
+
+    async markSeen(id) {
+      const row = players.get(id)
+      if (row) row.notify_unseen = 0
+    },
+
+    async markNotified(id, day, unseen) {
+      const row = players.get(id)
+      if (row) Object.assign(row, { notify_day: day, notify_unseen: unseen })
+    },
+
+    async leader(country) {
+      const p = sorted(ranked(country))[0]
+      return p?.push_token ? target(p) : null
+    },
+
+    async passedBy(country, newScore, oldBest, selfId) {
+      const p = sorted(ranked(country)).find(
+        (r) => r.id !== selfId && r.best_score < newScore && r.best_score >= oldBest,
+      )
+      return p?.push_token ? target(p) : null
+    },
+
+    async weeklyLeaders(since) {
+      const best = new Map<string, PlayerRow>()
+      for (const p of sorted(ranked(null))) {
+        if ((p.best_at ?? '') >= since && !best.has(p.country)) best.set(p.country, p)
+      }
+      return [...best.values()].map((p) => ({
+        id: p.id,
+        country: p.country,
+        name: p.name,
+        score: p.best_score,
+        plays: p.plays,
+      }))
+    },
+
+    async pushTargets(country) {
+      return [...players.values()].filter((p) => p.country === country && !p.banned && p.push_token).map(target)
+    },
+
     async deletePlayer(id) {
       const row = players.get(id)
       if (!row) return

@@ -26,7 +26,12 @@ create table if not exists hopla_players (
   rename_count integer not null default 0,
   rename_window text,
   banned integer not null default 0,
-  created_at text not null
+  created_at text not null,
+  plays integer not null default 0,
+  push_token text,
+  push_lang text,
+  notify_day text,
+  notify_unseen integer not null default 0
 );
 create index if not exists hopla_players_board_idx on hopla_players (best_score desc, best_at asc);
 create index if not exists hopla_players_country_idx on hopla_players (country, best_score desc, best_at asc);
@@ -36,7 +41,26 @@ create index if not exists hopla_players_ip_idx on hopla_players (created_ip_has
 type Row = Record<string, unknown>
 
 function toPlayer(r: Row): PlayerRow {
-  return { ...(r as unknown as PlayerRow), banned: !!r.banned, last_run_iat: Number(r.last_run_iat) }
+  return {
+    ...(r as unknown as PlayerRow),
+    banned: !!r.banned,
+    last_run_iat: Number(r.last_run_iat),
+    plays: Number(r.plays ?? 0),
+    notify_unseen: Number(r.notify_unseen ?? 0),
+  }
+}
+
+const TARGET = 'id, name, best_score, push_token, push_lang, notify_day, notify_unseen'
+function toTarget(r: Row) {
+  return {
+    id: String(r.id),
+    name: String(r.name),
+    score: Number(r.best_score ?? 0),
+    push_token: String(r.push_token),
+    push_lang: r.push_lang === null ? null : String(r.push_lang),
+    notify_day: r.notify_day === null ? null : String(r.notify_day),
+    notify_unseen: Number(r.notify_unseen ?? 0),
+  }
 }
 
 export function createSqliteHoplaStore(path: string): HoplaStore {
@@ -44,6 +68,17 @@ export function createSqliteHoplaStore(path: string): HoplaStore {
   const db = new DatabaseSync(path)
   db.exec('pragma journal_mode = wal; pragma busy_timeout = 5000;')
   db.exec(SCHEMA)
+  // Eski dosyalara sonradan eklenen sütunlar
+  const have = new Set((db.prepare('pragma table_info(hopla_players)').all() as Row[]).map((r) => String(r.name)))
+  for (const [col, def] of [
+    ['plays', 'integer not null default 0'],
+    ['push_token', 'text'],
+    ['push_lang', 'text'],
+    ['notify_day', 'text'],
+    ['notify_unseen', 'integer not null default 0'],
+  ]) {
+    if (!have.has(col!)) db.exec(`alter table hopla_players add column ${col} ${def}`)
+  }
 
   const one = (sql: string, ...p: unknown[]) => (db.prepare(sql).get(...(p as never[])) as Row | undefined) ?? null
   const all = (sql: string, ...p: unknown[]) => db.prepare(sql).all(...(p as never[])) as Row[]
@@ -144,12 +179,17 @@ export function createSqliteHoplaStore(path: string): HoplaStore {
 
     async top(limit, country) {
       return all(
-        `select name, country, best_score from hopla_players where ${RANKED} and (? is null or country = ?)
+        `select name, country, best_score, plays from hopla_players where ${RANKED} and (? is null or country = ?)
          order by best_score desc, best_at asc limit ?`,
         country,
         country,
         limit,
-      ).map((r) => ({ name: String(r.name), country: String(r.country), score: Number(r.best_score) }))
+      ).map((r) => ({
+        name: String(r.name),
+        country: String(r.country),
+        score: Number(r.best_score),
+        plays: Number(r.plays ?? 0),
+      }))
     },
 
     async countRanked(country) {
@@ -193,13 +233,115 @@ export function createSqliteHoplaStore(path: string): HoplaStore {
     async retirePlayer(id, retiredKey, deadTokenHash) {
       run(
         `update hopla_players set name = '-', name_key = ?, country = 'ZZ', token_hash = ?, best_score = 0,
-           best_at = null, best_jumps = 0, best_perfects = 0, last_run_iat = 0, created_ip_hash = null, banned = 1
+           best_at = null, best_jumps = 0, best_perfects = 0, last_run_iat = 0, created_ip_hash = null, banned = 1,
+           plays = 0, push_token = null, push_lang = null
          where id = ?`,
         retiredKey,
         deadTokenHash,
         id,
       )
     },
+    async recordRun(id, r, count) {
+      db.exec('begin immediate')
+      try {
+        const row = one('select best_score from hopla_players where id = ? and last_run_iat < ?', id, r.iat)
+        if (!row) {
+          db.exec('commit')
+          return null
+        }
+        const improved = r.score > Number(row.best_score)
+        run('update hopla_players set last_run_iat = ?, plays = plays + ? where id = ?', r.iat, count ? 1 : 0, id)
+        if (improved) {
+          run(
+            'update hopla_players set best_score = ?, best_at = ?, best_jumps = ?, best_perfects = ? where id = ?',
+            r.score,
+            r.at,
+            r.jumps,
+            r.perfects,
+            id,
+          )
+        }
+        db.exec('commit')
+        return improved
+      } catch (e) {
+        db.exec('rollback')
+        throw e
+      }
+    },
+
+    async extras() {
+      return true
+    },
+
+    async setPush(id, token, lang) {
+      if (token) run('update hopla_players set push_token = null where push_token = ? and id <> ?', token, id)
+      run('update hopla_players set push_token = ?, push_lang = ? where id = ?', token, lang, id)
+    },
+
+    async clearPushToken(token) {
+      run('update hopla_players set push_token = null where push_token = ?', token)
+    },
+
+    async markSeen(id) {
+      run('update hopla_players set notify_unseen = 0 where id = ?', id)
+    },
+
+    async markNotified(id, day, unseen) {
+      run('update hopla_players set notify_day = ?, notify_unseen = ? where id = ?', day, unseen, id)
+    },
+
+    async leader(country) {
+      const r = one(
+        `select ${TARGET} from hopla_players where ${RANKED} and (? is null or country = ?)
+         order by best_score desc, best_at asc limit 1`,
+        country,
+        country,
+      )
+      return r?.push_token ? toTarget(r) : null
+    },
+
+    async passedBy(country, newScore, oldBest, selfId) {
+      const r = one(
+        `select ${TARGET} from hopla_players where ${RANKED} and country = ? and id <> ?
+           and best_score < ? and best_score >= ? order by best_score desc, best_at asc limit 1`,
+        country,
+        selfId,
+        newScore,
+        oldBest,
+      )
+      return r?.push_token ? toTarget(r) : null
+    },
+
+    async weeklyLeaders(since) {
+      const rows = all(
+        `select id, country, name, best_score, plays from hopla_players where ${RANKED} and best_at >= ?
+         order by best_score desc, best_at asc`,
+        since,
+      )
+      const seen = new Set<string>()
+      const out = []
+      for (const r of rows) {
+        const c = String(r.country)
+        if (seen.has(c)) continue
+        seen.add(c)
+        out.push({
+          id: String(r.id),
+          country: c,
+          name: String(r.name),
+          score: Number(r.best_score),
+          plays: Number(r.plays),
+        })
+      }
+      return out
+    },
+
+    async pushTargets(country) {
+      return all(
+        `select ${TARGET} from hopla_players where country = ? and banned = 0 and push_token is not null`,
+        country,
+      ).map(toTarget)
+    },
+
     async deletePlayer(id) {
       run('delete from hopla_players where id = ?', id)
     },

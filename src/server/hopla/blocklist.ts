@@ -11,6 +11,9 @@
  *            kelimelerin içinde masumca geçebilen terimler (ör. "ass" → "class", "sik" → "ışık").
  *  SCRIPT    Latin dışı yazılar (Kiril, Arap, CJK, Hangul, Devanagari, Tay, Yunan, İbrani):
  *            ayraçsız metnin içinde aranır.
+ *  PREFIX / SUFFIX  İsmin başında / sonunda geçerse engellenir: bitişik yazılmış kısaltma küfürler
+ *            ("admininamk", "hasanaq", "bekleyinorclar", "ptmjuan"). Ortada aranmazlar ki masum
+ *            isimler (Hamka, Orçun, McGregor) takılmasın.
  *  ALLOW     Bu masum kelimelerin içindeki eşleşmeler sayılmaz (Scunthorpe sorunu).
  *  FIGURES + NEGATIVE  Siyasi kişi adı ile aşağılayıcı/slogan kelimesi birlikteyse engellenir.
  *
@@ -19,6 +22,20 @@
  */
 
 export const ANYWHERE: string[] = [
+  // --- bitişik kısaltma küfürler (Türkçe)
+  'orclar',
+  'oclar',
+  'orcocu',
+  'orospucocu',
+  'aminako',
+  'aminakoy',
+  'aminagoy',
+  'aminoglu',
+  'sikeyim',
+  'sikiyim',
+  'siktirgit',
+  'anaskm',
+  'anansikim',
   // --- nefret, kötü şöhretli kişiler, terör örgütleri (her dilde Latin yazımı)
   'hitler',
   'adolfhitler',
@@ -752,8 +769,85 @@ export const SCRIPT: string[] = [
   '히틀러',
 ]
 
+/** İsmin başında geçerse engellenen kısaltmalar (çok dilli) */
+export const PREFIX: string[] = [
+  // Türkçe
+  'amk',
+  'amq',
+  'aminak',
+  'sktr',
+  'sktir',
+  'siktir',
+  'orspu',
+  'orsbu',
+  // İngilizce
+  'stfu',
+  'gtfo',
+  'kys',
+  'fck',
+  'fcuk',
+  'wtf',
+  'btch',
+  'biatch',
+  // İspanyolca / Portekizce / Fransızca / Almanca
+  'ptm',
+  'ptmr',
+  'hdp',
+  'ctm',
+  'csm',
+  'hdlgp',
+  'vsf',
+  'pqp',
+  'fdp',
+  'vtnc',
+  'ntm',
+  'hdf',
+  // Lehçe / Rusça (Latin) / Endonezce / Hintçe / Arapça (Latin)
+  'jprdl',
+  'pzdc',
+  'bgst',
+  'bngst',
+  'kntl',
+  'jnck',
+  'bsdk',
+  'mkc',
+  'ksmk',
+  'ksomk',
+]
+
+/** İsmin sonunda geçerse engellenen kısaltmalar: ikili kısaltmalar (mk, aq, sg, oç…) yalnızca sonda aranır. */
+export const SUFFIX: string[] = [
+  ...PREFIX,
+  // Türkçe: "...amk", "...aq", "...mk", "...sg", "...oç", "...orçlar"
+  'mk',
+  'aq',
+  'sg',
+  'oc',
+  'orc',
+  'oclar',
+  'orclar',
+  'orcocu',
+  'ococu',
+  // diğer dillerde ikili/üçlü kısaltmalar
+  'mf',
+  'bc',
+  'mc',
+  'tnc',
+  'krl',
+  'crl',
+  'ajg',
+  'anjg',
+  'bkl',
+]
+
 /** Masum kelimeler: içlerindeki eşleşmeler sayılmaz. */
 export const ALLOW: string[] = [
+  // sonu kısaltmaya benzeyen gerçek adlar
+  'ishaq',
+  'razzaq',
+  'shafaq',
+  'rafaq',
+  'iraq',
   'scunthorpe',
   'penistone',
   'cockburn',

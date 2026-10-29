@@ -75,4 +75,30 @@ describe('hopla.sql', () => {
       ['DE', 75, 2],
     ])
   })
+
+  it('hopla-2.sql ek kurulumu tekrar çalıştırılabilir; hopla_record_run oyunu tek işlemde kaydeder', async () => {
+    await db.exec(readFileSync(new URL('../supabase/hopla-2.sql', import.meta.url), 'utf8'))
+    await player('R1', 'TR', 0, null)
+    const id = (await db.query<{ id: string }>("select id from hopla_players where name = 'R1'")).rows[0]!.id
+    const rec = async (score: number, iat: number, count: boolean) =>
+      (
+        await db.query<{ r: boolean | null }>('select public.hopla_record_run($1, $2, 3, 1, $3, now(), $4) as r', [
+          id,
+          score,
+          iat,
+          count,
+        ])
+      ).rows[0]!.r
+    expect(await rec(60, 1000, true)).toBe(true)
+    expect(await rec(55, 2000, true)).toBe(false) // rekor değil ama sayılır
+    expect(await rec(70, 2000, true)).toBe(null) // aynı/eski bilet reddedilir
+    expect(await rec(20, 3000, false)).toBe(false)
+    const row = (
+      await db.query<{ plays: number; best_score: number; last_run_iat: string }>(
+        'select plays, best_score, last_run_iat from hopla_players where id = $1',
+        [id],
+      )
+    ).rows[0]!
+    expect([row.plays, row.best_score, Number(row.last_run_iat)]).toEqual([2, 60, 3000])
+  })
 })

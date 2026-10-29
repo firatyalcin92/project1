@@ -39,6 +39,12 @@ function h<K extends keyof HTMLElementTagNameMap>(
   return el
 }
 
+/** "Ali" → "Ali482" (en fazla 16 karakter) */
+function withDigits(name: string) {
+  const base = [...name.replace(/\d+$/u, '')].slice(0, NAME_MAX - 3).join('')
+  return base + String(100 + Math.floor(Math.random() * 900))
+}
+
 const fmt = (n: number) => n.toLocaleString(LANG === 'tr' ? 'tr-TR' : undefined)
 
 export interface UIHandlers {
@@ -397,12 +403,24 @@ export class UI {
         this.handlers.registered()
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
-        error.textContent = errorText(err instanceof ApiFailure ? err.code : 'NETWORK')
+        const code = err instanceof ApiFailure ? err.code : 'NETWORK'
+        if (code === 'NAME_TAKEN' && !locked) {
+          // Alınmışsa sonuna rastgele üç rakam ekleyerek öner
+          const suggestion = withDigits(name)
+          input.value = suggestion
+          error.textContent = t.nameSuggested(suggestion)
+        } else error.textContent = errorText(code)
       } finally {
         clearTimeout(slow)
         save.disabled = false
         later.disabled = false
         save.textContent = t.save
+        // iOS'ta düğme devre dışı kalınca odak kaybolur, klavye açık kalsa da yazılamaz: odağı geri ver
+        if (form.isConnected && !locked && !this.net.registered) {
+          input.focus()
+          const end = input.value.length
+          input.setSelectionRange(end, end)
+        }
       }
     })
     if (!this.net.registered) void this.net.prepareRegistration().catch(() => {})
@@ -488,7 +506,16 @@ export class UI {
               { class: `item${e.name === me ? ' me' : ''}` },
               h('span', { class: 'rank' }, String(e.rank)),
               h('span', { class: 'flag' }, flagEmoji(e.country)),
-              h('span', { class: 'who' }, h('span', { class: 'name' }, e.name)),
+              h(
+                'span',
+                { class: 'who' },
+                h(
+                  'span',
+                  { class: 'name' },
+                  e.name,
+                  e.plays ? h('span', { class: 'plays', title: t.playsTitle }, ` (${fmt(e.plays)})`) : null,
+                ),
+              ),
               h('span', { class: 'pts' }, fmt(e.score)),
             )
             // Başkasının satırına dokununca "İsmi bildir" seçeneği açılır

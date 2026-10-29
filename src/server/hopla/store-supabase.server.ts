@@ -27,10 +27,40 @@ function check(error: PostgrestError | null, context: string) {
   throw new Error(`supabase ${context} failed`)
 }
 
+/** hopla-2.sql ile eklenen sütunlar (kurulmamışsa bu özellikler kapalı kalır) */
+const EXTRA_COLUMNS = ',plays,push_token,push_lang,notify_day,notify_unseen'
+const TARGET = 'id,name,best_score,push_token,push_lang,notify_day,notify_unseen'
+
+function missingColumn(error: PostgrestError | null) {
+  return (
+    error?.code === '42703' ||
+    error?.code === 'PGRST204' ||
+    /column .* does not exist|could not find the .* column/i.test(error?.message ?? '')
+  )
+}
+
 /** bigint sütunu PostgREST'ten metin olarak da gelebilir */
 function normalize(row: Record<string, unknown>): PlayerRow {
-  return { ...(row as unknown as PlayerRow), last_run_iat: Number(row.last_run_iat ?? 0) }
+  return {
+    ...(row as unknown as PlayerRow),
+    last_run_iat: Number(row.last_run_iat ?? 0),
+    plays: Number(row.plays ?? 0),
+    push_token: (row.push_token as string | null) ?? null,
+    push_lang: (row.push_lang as string | null) ?? null,
+    notify_day: (row.notify_day as string | null) ?? null,
+    notify_unseen: Number(row.notify_unseen ?? 0),
+  }
 }
+
+const toTarget = (r: Record<string, unknown>) => ({
+  id: String(r.id),
+  name: String(r.name),
+  score: Number(r.best_score ?? 0),
+  push_token: String(r.push_token),
+  push_lang: (r.push_lang as string | null) ?? null,
+  notify_day: (r.notify_day as string | null) ?? null,
+  notify_unseen: Number(r.notify_unseen ?? 0),
+})
 
 export function createSupabaseHoplaStore(url: string, serviceKey: string): HoplaStore {
   const db = createClient(url, serviceKey, {
@@ -38,6 +68,19 @@ export function createSupabaseHoplaStore(url: string, serviceKey: string): Hopla
     global: { headers: { 'x-application-name': 'hopla' } },
   })
   const players = () => db.from('hopla_players')
+
+  // hopla-2.sql çalıştırıldı mı? Evetse kalıcı olarak, hayırsa 5 dakikada bir yeniden bakılır.
+  let extrasOk: boolean | null = null
+  let extrasAt = 0
+  async function extras() {
+    if (extrasOk || (extrasOk === false && Date.now() - extrasAt < 5 * 60_000)) return extrasOk
+    const { error } = await players().select('plays').limit(1)
+    extrasAt = Date.now()
+    extrasOk = !error
+    if (error && !missingColumn(error)) console.error(`[hopla] supabase extras: [${error.code}] ${error.message}`)
+    return extrasOk
+  }
+  const cols = async (): Promise<string> => COLUMNS + ((await extras()) ? EXTRA_COLUMNS : '')
 
   return {
     kind: 'supabase',
@@ -53,30 +96,43 @@ export function createSupabaseHoplaStore(url: string, serviceKey: string): Hopla
     },
 
     async createPlayer(p) {
-      const { data, error } = await players().insert(p).select(COLUMNS).single()
+      const { data, error } = await players()
+        .insert(p)
+        .select(await cols())
+        .single()
       if (error?.code === UNIQUE_VIOLATION) return 'name_taken'
       check(error, 'createPlayer')
-      return normalize(data as Record<string, unknown>)
+      return normalize(data as unknown as Record<string, unknown>)
     },
 
     async playerByToken(hash) {
-      const { data, error } = await players().select(COLUMNS).eq('token_hash', hash).maybeSingle()
+      const { data, error } = await players()
+        .select(await cols())
+        .eq('token_hash', hash)
+        .maybeSingle()
       check(error, 'playerByToken')
-      return data ? normalize(data as Record<string, unknown>) : null
+      return data ? normalize(data as unknown as Record<string, unknown>) : null
     },
 
     async playerByNameKey(key) {
-      const { data, error } = await players().select(COLUMNS).eq('name_key', key).maybeSingle()
+      const { data, error } = await players()
+        .select(await cols())
+        .eq('name_key', key)
+        .maybeSingle()
       check(error, 'playerByNameKey')
-      return data ? normalize(data as Record<string, unknown>) : null
+      return data ? normalize(data as unknown as Record<string, unknown>) : null
     },
 
     async updateProfile(id, patch) {
       const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))
-      const { data, error } = await players().update(clean).eq('id', id).select(COLUMNS).single()
+      const { data, error } = await players()
+        .update(clean)
+        .eq('id', id)
+        .select(await cols())
+        .single()
       if (error?.code === UNIQUE_VIOLATION) return 'name_taken'
       check(error, 'updateProfile')
-      return normalize(data as Record<string, unknown>)
+      return normalize(data as unknown as Record<string, unknown>)
     },
 
     async countRecentByIp(ipHash, since) {
@@ -112,17 +168,22 @@ export function createSupabaseHoplaStore(url: string, serviceKey: string): Hopla
     },
 
     async top(limit, country) {
-      let q = players().select('name,country,best_score').eq('banned', false).gt('best_score', 0)
+      const withPlays = await extras()
+      let q = players()
+        .select((withPlays ? 'name,country,best_score,plays' : 'name,country,best_score') as string)
+        .eq('banned', false)
+        .gt('best_score', 0)
       if (country) q = q.eq('country', country)
       const { data, error } = await q
         .order('best_score', { ascending: false })
         .order('best_at', { ascending: true })
         .limit(limit)
       check(error, 'top')
-      return (data ?? []).map((r) => ({
+      return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
         name: r.name as string,
         country: r.country as string,
         score: r.best_score as number,
+        plays: Number(r.plays ?? 0),
       }))
     },
 
@@ -172,10 +233,123 @@ export function createSupabaseHoplaStore(url: string, serviceKey: string): Hopla
           last_run_iat: 0,
           created_ip_hash: null,
           banned: true,
+          ...((await extras()) ? { plays: 0, push_token: null, push_lang: null } : {}),
         })
         .eq('id', id)
       check(error, 'retirePlayer')
     },
+    async recordRun(id, run, count) {
+      if (!(await extras())) return this.submitBest(id, run)
+      const { data, error } = await db.rpc('hopla_record_run', {
+        p_id: id,
+        p_score: run.score,
+        p_jumps: run.jumps,
+        p_perfects: run.perfects,
+        p_iat: run.iat,
+        p_at: run.at,
+        p_count: count,
+      })
+      check(error, 'recordRun')
+      return data === null ? null : Boolean(data)
+    },
+
+    extras,
+
+    async setPush(id, token, lang) {
+      if (!(await extras())) return
+      if (token) await players().update({ push_token: null }).eq('push_token', token).neq('id', id)
+      const { error } = await players().update({ push_token: token, push_lang: lang }).eq('id', id)
+      check(error, 'setPush')
+    },
+
+    async clearPushToken(token) {
+      if (!(await extras())) return
+      const { error } = await players().update({ push_token: null }).eq('push_token', token)
+      check(error, 'clearPushToken')
+    },
+
+    async markSeen(id) {
+      if (!(await extras())) return
+      const { error } = await players().update({ notify_unseen: 0 }).eq('id', id).gt('notify_unseen', 0)
+      check(error, 'markSeen')
+    },
+
+    async markNotified(id, day, unseen) {
+      if (!(await extras())) return
+      const { error } = await players().update({ notify_day: day, notify_unseen: unseen }).eq('id', id)
+      check(error, 'markNotified')
+    },
+
+    async leader(country) {
+      if (!(await extras())) return null
+      let q = players().select(TARGET).eq('banned', false).gt('best_score', 0)
+      if (country) q = q.eq('country', country)
+      const { data, error } = await q
+        .order('best_score', { ascending: false })
+        .order('best_at', { ascending: true })
+        .limit(1)
+      check(error, 'leader')
+      const r = data?.[0] as Record<string, unknown> | undefined
+      return r?.push_token ? toTarget(r) : null
+    },
+
+    async passedBy(country, newScore, oldBest, selfId) {
+      if (!(await extras())) return null
+      const { data, error } = await players()
+        .select(TARGET)
+        .eq('banned', false)
+        .eq('country', country)
+        .neq('id', selfId)
+        .lt('best_score', newScore)
+        .gte('best_score', Math.max(1, oldBest))
+        .order('best_score', { ascending: false })
+        .order('best_at', { ascending: true })
+        .limit(1)
+      check(error, 'passedBy')
+      const r = data?.[0] as Record<string, unknown> | undefined
+      return r?.push_token ? toTarget(r) : null
+    },
+
+    async weeklyLeaders(since) {
+      if (!(await extras())) return []
+      const { data, error } = await players()
+        .select('id,country,name,best_score,plays')
+        .eq('banned', false)
+        .gt('best_score', 0)
+        .gte('best_at', since)
+        .order('best_score', { ascending: false })
+        .order('best_at', { ascending: true })
+        .limit(5000)
+      check(error, 'weeklyLeaders')
+      const seen = new Set<string>()
+      const out = []
+      for (const r of (data ?? []) as Record<string, unknown>[]) {
+        const c = String(r.country)
+        if (seen.has(c)) continue
+        seen.add(c)
+        out.push({
+          id: String(r.id),
+          country: c,
+          name: String(r.name),
+          score: Number(r.best_score),
+          plays: Number(r.plays ?? 0),
+        })
+      }
+      return out
+    },
+
+    async pushTargets(country) {
+      if (!(await extras())) return []
+      const { data, error } = await players()
+        .select(TARGET)
+        .eq('country', country)
+        .eq('banned', false)
+        .not('push_token', 'is', null)
+        .limit(10000)
+      check(error, 'pushTargets')
+      return ((data ?? []) as Record<string, unknown>[]).map(toTarget)
+    },
+
     async deletePlayer(id) {
       const { error } = await players().delete().eq('id', id)
       check(error, 'deletePlayer')

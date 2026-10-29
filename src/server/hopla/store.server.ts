@@ -25,6 +25,14 @@ export interface PlayerRow {
   rename_window: string | null
   banned: boolean
   created_at: string
+  /** 50 puanı geçen oyunların sayısı */
+  plays: number
+  /** Expo bildirim anahtarı (bildirim istemiyorsa null) ve bildirim dili */
+  push_token: string | null
+  push_lang: string | null
+  /** Son "rekorun geçildi" bildiriminin günü (YYYY-MM-DD) ve oyuna girmeden gönderilen sayısı */
+  notify_day: string | null
+  notify_unseen: number
 }
 
 export type NewPlayer = Pick<PlayerRow, 'name' | 'name_key' | 'country' | 'token_hash' | 'created_ip_hash'>
@@ -49,6 +57,27 @@ export interface TopRow {
   name: string
   country: string
   score: number
+  plays: number
+}
+
+/** Bildirim gönderilecek oyuncu */
+export interface PushTarget {
+  id: string
+  name: string
+  score: number
+  push_token: string
+  push_lang: string | null
+  notify_day: string | null
+  notify_unseen: number
+}
+
+/** Haftanın ülke birincisi */
+export interface WeeklyLeader {
+  id: string
+  country: string
+  name: string
+  score: number
+  plays: number
 }
 
 export interface CountryRow {
@@ -72,6 +101,27 @@ export interface HoplaStore {
   countRecentByIp(ipHash: string, sinceIso: string): Promise<number>
   /** Yalnızca skor öncekinden yüksek ve bilet daha yeniyse yazar (tek atomik işlem). */
   submitBest(id: string, run: BestRun): Promise<boolean>
+  /**
+   * Doğrulanmış oyunu kaydeder (tek atomik işlem): bilet daha yeniyse kabul edilir, count ise oyun
+   * sayısı artar, rekor yükseldiyse yazılır. Dönüş: rekor yükseldi mi; bilet eskiyse null.
+   */
+  recordRun(id: string, run: BestRun, count: boolean): Promise<boolean | null>
+  /** Oyun sayısı ve bildirim sütunları kurulu mu (Supabase'de hopla-2.sql) */
+  extras(): Promise<boolean>
+  setPush(id: string, token: string | null, lang: string | null): Promise<void>
+  /** Bildirimi gönderilemeyen (uygulama silinmiş) anahtarı temizler */
+  clearPushToken(token: string): Promise<void>
+  /** Oyuncu oyuna girdi: bildirim sayacı sıfırlanır */
+  markSeen(id: string): Promise<void>
+  markNotified(id: string, day: string, unseen: number): Promise<void>
+  /** Dünya (country=null) ya da ülke birincisi */
+  leader(country: string | null): Promise<PushTarget | null>
+  /** Skoru [oldBest, newScore) aralığında olan, yeni skorla geçilmiş en iyi oyuncu (bildirim için) */
+  passedBy(country: string, newScore: number, oldBest: number, selfId: string): Promise<PushTarget | null>
+  /** Ülkelere göre, rekorunu sinceIso'dan sonra yapmış en iyi oyuncular */
+  weeklyLeaders(sinceIso: string): Promise<WeeklyLeader[]>
+  /** Bir ülkede bildirim isteyen oyuncular */
+  pushTargets(country: string): Promise<PushTarget[]>
   /** 1'den başlayan sıra: daha yüksek skor ya da aynı skora daha önce ulaşanlar önde */
   rank(score: number, bestAt: string, country: string | null): Promise<number>
   top(limit: number, country: string | null): Promise<TopRow[]>

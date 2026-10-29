@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
+import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppState, Linking, Platform, StyleSheet, View } from 'react-native'
@@ -16,6 +17,8 @@ import GAME_HTML from './game/html'
  * Köprü (hopla/web/src/native.ts):
  *  - Oyun → uygulama: {type:'store'} kayıtları AsyncStorage'a yazılır (iOS WebView depolamasını
  *    temizlese bile cihaz anahtarı ve rekor kaybolmaz), {type:'haptic'} yerel titreşim çalar.
+ *  - Oyun → uygulama: {type:'push', ask} bildirim izni (ask: izin penceresi gösterilsin mi) ve
+ *    Expo bildirim anahtarı istenir; anahtar window.hopla.pushToken(token|null) ile oyuna verilir.
  *  - Uygulama → oyun: kayıtlı değerler ve sunucu adresi sayfa yüklenmeden window.__HOPLA_NATIVE__
  *    ile verilir; uygulama arka plana geçince window.hopla.pause() çağrılır.
  */
@@ -24,10 +27,37 @@ const BG = '#f3efe8'
 const BASE_URL = 'https://localhost/'
 const PREFIX = 'hopla.'
 const API = (process.env.EXPO_PUBLIC_HOPLA_API ?? 'https://mesele-0zvp.onrender.com').trim().replace(/\/+$/, '')
+/** EAS proje kimliği (app.json → extra.eas.projectId ile aynı); bildirim anahtarı için gerekir */
+const PROJECT_ID = '1de21188-23b7-4522-b498-3680fd473632'
+
+// Uygulama açıkken gelen bildirim de üstte gösterilsin
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+})
+
+/** Bildirim izni (ask ise izin penceresi gösterilir) ve Expo bildirim anahtarı; izin yoksa null */
+async function pushToken(ask: boolean): Promise<string | null> {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'Hopdog',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    })
+  }
+  let { status } = await Notifications.getPermissionsAsync()
+  if (status !== 'granted' && ask) status = (await Notifications.requestPermissionsAsync()).status
+  if (status !== 'granted') return null
+  return (await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID })).data
+}
 
 type BridgeMessage =
   | { type: 'store'; key: string; value: string | null }
   | { type: 'haptic'; kind: 'light' | 'medium' | 'success' | 'heavy' }
+  | { type: 'push'; ask?: boolean }
 
 function haptic(kind: string) {
   if (kind === 'success') return Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -77,6 +107,14 @@ export default function App() {
         void AsyncStorage.setItem(PREFIX + msg.key, msg.value)
     } else if (msg.type === 'haptic') {
       void haptic(msg.kind).catch(() => {})
+    } else if (msg.type === 'push') {
+      void pushToken(!!msg.ask)
+        .catch(() => null)
+        .then((token) =>
+          web.current?.injectJavaScript(
+            `window.hopla && window.hopla.pushToken && window.hopla.pushToken(${JSON.stringify(token)}); true;`,
+          ),
+        )
     }
   }, [])
 
