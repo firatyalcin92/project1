@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kapak — Dürtüsel çocukların 5 özelliği</title>
+<style>
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 1080px; height: 1920px; overflow: hidden; font-family: RD, 'Noto Color Emoji', sans-serif; background: #0A0F27; }
+  .cover { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #0B0B10; }
+  .photo { position: absolute; left: 0; top: -60px; width: 1080px; }
+  /* yüzün altından başlayan koyu geçiş: yazılar kıyafetin üstünde, yüz açık */
+  .fade { position: absolute; left: 0; top: 760px; width: 1080px; height: 1100px;
+    background: linear-gradient(rgba(10,15,39,0) 0%, rgba(10,15,39,0.82) 18%, rgba(10,15,39,0.95) 36%, #0A0F27 70%); }
+  .tag { position: absolute; top: 900px; left: 50%; transform: translateX(-50%); padding: 12px 30px; border-radius: 40px;
+    background: #FFC93C; color: #141A3A; font-weight: 900; font-size: 34px; letter-spacing: 2px; white-space: nowrap; box-shadow: 0 10px 26px rgba(0,0,0,0.35); }
+  .title { position: absolute; top: 975px; width: 100%; text-align: center; color: #fff; font-weight: 900; text-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .l1 { font-size: 80px; line-height: 1.05; letter-spacing: -1px; }
+  .l2 { font-size: 150px; line-height: 1.0; color: #FFC93C; letter-spacing: -3px; }
+  #g { position: absolute; left: 0; top: 1265px; width: 1080px; height: 260px; }
+  .name { position: absolute; left: 50%; transform: translateX(-50%); top: 1535px; text-align: center; background: rgba(12,16,40,0.85); border: 2px solid rgba(255,255,255,0.16);
+    border-radius: 26px; padding: 18px 44px; white-space: nowrap; }
+  .name .n1 { color: #fff; font-weight: 900; font-size: 46px; }
+  .name .n1 span { color: #FFC93C; font-weight: 800; font-size: 32px; margin-right: 12px; }
+  .name .n2 { color: rgba(255,255,255,0.8); font-weight: 800; font-size: 28px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="cover">
+  <img class="photo" src="necla.jpg" alt="">
+  <div class="fade"></div>
+  <canvas id="g" width="1080" height="260"></canvas>
+  <div class="tag">⚡ HİPERAKTİF ≠ DÜRTÜSEL</div>
+  <div class="title">
+    <div class="l1">DÜRTÜSEL ÇOCUKLARIN</div>
+    <div class="l2">5 ÖZELLİĞİ</div>
+  </div>
+  <div class="name">
+    <div class="n1"><span>Pedagog</span>Necla SAYGIN</div>
+    <div class="n2">Çocuk Psikolojisi &amp; Dikkat Üzerine</div>
+  </div>
+</div>
+<script src="../../lib/three.min.js"></script>
+<script>
+  // three3d.js'in kullandığı motor yardımcıları (kapakta tek kare)
+  let ctx = document.getElementById('g').getContext('2d');
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const eBack = x => x, eOut = x => x, popA = () => 1;
+</script>
+<script src="../../three3d.js"></script>
+<script>
+  document.fonts.ready.then(() => [['#FFC93C',1],['#7CC4FF',2],['#FF5E6C',3],['#34D399',4],['#B08CFF',5]].forEach(([c, n], i) => coin3d(n, c, 140 + i * 200, 130, 190, 2.0 + i * 0.6, 0)));
+</script>
+</body>
+</html>
