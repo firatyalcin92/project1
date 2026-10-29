@@ -145,7 +145,11 @@ export function createSupabaseHoplaStore(url: string, serviceKey: string): Hopla
     },
 
     async deleteStale(before) {
-      const { count, error } = await players().delete({ count: 'exact' }).eq('best_score', 0).lt('created_at', before)
+      const { count, error } = await players()
+        .delete({ count: 'exact' })
+        .eq('best_score', 0)
+        .eq('banned', false)
+        .lt('created_at', before)
       check(error, 'deleteStale')
       return count ?? 0
     },
@@ -153,6 +157,24 @@ export function createSupabaseHoplaStore(url: string, serviceKey: string): Hopla
     async setBanned(id, banned) {
       const { error } = await players().update({ banned }).eq('id', id)
       check(error, 'setBanned')
+    },
+    async retirePlayer(id, retiredKey, deadTokenHash) {
+      const { error } = await players()
+        .update({
+          name: '-',
+          name_key: retiredKey,
+          country: 'ZZ',
+          token_hash: deadTokenHash,
+          best_score: 0,
+          best_at: null,
+          best_jumps: 0,
+          best_perfects: 0,
+          last_run_iat: 0,
+          created_ip_hash: null,
+          banned: true,
+        })
+        .eq('id', id)
+      check(error, 'retirePlayer')
     },
     async deletePlayer(id) {
       const { error } = await players().delete().eq('id', id)

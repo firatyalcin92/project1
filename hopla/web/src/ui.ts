@@ -315,6 +315,12 @@ export class UI {
       'aria-label': t.namePlaceholder,
     })
     input.value = p?.name ?? ''
+    // Kayıtlı isim değiştirilemez (yeni isim için önce silinir); yalnızca ülke değişebilir.
+    const locked = this.net.registered && !!p
+    if (locked) {
+      input.readOnly = true
+      input.classList.add('locked')
+    }
     const select = h('select', { class: 'field', 'aria-label': t.country })
     const codes = [...COUNTRY_CODES].sort((a, b) => countryName(a).localeCompare(countryName(b), LANG))
     for (const code of codes) select.append(h('option', { value: code }, `${flagEmoji(code)}  ${countryName(code)}`))
@@ -366,9 +372,9 @@ export class UI {
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
-      const name = cleanName(input.value)
+      const name = locked ? p!.name : cleanName(input.value)
       const country = select.value
-      const shape = checkNameShape(name)
+      const shape = locked ? 'ok' : checkNameShape(name)
       if (shape !== 'ok') {
         error.textContent = errorText(shape)
         input.focus()
@@ -382,10 +388,7 @@ export class UI {
       ctrl = new AbortController()
       try {
         if (this.net.registered && p) {
-          const body: { name?: string; country?: string } = {}
-          if (name !== p.name) body.name = name
-          if (country !== p.country) body.country = country
-          if (body.name || body.country) await this.net.update(body)
+          if (country !== p.country) await this.net.update({ country })
         } else {
           await this.net.register(name, country, ctrl.signal)
         }
@@ -403,7 +406,7 @@ export class UI {
       }
     })
     if (!this.net.registered) void this.net.prepareRegistration().catch(() => {})
-    if (!opts.first) setTimeout(() => input.focus(), 220)
+    if (!opts.first && !locked) setTimeout(() => input.focus(), 220)
   }
 
   private reportAction(row: HTMLElement, name: string) {

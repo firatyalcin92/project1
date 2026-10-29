@@ -87,6 +87,11 @@ function secret() {
 }
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
+/**
+ * Sıralamada görünmüş ve sonra silinmiş isimlerin kalıcı ayrılmış anahtarı. İsmin kendisi saklanmaz,
+ * yalnızca geri döndürülemez özeti: başkası aynı ismi (taklit için) yeniden alamaz.
+ */
+const retiredKey = (key: string) => `r:${sha256(`hopla-retired:${key}`).slice(0, 60)}`
 const hashIp = (ip: string) => sha256(`${secret().toString('hex')}:ip:${ip}`)
 const iso = (ms: number) => new Date(ms).toISOString()
 
@@ -234,7 +239,7 @@ async function checkProfile(
     if (!screenName(name).ok) throw new ApiError(422, 'NAME_BLOCKED')
     const key = nameKey(name)
     if (key.length < 2) throw new ApiError(400, 'NAME_CHARS')
-    const owner = await store.playerByNameKey(key)
+    const owner = (await store.playerByNameKey(key)) ?? (await store.playerByNameKey(retiredKey(key)))
     if (owner && owner.id !== self?.id) throw new ApiError(409, 'NAME_TAKEN')
     if (!self || self.name_key !== key) {
       if ((await moderateWithAI(name)) === 'flagged') throw new ApiError(422, 'NAME_BLOCKED')
@@ -357,14 +362,15 @@ async function route(request: Request, ip: string): Promise<Response> {
     const p = await requirePlayer(request, store)
     if (p.banned) throw new ApiError(403, 'NAME_BLOCKED')
     const b = await body(request, UpdateBody)
-    const name = b.name !== undefined && cleanName(b.name) !== p.name ? b.name : undefined
+    // İsim kayıttan sonra değiştirilemez (yeni isim için önce silinir); ülke değişebilir.
+    if (b.name !== undefined && cleanName(b.name) !== p.name) throw new ApiError(403, 'NAME_LOCKED')
     const country = b.country !== undefined && b.country !== p.country ? b.country : undefined
-    if (name === undefined && country === undefined) return json(200, { profile: await profileOf(store, p) })
+    if (country === undefined) return json(200, { profile: await profileOf(store, p) })
     const now = Date.now()
     const fresh = !p.rename_window || now - Date.parse(p.rename_window) >= DAY
     const count = fresh ? 0 : p.rename_count
     if (count >= RENAMES_PER_DAY) throw new ApiError(429, 'RENAME_LIMIT')
-    const changes = await checkProfile(store, name, country, p)
+    const changes = await checkProfile(store, undefined, country, p)
     const patch: ProfilePatch = {
       ...changes,
       rename_count: count + 1,
@@ -380,7 +386,10 @@ async function route(request: Request, ip: string): Promise<Response> {
     limit(`delete:${ip}`, 10, HOUR)
     const store = await getHoplaStore()
     const p = await requirePlayer(request, store)
-    await store.deletePlayer(p.id)
+    // Sıralamada görünmüş isim kalıcı olarak kapatılır (taklit edilemesin); kişisel veri silinir.
+    if (p.best_score > 0)
+      await store.retirePlayer(p.id, retiredKey(p.name_key), sha256(randomBytes(32).toString('hex')))
+    else await store.deletePlayer(p.id)
     reports.delete(p.id)
     cache.clear()
     return json(200, { ok: true })

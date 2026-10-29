@@ -116,7 +116,7 @@ export function createMemoryHoplaStore(): HoplaStore {
     async deleteStale(before) {
       let n = 0
       for (const p of [...players.values()]) {
-        if (p.best_score === 0 && p.created_at < before) {
+        if (p.best_score === 0 && !p.banned && p.created_at < before) {
           players.delete(p.id)
           byToken.delete(p.token_hash)
           byKey.delete(p.name_key)
@@ -129,6 +129,27 @@ export function createMemoryHoplaStore(): HoplaStore {
     async setBanned(id, banned) {
       const row = players.get(id)
       if (row) row.banned = banned
+    },
+    async retirePlayer(id, retiredKey, deadTokenHash) {
+      const row = players.get(id)
+      if (!row) return
+      byToken.delete(row.token_hash)
+      byKey.delete(row.name_key)
+      Object.assign(row, {
+        name: '-',
+        name_key: retiredKey,
+        country: 'ZZ',
+        token_hash: deadTokenHash,
+        best_score: 0,
+        best_at: null,
+        best_jumps: 0,
+        best_perfects: 0,
+        last_run_iat: 0,
+        created_ip_hash: null,
+        banned: true,
+      })
+      byToken.set(deadTokenHash, id)
+      byKey.set(retiredKey, id)
     },
     async deletePlayer(id) {
       const row = players.get(id)

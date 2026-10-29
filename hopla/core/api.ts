@@ -19,6 +19,7 @@ export type ErrorCode =
   | 'UNAUTHORIZED'
   | 'RATE_LIMITED'
   | 'RENAME_LIMIT'
+  | 'NAME_LOCKED'
   | 'RUN_INVALID'
   | 'RUN_EXPIRED'
   | 'RUN_TOO_FAST'
@@ -128,9 +129,9 @@ export function cleanName(raw: string) {
 export function checkNameShape(name: string): 'ok' | 'NAME_LENGTH' | 'NAME_CHARS' {
   const chars = [...name]
   if (chars.length < NAME_MIN || chars.length > NAME_MAX) return 'NAME_LENGTH'
-  if (!/^[\p{L}\p{M}\p{N} ._-]+$/u.test(name)) return 'NAME_CHARS'
-  if (!/^[\p{L}\p{N}]/u.test(name) || !/[\p{L}\p{N}\p{M}]$/u.test(name)) return 'NAME_CHARS'
-  if (/[ ._-]{2,}/.test(name)) return 'NAME_CHARS'
+  // Yalnızca harf ve rakam: boşluk, nokta, tire, alt çizgi, @ vb. yok (kelimeleri bölüp
+  // filtreden kaçırmanın önüne geçer). En az 2 harf: yalnızca rakamdan isim olmaz.
+  if (!/^[\p{L}\p{N}][\p{L}\p{M}\p{N}]*$/u.test(name)) return 'NAME_CHARS'
   const letters = name.match(/\p{L}/gu)?.length ?? 0
   if (letters < 2) return 'NAME_CHARS'
   return 'ok'

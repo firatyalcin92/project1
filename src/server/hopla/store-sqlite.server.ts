@@ -182,11 +182,23 @@ export function createSqliteHoplaStore(path: string): HoplaStore {
     },
 
     async deleteStale(before) {
-      return Number(run('delete from hopla_players where best_score = 0 and created_at < ?', before).changes)
+      return Number(
+        run('delete from hopla_players where best_score = 0 and banned = 0 and created_at < ?', before).changes,
+      )
     },
 
     async setBanned(id, banned) {
       run('update hopla_players set banned = ? where id = ?', banned ? 1 : 0, id)
+    },
+    async retirePlayer(id, retiredKey, deadTokenHash) {
+      run(
+        `update hopla_players set name = '-', name_key = ?, country = 'ZZ', token_hash = ?, best_score = 0,
+           best_at = null, best_jumps = 0, best_perfects = 0, last_run_iat = 0, created_ip_hash = null, banned = 1
+         where id = ?`,
+        retiredKey,
+        deadTokenHash,
+        id,
+      )
     },
     async deletePlayer(id) {
       run('delete from hopla_players where id = ?', id)

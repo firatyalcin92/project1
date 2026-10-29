@@ -78,11 +78,16 @@ export interface HoplaStore {
   countRanked(country: string | null): Promise<number>
   /** Ülkeler: en iyi 10 oyuncunun rekorları toplamı */
   countryRanking(limit: number): Promise<CountryRow[]>
-  /** Hiç skor göndermemiş eski kayıtları siler (isim kapatmayı önler); silinen sayısı */
+  /** Hiç skor göndermemiş eski kayıtları siler (isim kapatmayı önler; yasaklı/kilitli kayıtlar kalır) */
   deleteStale(beforeIso: string): Promise<number>
   setBanned(id: string, banned: boolean): Promise<void>
   /** Oyuncunun kendi isteğiyle kaydını ve skorunu tamamen siler */
   deletePlayer(id: string): Promise<void>
+  /**
+   * Kaydı kişisel veriden arındırıp yalnızca isim kilidi olarak bırakır: isim, ülke, skorlar, IP özeti
+   * silinir; name_key ayrılmış (özetlenmiş) anahtarla, cihaz anahtarı kullanılamaz bir değerle değişir.
+   */
+  retirePlayer(id: string, retiredKey: string, deadTokenHash: string): Promise<void>
 }
 
 let cached: HoplaStore | null = null

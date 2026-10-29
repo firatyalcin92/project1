@@ -7,10 +7,18 @@ const blocked = (n: string) => !screenName(n).ok
 describe('hopla isim biçimi', () => {
   it('uzunluk ve karakter kuralları', () => {
     expect(checkNameShape('Ali')).toBe('ok')
-    expect(checkNameShape('Işık Yılmaz')).toBe('ok')
+    expect(checkNameShape('IşıkYılmaz')).toBe('ok')
+    expect(checkNameShape('Ali2026')).toBe('ok')
     expect(checkNameShape('小明小明')).toBe('ok')
     expect(checkNameShape('Сергей')).toBe('ok')
-    expect(checkNameShape('player_one')).toBe('ok')
+    // boşluk ve simge yok: kelimeyi bölüp filtreden kaçırmak engellenir
+    expect(checkNameShape('player_one')).toBe('NAME_CHARS')
+    expect(checkNameShape('Işık Yılmaz')).toBe('NAME_CHARS')
+    expect(checkNameShape('ali-veli')).toBe('NAME_CHARS')
+    expect(checkNameShape('ali.veli')).toBe('NAME_CHARS')
+    expect(checkNameShape('ali@veli')).toBe('NAME_CHARS')
+    expect(checkNameShape('12345678')).toBe('NAME_CHARS')
+    expect(checkNameShape('a1234567')).toBe('NAME_CHARS')
     expect(checkNameShape('ab')).toBe('NAME_LENGTH')
     expect(checkNameShape('a'.repeat(17))).toBe('NAME_LENGTH')
     expect(checkNameShape('ali😀')).toBe('NAME_CHARS')

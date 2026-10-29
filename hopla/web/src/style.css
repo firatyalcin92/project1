@@ -551,6 +551,11 @@ select.field {
   background-size: 20px;
 }
 
+.field.locked {
+  color: var(--soft);
+  background: transparent;
+}
+
 .field:focus {
   outline: none;
   border-color: var(--accent);

@@ -131,8 +131,8 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
     })
 
     it('aynı isim (büyük/küçük harf, aksan, benzer harf farkıyla) ikinci kez alınamaz', async () => {
-      expect((await register('Ali Veli')).status).toBe(201)
-      for (const n of ['ALİ VELİ', 'ali.veli', 'Аli Veli']) {
+      expect((await register('AliVeli')).status).toBe(201)
+      for (const n of ['ALİVELİ', 'ALIVELI', 'АliVeli']) {
         const r = await register(n, 'DE', '10.0.0.2')
         expect(r.status).toBe(409)
         expect(r.data.error.code).toBe('NAME_TAKEN')
@@ -141,10 +141,13 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
 
     it('uygunsuz isim, biçim ve ülke hataları', async () => {
       expect((await register('Hitler')).data.error.code).toBe('NAME_BLOCKED')
-      expect((await register('orospu çocuğu')).data.error.code).toBe('NAME_BLOCKED')
+      expect((await register('orospucocugu')).data.error.code).toBe('NAME_BLOCKED')
       expect((await register('ErdoğanHain')).data.error.code).toBe('NAME_BLOCKED')
       expect((await register('ab')).data.error.code).toBe('NAME_LENGTH')
       expect((await register('ali<script>')).data.error.code).toBe('NAME_CHARS')
+      for (const [i, n] of ['o r o s p u', 'f-u-c-k', 'ali_veli', 'ali@mail', '1234567'].entries()) {
+        expect((await register(n, 'TR', `10.9.0.${i}`)).data.error.code).toBe('NAME_CHARS')
+      }
       expect((await register('Ali', 'XX')).data.error.code).toBe('COUNTRY')
     })
 
@@ -154,7 +157,7 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       globalThis.fetch = (async () =>
         new Response(JSON.stringify({ results: [{ flagged: true }] }))) as unknown as typeof fetch
       try {
-        expect((await register('Kibar Ama Kötü')).data.error.code).toBe('NAME_BLOCKED')
+        expect((await register('KibarAmaKotu')).data.error.code).toBe('NAME_BLOCKED')
       } finally {
         globalThis.fetch = realFetch
       }
@@ -180,11 +183,11 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       })
       expect(taken.data.error.code).toBe('NAME_TAKEN')
       const retry = await call('POST', '/players', {
-        body: { name: 'Bir Daha', country: 'TR', challenge: chR.data.challenge, nonce: nonceR },
+        body: { name: 'BirDaha', country: 'TR', challenge: chR.data.challenge, nonce: nonceR },
       })
       expect(retry.status).toBe(201)
       const third = await call('POST', '/players', {
-        body: { name: 'Uc Kez', country: 'TR', challenge: chR.data.challenge, nonce: nonceR },
+        body: { name: 'UcKez', country: 'TR', challenge: chR.data.challenge, nonce: nonceR },
       })
       expect(third.data.error.code).toBe('POW_INVALID')
 
@@ -233,26 +236,23 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       expect((await register('Kapici', 'DE', '3.3.3.3')).status).toBe(201)
     })
 
-    it('isim değiştirme: alınmış isim, denetim ve günde en fazla 3 değişiklik', async () => {
+    it('isim değiştirilemez; ülke günde en fazla 3 kez değişir', async () => {
       const a = await register('Ayse')
-      await register('Mehmet', 'TR', '10.0.0.9')
       const token = a.data.token
-      expect((await call('PATCH', '/players/me', { token, body: { name: 'Mehmet' } })).data.error.code).toBe(
-        'NAME_TAKEN',
-      )
-      expect((await call('PATCH', '/players/me', { token, body: { name: 'f u c k' } })).data.error.code).toBe(
-        'NAME_BLOCKED',
-      )
-      expect((await call('PATCH', '/players/me', { token, body: { name: 'Ayse 1' } })).data.profile.name).toBe('Ayse 1')
-      expect((await call('PATCH', '/players/me', { token, body: { country: 'DE' } })).data.profile.country).toBe('DE')
-      expect((await call('PATCH', '/players/me', { token, body: { name: 'Ayse 2' } })).status).toBe(200)
-      expect((await call('PATCH', '/players/me', { token, body: { name: 'Ayse 3' } })).data.error.code).toBe(
+      const r = await call('PATCH', '/players/me', { token, body: { name: 'Ayse2' } })
+      expect(r.status).toBe(403)
+      expect(r.data.error.code).toBe('NAME_LOCKED')
+      // aynı ismi göndermek (yalnızca ülke değişikliği) sorun değil
+      expect(
+        (await call('PATCH', '/players/me', { token, body: { name: 'Ayse', country: 'DE' } })).data.profile,
+      ).toMatchObject({ name: 'Ayse', country: 'DE' })
+      expect((await call('PATCH', '/players/me', { token, body: { country: 'FR' } })).status).toBe(200)
+      expect((await call('PATCH', '/players/me', { token, body: { country: 'IT' } })).status).toBe(200)
+      expect((await call('PATCH', '/players/me', { token, body: { country: 'ES' } })).data.error.code).toBe(
         'RENAME_LIMIT',
       )
-      // eski isim serbest kaldı
-      expect((await register('Ayse', 'TR', '10.0.0.10')).status).toBe(201)
       advance(24 * 3600_000 + 1000)
-      expect((await call('PATCH', '/players/me', { token, body: { name: 'Ayse 3' } })).status).toBe(200)
+      expect((await call('PATCH', '/players/me', { token, body: { country: 'ES' } })).status).toBe(200)
     })
   })
 
@@ -319,7 +319,7 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       const t = await ticket(777)
       const run = play(777, 5)
       advance(run.minMs + 2000)
-      const fresh = (await register('Yeni Gelen')).data.token
+      const fresh = (await register('YeniGelen')).data.token
       const ok = await call('POST', '/scores', {
         token: fresh,
         body: { ticket: t.ticket, holds: run.holds, score: run.score },
@@ -339,7 +339,7 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
     })
 
     it('süresi geçmiş bilet', async () => {
-      const a = (await register('Gec Kalan')).data.token
+      const a = (await register('GecKalan')).data.token
       const t = await ticket(9, a)
       const run = play(9, 3)
       advance(4 * 24 * 3600_000)
@@ -406,7 +406,7 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       expect((await register('Berlin', 'DE', '9.9.9.9')).data.error.code).toBe('NAME_TAKEN')
     })
 
-    it('oyuncu ismini ve skorunu kalıcı olarak silebilir; isim yeniden alınabilir', async () => {
+    it('oyuncu ismini ve skorunu kalıcı olarak silebilir; skorlu isim yeniden alınamaz', async () => {
       const a = await scored('Silinecek', 'TR', 5, 6, '1.0.0.5')
       expect((await call('DELETE', '/players/me')).status).toBe(401)
       const del = await call('DELETE', '/players/me', { token: a.token })
@@ -414,7 +414,17 @@ describe.each(STORES)('%s deposu', (_kind, make) => {
       expect((await call('GET', '/players/me', { token: a.token })).status).toBe(401)
       const world = await call('GET', '/leaderboard?scope=world')
       expect(world.data.entries.map((e: Json) => e.name)).not.toContain('Silinecek')
-      expect((await register('Silinecek', 'TR', '1.0.0.6')).status).toBe(201)
+      // sıralamada görünmüş isim kalıcı olarak kapanır (taklit edilemez)
+      expect((await register('Silinecek', 'TR', '1.0.0.6')).data.error.code).toBe('NAME_TAKEN')
+      expect((await register('SİLİNECEK', 'DE', '1.0.0.7')).data.error.code).toBe('NAME_TAKEN')
+      // hiç skoru olmayan isim silinince serbest kalır
+      const b = (await register('Skorsuz', 'TR', '1.0.0.8')).data.token as string
+      expect((await call('DELETE', '/players/me', { token: b })).status).toBe(200)
+      expect((await register('Skorsuz', 'TR', '1.0.0.9')).status).toBe(201)
+      // kapanan kayıt 7 günlük temizlikte silinmez
+      advance(8 * 24 * 3600_000)
+      await register('Tetikleyici', 'TR', '1.0.1.1')
+      expect((await register('Silinecek', 'TR', '1.0.1.2')).data.error.code).toBe('NAME_TAKEN')
     })
 
     it('farklı ağlardan 3 bildirim alan isim gizlenir; kendini bildirmek sayılmaz', async () => {
