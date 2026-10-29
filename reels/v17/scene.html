@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Reels v17 — Yemekte ekran</title>
+<style>
+  @font-face { font-family: RD; font-weight: 600; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf'); }
+  @font-face { font-family: RD; font-weight: 700; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Bold.otf'); }
+  @font-face { font-family: RD; font-weight: 800; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf'); }
+  @font-face { font-family: RD; font-weight: 900; src: url('file:///usr/share/fonts/opentype/inter/InterDisplay-Black.otf'); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+  #f { position: absolute; left: 0; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="960"></canvas>
+<canvas id="o" width="1080" height="960"></canvas>
+<canvas id="f" width="1080" height="1920"></canvas>
+<script src="../lib/three.min.js"></script>
+<script src="../engine.js"></script>
+<script src="../three3d.js"></script>
+<script src="../follow.js"></script>
+<script src="../splitfull.js"></script>
+<script>
+// Video 17: Yemek yerken ekran neden önerilmiyor? 3 neden + 1 yöntem. Altyazı yok.
+// Açılış 12 sn ve kapanış ~7 sn tam ekran konuşmacı; arada bölünmüş ekran, konuşmacı daha çok görünür.
+// Üst panelde zaman zaman three.js ile 3B sahneler (tabak, yemekler, tablet, numara madalyonları).
+const DURATION = 143.73;
+const SRC = { w: 1614, h: 2420 };
+const BAND = { x: 168, y: 213, w: 1278, h: 1136 };
+const FULLV = { x: 184, y: 0, w: 1246, h: 2215 };
+const AVATAR = { chain: `crop=${BAND.w}:${BAND.h}:${BAND.x}:${BAND.y},scale=1620:1440:flags=lanczos`, focusY: 0.35 };
+const INTRO = { hold: 12.0, len: 1.2 };
+const OUTRO = { at: 136.8, len: 1.0 };
+const FULL_RANGES = [[0, INTRO.hold + INTRO.len], [OUTRO.at, DURATION]];
+const TOP_CLIPS = [
+  { name: 'avIn', src: 'avatar_src.mp4', from: 0, start: 0, end: INTRO.hold + INTRO.len + 0.2 },
+  { name: 'avOut', src: 'avatar_src.mp4', from: OUTRO.at - 0.1, start: OUTRO.at - 0.1, end: DURATION },
+];
+const CHUNKS = [];
+
+// Alt bölüm: 'A' = konuşmacı; diğerleri [kaynak, başlangıç, bitiş, kaynaktaki başlangıç, dikey odak]
+const S12 = '../v12/clips/stok.mp4', S9 = '../v9/clips/stok.mp4';
+const CIGNEME = '../v6/clips/cigneme.mp4', KAHVALTI = '../v6/clips/kahvalti.mp4', MAKARNA = '../v6/clips/makarna.mp4', SALATA = '../v6/clips/salata.mp4';
+const BOTTOM_PLAN = [
+  ['A', 0, 17.0],
+  [S9, 17.0, 21.0, 15.0, 0.35],                    // çizgi filme odaklanınca
+  ['A', 21.0, 27.0],
+  [CIGNEME, 27.0, 30.6, 0.0, 0.02],                // tüketim miktarı
+  ['A', 30.6, 37.4],
+  [SALATA, 37.4, 41.2, 9.0, 0.2],                  // yeni tatlar, dokular
+  [KAHVALTI, 41.2, 45.2, 1.0, 0.3],                // kendi kendine yeme
+  ['A', 45.2, 53.9],
+  [S9, 53.9, 57.5, 1.0, 0.45],                     // her öğünde çizgi film
+  ['A', 57.5, 73.0],
+  [MAKARNA, 73.0, 77.8, 3.5, 0.5],                 // tabağı bitirmesini beklemeyin
+  ['A', 77.8, 89.4],
+  [S12, 89.4, 92.6, 43.5, 0.3],                    // itiraz edebilir
+  ['A', 92.6, 106.0],
+  [SALATA, 106.0, 109.8, 26.0, 0.25],              // yeni bir şey keşfetsin
+  [KAHVALTI, 109.8, 113.9, 5.0, 0.3],              // birlikte sofraya oturun
+  ['A', 113.9, 124.7],
+  [MAKARNA, 124.7, 128.6, 14.5, 0.45],             // yemeği zorlamayın
+  ['A', 128.6, DURATION],
+];
+const BOTTOM_CLIPS = BOTTOM_PLAN.map((p, i) => {
+  if (p[0] === 'A') return null;
+  const prev = BOTTOM_PLAN[i - 1], next = BOTTOM_PLAN[i + 1];
+  return { src: p[0], start: p[1], end: p[2], from: p[3], focusY: p[4],
+    fadeIn: prev[0] === 'A', fadeOut: !!next && next[0] === 'A' };
+}).filter(Boolean);
+
+window.preload = () => preloadFollow('../');
+
+function noRow(label, em, y, t, t0, tS, size = 42) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0) * (1 - 0.45 * prog(t, tS + 0.1, 0.4)), () => pill(label, em, size, 'rgba(255,255,255,0.9)', C.ink));
+  if (t >= tS) { font(size, 800); const w = ctx.measureText(label).width + size * 1.25 + 70; strike(540 - w / 2 - 20, 540 + w / 2 + 20, y, t, tS); }
+}
+function card(x, y, w, h, bg, t, t0, body, rot = 0) {
+  withT(x, y, popS(t, t0, 0.55), rot, popA(t, t0), () => { shadow(true, 36, 14); rrect(-w / 2, -h / 2, w, h, 44, bg); shadow(false); body(); });
+}
+
+
+// ---------- sahneler (üst panel) ----------
+const SCENES = [
+  { s: -0.4, e: 33.7, acc: C.sky, acc2: C.lilac, draw: s1 },
+  { s: 33.7, e: 50.7, acc: C.mint, acc2: C.yellow, draw: s2 },
+  { s: 50.7, e: 67.2, acc: C.coral, acc2: C.lilac, draw: s3 },
+  { s: 67.2, e: 77.8, acc: C.yellow, acc2: C.sky, draw: s4 },
+  { s: 77.8, e: 89.4, acc: C.mint, acc2: C.sky, draw: s5 },
+  { s: 89.4, e: 106.0, acc: C.lilac, acc2: C.coral, draw: s6 },
+  { s: 106.0, e: 113.9, acc: C.yellow, acc2: C.mint, draw: s7 },
+  { s: 113.9, e: 124.7, acc: C.coral, acc2: C.yellow, draw: s8 },
+  { s: 124.7, e: 129.4, acc: C.sky, acc2: C.mint, draw: s9 },
+  { s: 129.4, e: 999, acc: C.mint, acc2: C.yellow, draw: s10 },
+];
+
+function row(label, em, y, t, t0, bg = 'rgba(255,255,255,0.92)', fg = C.ink, size = 40) {
+  withT(540, y, popS(t, t0, 0.5), 0, popA(t, t0), () => pill(label, em, size, bg, fg));
+}
+function bigText(label, y, t, t0, col, size = 90) {
+  withT(540, y, popS(t, t0, 0.6), 0, popA(t, t0), () => { shadow(true, 40, 0, col + '99'); text(label, 0, 0, size, col, 900); shadow(false); });
+}
+
+function head3(n, label, t, t0, col) {
+  coin3d(n, col, 125, 270, 140, t, t0);
+  para(label, 610, 270, 720, t, t0 + 0.2, { size: 44, weight: 900, per: 0.1, accent: col });
+}
+// alt satırda yan yana küçük etiketler
+function chips(list, y, t, size = 34, fade = 1) {
+  font(size, 800);
+  const ws = list.map(([l]) => ctx.measureText(l).width + size * 1.25 + 70);
+  const tot = ws.reduce((a, b) => a + b, 0) + 20 * (list.length - 1);
+  let x = 540 - tot / 2;
+  list.forEach(([l, em, t0, bg, fg], i) => {
+    const cx = x + ws[i] / 2; x += ws[i] + 20;
+    withT(cx, y, popS(t, t0, 0.5), 0, popA(t, t0) * fade, () => pill(l, em, size, bg, fg || C.ink));
+  });
+}
+
+function s1(t) {
+  if (t < 12.6) return;
+  head3(1, 'Dikkati yemekten *uzaklaştırır', t, 13.2, C.yellow);
+  plate3d(t, { pop: eOut(prog(t, 13.4, 0.8)), tab: prog(t, 17.0, 0.6) });
+  const f = 1 - eInOut(prog(t, 23.8, 0.4));
+  chips([['Tat', '😋', 20.0, C.white], ['Doku', '🥕', 20.6, C.yellow], ['Doyma hissi', '🫃', 21.8, C.mint]], 870, t, 36, f);
+  if (t > 23.8) withT(540, 870, popS(t, 24.1, 0.5), 0, popA(t, 24.1), () => pill('Sonraki öğünlerde yeme miktarı etkilenebilir', '🔬', 32, C.sky, C.ink));
+}
+
+function s2(t) {
+  head3(2, 'Yemek sadece *karın doyurmak değil', t, 33.8, C.mint);
+  plate3d(t, { pop: 1, hop: 37.4, tab: 0 });
+  const f = 1 - eInOut(prog(t, 44.9, 0.4));
+  chips([['Yeni tatlar', '🍓', 39.8, C.white], ['Dokular', '🥦', 41.2, C.mint], ['Kendi kendine yeme', '🥄', 42.7, C.yellow]], 870, t, 32, f);
+  if (t > 44.9) withT(540, 870, popS(t, 45.2, 0.5), 0, popA(t, 45.2), () => pill('Ekran → deneyim ve etkileşim azalır', '📉', 34, C.coral, C.white));
+}
+
+function s3(t) {
+  head3(3, 'Ekran, yemeğin *şartı haline gelebilir', t, 50.8, C.coral);
+  [['🍽️', 230, 52.0], ['+', 400, 52.4], ['📱', 560, 52.8], ['=', 720, 53.2]].forEach(([e, x, t0]) =>
+    withT(x, 480, popS(t, t0, 0.5), 0, popA(t, t0), () => e.length > 1 ? emoji(e, 0, 0, 110) : text(e, 0, 0, 90, C.white, 900)));
+  withT(880, 480, popS(t, 53.9, 0.55), 0, popA(t, 53.9), () => pill('Şart', '🔗', 40, C.yellow, C.ink));
+  withT(540, 660, popS(t, 57.5, 0.5), 0, popA(t, 57.5), () => pill('Ekransız sofrada zorlanır', '😣', 40, C.white, C.ink));
+  withT(540, 820, popS(t, 60.6, 0.55), 0, popA(t, 60.6), () => pill('Açlığını fark etmek de zorlaşır', '⚠️', 38, C.coral, C.white));
+}
+
+function s4(t) {
+  words('Peki nasıl değiştirirsiniz?', 540, 260, t, 67.3, { size: 54, weight: 900 });
+  plate3d(t, { pop: eOut(prog(t, 67.6, 0.8)), tab: prog(t, 68.6, 0.6), tabOut: eInOut(prog(t, 73.7, 2.4)), offY: 90 });
+  withT(540, 880, popS(t, 74.6, 0.5), 0, popA(t, 74.6), () => pill('Ekranı kaldır + tabağı bitir: aynı anda değil!', '❌', 32, C.white, C.ink));
+}
+
+function s5(t) {
+  withT(540, 260, popS(t, 77.9, 0.5), 0, popA(t, 77.9), () => pill('Önce hedefi değiştirin', '🎯', 46, C.yellow, C.ink));
+  noRow('Tabağı bitirmek', '🍽️', 380, t, 80.0, 80.8, 42);
+  withT(540, 490, popS(t, 81.1, 0.5), 0, popA(t, 81.1), () => pill('Ekransız sofraya alışmak', '✅', 44, C.mint, C.ink));
+  withT(540, 720, popS(t, 84.4, 0.55), 0, popA(t, 84.4), () => {
+    shadow(true, 36, 14); rrect(-470, -120, 940, 240, 40, C.white); shadow(false);
+    rrect(-470, -120, 12, 240, 6, C.sky);
+    [['“Yemek zamanı geldi.', 84.6, -62], ['Birlikte sofraya oturacağız.', 85.6, 0], ['Ekranı yemekten sonra açabiliriz.”', 87.4, 62]].forEach(([l, t0, y]) =>
+      withT(0, y, 1, 0, popA(t, t0), () => text(l, 0, 0, 40, C.ink, 900)));
+  });
+}
+
+function s6(t) {
+  const f = 1 - eInOut(prog(t, 98.8, 0.4));
+  withT(0, 0, 1, 0, f, () => {
+    words('İlk günlerde itiraz edebilir 🙅', 540, 270, t, 89.4, { size: 50, weight: 900 });
+    row('Sakin kalın', '😌', 430, t, 91.7, C.white, C.ink, 44);
+    row('Aynı sınırı tutarlı koruyun', '🔁', 570, t, 92.6, C.yellow, C.ink, 44);
+    row('Yemesi için baskı yapmayın', '🚫', 710, t, 95.4, C.coral, C.white, 44);
+  });
+  if (t > 98.8) {
+    words('Kazandırmak istediğimiz:', 540, 300, t, 99.1, { size: 50, weight: 900 });
+    card(540, 560, 920, 260, C.mint, t, 101.3, () => {
+      emoji('🍽️', -370, 0, 100);
+      text('Açlığını ve tokluğunu', 60, -60, 46, C.ink, 900);
+      text('fark ettiği sağlıklı', 60, 0, 46, C.ink, 900);
+      text('bir sofra alışkanlığı', 60, 60, 46, C.ink, 900);
+    });
+  }
+}
+
+function s7(t) {
+  words('Yemek bir yarış değil 🏁', 540, 260, t, 106.1, { size: 54, weight: 900 });
+  plate3d(t, { pop: eOut(prog(t, 106.2, 0.8)), tab: 0, hop: 107.8, offY: 60 });
+  chips([['Yeni şeyleri keşfetsin', '🥕', 107.7, C.yellow], ['Siz de sofraya oturun', '👩‍👧', 109.8, C.white]], 860, t, 32);
+}
+
+function s8(t) {
+  para('Uzun süredir ekranla mı yiyor?', 540, 270, 940, t, 114.0, { size: 50, weight: 900, per: 0.1 });
+  noRow('Güç savaşına çevirmek', '⚔️', 400, t, 116.4, 117.4, 40);
+  [['1', 'Önceden haber verin', '🔔', 118.8, 540], ['2', 'Ekranı sofradan kaldırın', '📵', 120.0, 670], ['3', 'Yeni rutine tutarlı alışsın', '🔁', 121.6, 800]].forEach(([n, l, em, t0, y]) =>
+    withT(540, y, 0.9 + 0.1 * eBack(prog(t, t0, 0.4)), 0, popA(t, t0), () => {
+      shadow(true, 26, 10); rrect(-460, -52, 920, 104, 30, 'rgba(255,255,255,0.93)'); shadow(false);
+      circle(-400, 0, 34, C.coral); text(n, -400, 2, 36, C.white, 900);
+      text(l, 10, 2, 40, C.ink, 900); emoji(em, 410, 0, 48);
+    }));
+}
+
+function s9(t) {
+  row('Yemeği zorlamayın', '🙅', 330, t, 124.8, C.yellow, C.ink, 50);
+  card(540, 580, 920, 220, C.white, t, 125.9, () => {
+    emoji('👩‍⚕️', -370, 0, 100);
+    text('Belirgin beslenme güçlüğü', 60, -32, 44, C.ink, 900);
+    text('varsa profesyonel destek', 60, 32, 44, '#2F8FE0', 900);
+  });
+}
+
+function s10(t) {
+  words('Unutmayın 💛', 540, 260, t, 129.5, { size: 60, weight: 900 });
+  noRow('Tabağı ne pahasına olursa bitirmek', '🍽️', 420, t, 130.8, 133.5, 40);
+  card(540, 650, 900, 200, C.mint, t, 134.0, () => {
+    emoji('💚', -360, 0, 90);
+    text('Yemekle sağlıklı', 50, -32, 52, C.ink, 900);
+    text('bir ilişki kurmak', 50, 32, 52, C.ink, 900);
+  });
+}
+
+// ---------- tam ekran bindirmeleri (yazılar yüzün altında) ----------
+function nameTag(t, t0, dur) {
+  const u = t - t0;
+  if (u < 0 || u > dur) return;
+  const c = eOut(prog(u, 0, 0.5)) * (1 - eInOut(prog(u, dur - 0.5, 0.5)));
+  withT(60 - 80 * (1 - eOut(prog(u, 0, 0.6))), 1640, 1, 0, c, () => {
+    font(28, 800);
+    const w = Math.max(ctx.measureText('Çocuk Psikolojisi & Dikkat Üzerine').width, 420) + 80;
+    shadow(true, 30, 10, 'rgba(0,0,0,0.35)'); rrect(0, -70, w, 140, 24, 'rgba(12,16,40,0.86)'); shadow(false);
+    rrect(0, -70, 12, 140, 6, C.yellow);
+    text('Pedagog', 38, -24, 30, C.yellow, 800, 'left');
+    text('Necla SAYGIN', 178, -24, 46, C.white, 900, 'left');
+    text('Çocuk Psikolojisi & Dikkat Üzerine', 38, 32, 28, 'rgba(255,255,255,0.8)', 800, 'left');
+  });
+}
+
+
+
+
+function introOverlay(t) {
+  const out = 1 - eInOut(prog(t, 11.0, 0.5));
+  const a = eOut(prog(t, 0.2, 0.5)) * out;
+  if (a > 0) withT(540, 1230 + 30 * (1 - eOut(prog(t, 0.2, 0.5))), 1, 0, a, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-480, -130, 960, 260, 50, 'rgba(12,16,40,0.88)'); shadow(false);
+    text('Ekran izlerken tabağını bitiriyor…', 0, -45, 46, C.white, 900);
+    withT(0, 40, popS(t, 2.6, 0.5), 0, popA(t, 2.6), () => text('= iyi besleniyor mu? 🤔', 0, 0, 56, C.yellow, 900));
+  });
+  const b = popA(t, 8.6) * out;
+  if (b > 0) withT(540, 1440, popS(t, 8.6, 0.5), 0, b, () => pill('3 neden + evde deneyebileceğiniz 1 yöntem', '🍽️', 32, C.white, C.ink));
+  nameTag(t, 1.0, 6.4);
+}
+
+function outroOverlay(t) {
+  const a = popA(t, 137.6) * (1 - eInOut(prog(t, 140.6, 0.4)));
+  if (a > 0) withT(540, 1260, popS(t, 137.6, 0.5), 0, a, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-470, -110, 940, 220, 46, C.white); shadow(false);
+    emoji('🔁', -380, 0, 80);
+    text('Hikayenizde paylaşarak', 50, -32, 46, C.ink, 900);
+    text('destek olabilirsiniz', 50, 32, 46, '#2F8FE0', 900);
+  });
+  const b = popA(t, 141.0);
+  if (b > 0) withT(540, 1260, popS(t, 141.0, 0.5), 0, b, () => {
+    shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-470, -110, 940, 220, 46, 'rgba(12,16,40,0.88)'); shadow(false);
+    text('Bir sonraki bilinçli', 0, -32, 50, C.white, 900);
+    text('ebeveyn videosunda görüşmek üzere 👋', 0, 32, 40, C.yellow, 900);
+  });
+}
+
+window.FULL = t => splitFull(t, introOverlay, outroOverlay);
+</script>
+</body>
+</html>

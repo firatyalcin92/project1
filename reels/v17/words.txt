@@ -1,0 +1,304 @@
+  0.00 Çocuğunuz
+  0.55 ekran
+  0.83 izlerken
+  1.24 bütün
+  1.52 tabağını
+  2.07 bitiriyor
+  2.63 diye
+  2.90 iyi
+  3.18 beslendiğini
+  3.87 düşünmeyin.
+  5.05 Peki
+  5.71 yemek
+  6.03 yerken
+  6.35 ekran
+  6.67 izletmek
+  7.15 neden
+  7.47 önerilmiyor?
+  8.64 Size
+  8.90 üç
+  9.03 önemli
+  9.41 neden
+  9.67 ve
+  9.80 evde
+ 10.21 deneyebileceğiniz
+ 11.36 farklı
+ 11.65 bir
+ 11.80 yöntem
+ 12.08 anlatacağım.
+ 13.17 Birincisi,
+ 14.11 çocuğun
+ 14.55 dikkatini
+ 15.14 yemekten
+ 15.58 uzaklaştırabilir.
+ 16.98 Çocuk
+ 17.30 yemek
+ 17.62 yerine
+ 18.09 çizgi
+ 18.40 filme
+ 18.84 odaklandığında
+ 19.62 yemeğin
+ 20.05 tadına,
+ 20.65 dokusuna
+ 21.23 ve
+ 21.38 ne
+ 21.52 zaman
+ 21.81 doyduğuna
+ 22.39 dikkat
+ 22.68 etmekte
+ 23.11 zorlanabilir.
+ 24.11 Araştırmaların
+ 24.96 sonuçları
+ 25.53 tamamen
+ 25.95 aynı
+ 26.23 olmasa
+ 26.66 da
+ 26.98 ekranla
+ 27.41 yemek
+ 27.71 yemenin
+ 28.14 tüketim
+ 28.58 miktarını
+ 29.34 özellikle
+ 29.92 sonraki
+ 30.35 öğünlerde
+ 30.93 etkileyebileceğine
+ 32.23 dair
+ 32.52 bulgular
+ 32.95 var.
+ 33.74 İkincisi,
+ 34.73 yemek
+ 35.28 sadece
+ 35.76 karın
+ 36.09 doyurmak
+ 36.57 değildir.
+ 37.39 Özellikle
+ 38.00 küçük
+ 38.31 çocuklar
+ 38.92 yemek
+ 39.22 sırasında
+ 39.82 yeni
+ 40.11 tatları
+ 40.56 keşfeder.
+ 41.15 Farklı
+ 41.42 dokularla
+ 41.97 tanışır
+ 42.37 ve
+ 42.68 kendi
+ 42.95 kendine
+ 43.36 yeme
+ 43.63 becerilerini
+ 44.44 geliştirir.
+ 45.22 Sürekli
+ 45.72 ekrana
+ 46.35 odaklanmak
+ 46.88 bu
+ 47.00 deneyimleri
+ 47.76 ve
+ 47.90 sizinle
+ 48.30 kurduğu
+ 48.70 etkileşimi
+ 49.37 azaltabilir.
+ 50.69 Üçüncüsü,
+ 51.63 ekran
+ 52.22 yemek
+ 52.47 yemenin
+ 52.84 şartı
+ 53.09 haline
+ 53.46 gelebilir.
+ 53.95 Çocuk
+ 54.50 her
+ 54.67 öğünde
+ 55.20 çizgi
+ 55.55 filmle
+ 55.90 beslenmeye
+ 56.60 alışırsa
+ 57.46 zamanla
+ 57.91 ekransız
+ 58.36 sofraya
+ 58.81 oturmakta
+ 59.40 zorlanabilir.
+ 60.41 Böylece
+ 60.85 asıl
+ 61.15 hedefimiz
+ 61.74 olan
+ 62.04 kendi
+ 62.33 açlığını
+ 62.93 fark
+ 63.07 etme
+ 63.37 ve
+ 63.68 yemekle
+ 64.13 sağlıklı
+ 64.59 bir
+ 64.74 ilişki
+ 65.19 kurma
+ 65.50 süreci
+ 65.95 zorlaşabilir.
+ 67.26 Peki
+ 67.97 ekranla
+ 68.63 yemek
+ 69.07 yeme
+ 69.51 alışkanlığını
+ 70.84 nasıl
+ 71.88 değiştirebilirsiniz?
+ 73.03 Bir
+ 73.18 anda
+ 73.72 hem
+ 73.85 ekranı
+ 74.23 kaldırıp
+ 74.62 hem
+ 74.75 de
+ 74.88 çocuğun
+ 75.27 tabağını
+ 76.11 bitirmesini
+ 76.88 beklemeyin.
+ 77.81 Önce
+ 78.04 hedefinizi
+ 78.62 değiştirin.
+ 79.08 Bu
+ 79.20 öğünde
+ 79.69 amaç
+ 80.11 tabağı
+ 80.47 bitirmek
+ 80.84 değil,
+ 81.08 ekransız
+ 81.44 sofraya
+ 82.27 alışmak
+ 82.64 olsun.
+ 82.89 Çocuğunuza
+ 83.51 sakin
+ 83.76 bir
+ 84.25 şekilde
+ 84.55 “Yemek
+ 84.75 zamanı
+ 85.05 geldi.
+ 85.52 Şimdi
+ 85.78 birlikte
+ 86.18 sofraya
+ 86.58 oturacağız.
+ 87.42 Ekranı
+ 87.79 yemekten
+ 88.15 sonra
+ 88.39 açabiliriz.”
+ 88.99 deyin.
+ 89.38 İlk
+ 89.94 günlerde
+ 90.41 itiraz
+ 90.89 edebilir.
+ 91.71 Sakin
+ 92.05 kalın.
+ 92.64 Aynı
+ 92.89 sınırı
+ 93.28 tutarlı
+ 93.66 biçimde
+ 94.04 koruyun
+ 94.43 ve
+ 94.75 yemek
+ 95.01 yemesi
+ 95.39 için
+ 95.65 baskı
+ 95.90 yapmayın.
+ 96.41 Çünkü
+ 96.88 çocuğa
+ 97.36 kazandırmak
+ 98.01 istediğimiz
+ 98.81 şey
+ 99.13 sadece
+ 99.59 ekransız
+100.06 yemek
+100.37 yemek
+100.68 değil,
+101.28 kendi
+101.64 açlığını
+102.37 ve
+102.69 tokluğunu
+103.24 fark
+103.38 edebildiği
+104.07 sağlıklı
+104.48 bir
+104.62 sofra
+104.90 alışkanlığıdır.
+106.02 Yemeği
+106.43 bir
+106.57 yarışa
+106.98 çevirmeden
+107.69 yeni
+107.95 bir
+108.08 şeyi
+108.34 keşfetmesine
+108.99 fırsat
+109.25 verin.
+109.75 Siz
+109.87 de
+109.98 onunla
+110.31 birlikte
+110.65 sofraya
+110.98 oturun
+111.32 ve
+111.43 kendi
+111.84 yemeğinize
+112.46 odaklanın.
+113.95 Eğer
+114.23 çocuğunuz
+114.78 uzun
+115.06 zamandır
+115.48 ekranla
+115.89 yemek
+116.17 yiyorsa
+116.59 bunu
+117.05 bir
+117.20 güç
+117.35 savaşına
+117.95 çevirmeyin.
+118.82 Önceden
+119.26 haber
+119.54 verin.
+120.03 Ekranı
+120.44 sofradan
+120.85 kaldırın
+121.26 ve
+121.56 yeni
+121.84 rutine
+122.25 tutarlı
+122.66 biçimde
+123.07 alışmasına
+123.75 yardımcı
+124.16 olun.
+124.74 Yemeği
+125.12 zorlamayın.
+125.85 Belirgin
+126.33 beslenme
+126.81 güçlüğü
+127.29 varsa
+127.76 profesyonel
+128.32 destek
+128.61 alın.
+129.41 Unutmayın,
+130.23 amacımız
+130.78 çocuğun
+131.19 tabağını
+131.73 ne
+131.87 pahasına
+132.41 olursa
+132.82 olsun
+133.09 bitirmesi
+133.63 değil,
+134.20 yemekle
+134.66 sağlıklı
+135.12 bir
+135.27 ilişki
+135.86 kurmayı
+136.28 öğrenmesidir.
+137.55 Bu
+137.67 videomu
+138.18 hikayenizde
+138.81 paylaşarak
+139.44 bana
+139.71 destek
+139.97 olabilirsiniz.
+141.02 Başka
+141.26 bir
+141.39 bilinçli
+141.76 ebeveyn
+142.13 videosunda
+142.74 görüşmek
+143.11 üzere.

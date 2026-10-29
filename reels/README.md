@@ -26,8 +26,10 @@
 | `v14/scene.html`, `v14/final_reels.mp4` | Video 14 — Çocuğunuz odasına girmiyor mu? Odanın 3 kuralı (100 sn); stok görüntü ağırlıklı, konuşmacı açılış dışında iki kısa anda |
 | `v15/scene.html`, `v15/final_reels.mp4` | Video 15 — Sınır koymak ceza değil, güvencedir (131 sn); önceki videoların çocuk görüntüleri ağırlıkta, konuşmacı açılış dışında üç kısa anda |
 | `v16/scene.html`, `v16/final_reels.mp4` | Video 16 — Günde kaç dakika ekran? Yaşa göre süreler (141 sn); konuşmacı açılış dışında üç kısa anda, altta önceki videoların çocuk görüntüleri |
-| `splitfull.js` | Bölünmüş ekran ↔ tam ekran konuşmacı geçişleri (v8–v16) |
-| `cover_render.cjs`, `v6/cover` … `v16/cover` | Reels kapakları (HTML → `kapak.png`) |
+| `v17/scene.html`, `v17/final_reels.mp4` | Video 17 — Yemek yerken ekran neden önerilmiyor? 3 neden + 1 yöntem (144 sn); konuşmacı daha çok görünür, üst panelde 3B tabak/tablet ve dönen numara madalyonları |
+| `three3d.js`, `lib/three.min.js` | three.js (r158, MIT) ile 3B sahneler: ayrı WebGL tuvaline çizilip üst panele kopyalanır |
+| `splitfull.js` | Bölünmüş ekran ↔ tam ekran konuşmacı geçişleri (v8–v17) |
+| `cover_render.cjs`, `v6/cover` … `v17/cover` | Reels kapakları (HTML → `kapak.png`) |
 
 ```bash
 # Video 1
@@ -62,6 +64,8 @@ REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v
 REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v15/scene.html v15/avatar_src.mp4 v15/final_reels.mp4
 # Video 16
 REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v16/scene.html v16/avatar_src.mp4 v16/final_reels.mp4
+# Video 17
+REELS_CRF=20 REELS_MAXRATE=3M NODE_PATH=$(npm root -g) node render.cjs --scene v17/scene.html v17/avatar_src.mp4 v17/final_reels.mp4
 # Kapak
 NODE_PATH=$(npm root -g) node cover_render.cjs v8/cover/cover.html v8/cover/kapak.png
 # hızlı kontrol: seçili anları preview/ altına PNG olarak kaydeder (o_*.png = alt bindirme katmanı)
