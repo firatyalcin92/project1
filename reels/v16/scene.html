@@ -246,14 +246,14 @@ function nameTag(t, t0, dur) {
 
 
 function introOverlay(t) {
-  const a = eOut(prog(t, 0.2, 0.5)) * (1 - eInOut(prog(t, 8.1, 0.5)));
+  const a = eOut(prog(t, 0.2, 0.5)) * (1 - eInOut(prog(t, 7.0, 0.5)));
   if (a > 0) withT(540, 1230 + 30 * (1 - eOut(prog(t, 0.2, 0.5))), 1, 0, a, () => {
     shadow(true, 36, 12, 'rgba(0,0,0,0.4)'); rrect(-480, -130, 960, 260, 50, C.white); shadow(false);
     emoji('📱', -390, 0, 80);
     text('“Hocam, çocuğum günde', 40, -40, 50, C.ink, 900);
     text('kaç dakika ekran izlemeli?”', 40, 30, 50, C.coral, 900);
   });
-  const b = popA(t, 5.6) * (1 - eInOut(prog(t, 8.1, 0.5)));
+  const b = popA(t, 5.6) * (1 - eInOut(prog(t, 7.0, 0.5)));
   if (b > 0) withT(540, 1440, popS(t, 5.6, 0.5), 0, b, () => pill('Cevap: yaşına göre değişir', '🎂', 40, C.yellow, C.ink));
   nameTag(t, 1.0, 4.4);
 }
