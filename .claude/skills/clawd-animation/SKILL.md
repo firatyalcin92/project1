@@ -24,7 +24,7 @@ For flat motion graphics, 3D, shaders or UI animations (not a painted character 
 
 ## Environment notes
 
-- No GPU (cloud containers, CI): add `--soft-gl`; watercolour `fill`s get slow, so prefer `wash` or fewer fills if render time matters.
+- No GPU (cloud containers, CI): add `--soft-gl`; watercolour `fill`s get slow, measured ~30–50 s/frame for the demo in a cloud session (≈2–3 h for 11 s at 24 fps), so for full renders without a GPU replace watercolour `fill`s with `wash`, lower `--fps`, or render on a machine with a GPU.
 - Chrome not auto-found: `--chrome=<path>` or `CHROME_PATH`. In Claude Code cloud sessions use `/opt/pw-browsers/chromium-*/chrome-linux64/chrome`.
 - Headless Linux with an NVIDIA GPU: `--gpu-angle=gl-egl` or `vulkan` (check with `node gpu_probe.mjs <chrome>`).
 - The user's request decides **what** the video is; the guide decides **how**. If they ask for something the guide forbids (text, 3D), do what they ask.
