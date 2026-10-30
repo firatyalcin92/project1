@@ -6,10 +6,10 @@ export const COLORS = {
   hero: 0xd4532f,
   heroKnot: 0xa63a22,
   /**
-   * Platform renkleri (sim.TONES ile aynı sayıda): kırık beyaz, petrol yeşili, hardal, çelik mavisi,
+   * Platform renkleri (sim.TONES ile aynı sayıda): lavanta, petrol yeşili, hardal, çelik mavisi,
    * zeytin, gül kurusu, kömür. Doygunluğu orta: canlı ama göz yormayan, turuncu kahramanla çakışmayan.
    */
-  tones: [0xf3efe9, 0x2f8c85, 0xe2a83a, 0x4e6e9e, 0x86a05a, 0xd3828c, 0x3f3c3a],
+  tones: [0x8f84c2, 0x2f8c85, 0xe2a83a, 0x4e6e9e, 0x86a05a, 0xd3828c, 0x3f3c3a],
   /** Televizyon ekranı vb. koyu ayrıntılar */
   detail: 0x26262b,
   shadow: 0x5a4434,

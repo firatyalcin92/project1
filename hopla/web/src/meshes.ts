@@ -74,8 +74,8 @@ function solid(color: number, roughness = 0.75, metalness = 0) {
 }
 const WOOD = 0xb98352
 const CRUST = 0xc4823f
-const CRUMB = 0xf0d6a2
-const STEEL = 0xb7bcc2
+const CRUMB = 0xe3b873
+const STEEL = 0x8a929b
 const IRON = 0x34302d
 
 const CORNERS = [
@@ -161,8 +161,6 @@ export function createPlatform(p: Platform, look: Look = lookOf(p)): Object3D {
             r + 0.01,
           ),
         )
-      // üstte ince örtü
-      g.add(part(box(s * 0.7, 0.025, s * 0.7, 0.012), top, 0, h - 0.01))
       break
     }
     case 'table': {
@@ -194,9 +192,8 @@ export function createPlatform(p: Platform, look: Look = lookOf(p)): Object3D {
       break
     }
     case 'fridge': {
-      // Buzdolabı: iki kapı çizgisi, metal kulp, üstte farklı renk
+      // Buzdolabı: metal kulplar, üstte farklı renk
       capped(main, top, 0.08, 0.1)
-      g.add(part(box(s * 0.96, 0.025, 0.02, 0.008), dark, 0, h * 0.62, r + 0.005))
       for (const [y0, len] of [
         [h * 0.68, h * 0.18],
         [h * 0.2, h * 0.3],
@@ -205,29 +202,23 @@ export function createPlatform(p: Platform, look: Look = lookOf(p)): Object3D {
       break
     }
     case 'bread': {
-      // Somun ekmek: açık renk iç, kızarmış kabuk üstte, üstte çizikler
+      // Somun ekmek: açık renk iç, kızarmış kabuk üstte
       g.add(part(box(s, h - 0.12, s, 0.18), solid(CRUMB, 0.9)))
       g.add(part(box(s, 0.16, s, 0.1), solid(CRUST, 0.8), 0, h - 0.16))
-      for (const k of [-1, 0, 1])
-        g.add(part(box(0.06, 0.012, s * 0.6, 0.005), solid(0x9a5f2b, 0.9), k * s * 0.25, h - 0.003, 0))
       break
     }
     case 'grill': {
-      // Mangal: koyu gövde, üstte metal ızgara çubukları, ince ayaklar
+      // Mangal: gövde, üstte koyu döküm ızgara, ince ayaklar
       const legs = h * 0.45
       g.add(part(box(s, h - legs - 0.06, s, 0.08), main, 0, legs))
       g.add(part(box(s * 0.96, 0.06, s * 0.96, 0.02), solid(IRON, 0.5, 0.3), 0, h - 0.06))
-      for (let k = -4; k <= 4; k++)
-        g.add(part(box(0.035, 0.02, s * 0.9, 0.008), solid(STEEL, 0.3, 0.7), (k / 4.6) * r, h - 0.01, 0))
       for (const [fx, fz] of CORNERS)
         g.add(part(box(0.07, legs, 0.07, 0.02), solid(IRON, 0.5, 0.3), fx * (r - 0.1), 0, fz * (r - 0.1)))
       break
     }
     case 'tray': {
-      // Ters çevrilmiş kaşıklık: plastik kasa, üstte bölme izleri
+      // Ters çevrilmiş kaşıklık: plastik kasa, farklı renk düz taban üstte
       capped(main, top, 0.06, 0.08)
-      for (const k of [-1, 0, 1]) g.add(part(box(0.04, 0.015, s * 0.82, 0.006), dark, k * s * 0.24, h - 0.004, 0))
-      g.add(part(box(s * 0.82, 0.015, 0.04, 0.006), dark, 0, h - 0.004, s * 0.1))
       break
     }
     case 'cylinder':
